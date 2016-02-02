@@ -51,7 +51,7 @@ mkdir -p $hostOrthancStorage
 # download the docker image
 sudo docker pull $dockerImage                   
 
-#retrieve the configuration file from the docker container (you will edit it later on)
+# retrieve the configuration file from the docker container (you will edit it later on)
 docker run --rm --entrypoint=cat $dockerImage /etc/orthanc/orthanc.json > $hostOrthancConfigPath
 
 
@@ -65,22 +65,22 @@ stdout_logfile = $hostSupervisorLogs/orthanc_supervisor.log ; Where to write log
 redirect_stderr = true ; Save stderr in the same log
 environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8 ; Set UTF-8 as default encoding" | tee /etc/supervisor/conf.d/orthanc.conf > /dev/null
 
-#create supervisor log files
+# create supervisor log files
 mkdir -p $hostSupervisorLogs
 touch $hostSupervisorLogs/orthanc_supervisor.log
 
-#restart supervisor to take new settings into account
+# restart supervisor to take new settings into account
 supervisorctl reload
 
-#you should now be able to open http://localhost:8042 
-#default credentials are orthanc/orthanc
+# you should now be able to open http://localhost
+# default credentials to login are orthanc/orthanc
 
 # Maintenance
 #------------
 
-#if you wish to change the configuration, edit the orthanc.json file and restart the supervisor with:
-#sudo supervisorctl reload
+# if you wish to change the configuration, edit the orthanc.json file and restart the supervisor with:
+# sudo supervisorctl reload
 
-#if you wish to update the docker image to another version:
-#sudo docker pull $dockerImage
-#sudo supervisorctl restart orthanc
+# if you wish to update the docker image to another version:
+# sudo docker pull $dockerImage
+# sudo supervisorctl restart orthanc
