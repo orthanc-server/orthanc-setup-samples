@@ -33,7 +33,7 @@ apt-get install -y docker.io supervisor
 #--------------
 
 # select the image you'd like to install
-dockerImage="osimis/orthanc-webviewer-plugin"     # latest Orthanc with the Osimis webviewer plugin and Orthanc default plubins (Postgresql, DicomWeb, worklist)
+dockerImage="osimis/orthanc-webviewer-plugin"            # latest Orthanc with the Osimis webviewer plugin and Orthanc default plubins (Postgresql, DicomWeb, worklist)
 # dockerImage="jodogne/orthanc-plugins:1.0.0"            # Orthanc 1.0.0 with all default plugins (Postgresql, Orthanc Web Viewer, worklist)
 
 # configure the ports used by Orthanc on the host machine (inside the container, Orthanc uses the ports defined in orthanc.json: 8042 and 4242 but you actually don't care about the internal ports so you should not modify them in orthanc.json)
