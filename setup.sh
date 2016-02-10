@@ -41,7 +41,7 @@ hostHttpPort=80
 hostDicomPort=4242
 
 #enable postgresql (set it to 1 to enable it) 
-enablePostgresql=1
+enablePostgresql=0
 
 
 # configure the path where to store the configuration file and DB
