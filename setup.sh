@@ -33,7 +33,7 @@ apt-get install -y docker.io supervisor
 #--------------
 
 # select the image you'd like to install
-dockerImage="osimis/orthanc-webviewer-plugin"            # latest Orthanc with the Osimis webviewer plugin and Orthanc default plubins (Postgresql, DicomWeb, worklist)
+dockerImage="osimis/orthanc-webviewer-plugin"            # latest Orthanc with the Osimis webviewer plugin and Orthanc default plugins (Postgresql, DicomWeb, worklist)
 # dockerImage="jodogne/orthanc-plugins:1.0.0"            # Orthanc 1.0.0 with all default plugins (Postgresql, Orthanc Web Viewer, worklist)
 
 # configure the ports used by Orthanc on the host machine (inside the container, Orthanc uses the ports defined in orthanc.json: 8042 and 4242 but you actually don't care about the internal ports so you should not modify them in orthanc.json)
@@ -82,7 +82,7 @@ if [ "1" -eq "$enablePostgresql" ]; then
   #retrieve the ip address of the host from inside the container
   hostIp=$(docker run --rm --entrypoint=netstat $dockerImage -nr | grep '^0\.0\.0\.0' | awk '{print $2}')
   
-  #configure postgresql to listen from any IP (note: you should probably restrict to your docker container only)
+  #configure postgresql to listen from any IP (note: you should probably restrict it to your docker container IP only)
   echo "listen_addresses = '*'" | sudo tee --append /etc/postgresql/9.4/main/postgresql.conf > /dev/null
   echo "host     all             all             0.0.0.0/0               md5" | sudo tee --append /etc/postgresql/9.4/main/pg_hba.conf > /dev/null
 
