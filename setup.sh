@@ -107,7 +107,7 @@ fi
 #-------------------------
 
 echo "[program:orthanc]
-command = sudo docker run -p $dicomHttpPort:4242 -p $hostHttpPort:8042 --rm -v $hostOrthancStorage:/var/lib/orthanc/db -v $hostOrthancConfigPath:/etc/orthanc/orthanc.json:ro $dockerImage ; Command to start app
+command = sudo docker run -p $hostDicomPort:4242 -p $hostHttpPort:8042 --rm -v $hostOrthancStorage:/var/lib/orthanc/db -v $hostOrthancConfigPath:/etc/orthanc/orthanc.json:ro $dockerImage ; Command to start app
 user = $currentUser ; User to run as
 stdout_logfile = $hostSupervisorLogs/orthanc_supervisor.log ; Where to write log messages
 redirect_stderr = true ; Save stderr in the same log
