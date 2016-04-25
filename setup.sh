@@ -1,6 +1,6 @@
 #!/bin/bash
 #-------------------------------------
-# This script installs Orthanc on a fresh Ubuntu install (tested on Ubuntu 15.10 64bits).
+# This script installs Orthanc on a fresh Ubuntu install (tested on Ubuntu 15.10 and 16.04 64bits).
 #
 # We'll run Orthanc inside docker so you can use the latest Orthanc version and don't have to wait
 # until the official packages become available.
