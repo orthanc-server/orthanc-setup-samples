@@ -117,8 +117,8 @@ environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8 ; Set UTF-8 as default encoding"
 mkdir -p $hostSupervisorLogs
 touch $hostSupervisorLogs/orthanc_supervisor.log
 
-# restart supervisor to take new settings into account
-supervisorctl reload
+# start supervisor and take new settings into account
+systemctl start supervisor
 
 #restart docker (it happens that Orthanc can't connect to postgresql before this restart ...)
 service docker restart
