@@ -1,6 +1,6 @@
 #!/bin/bash
 #-------------------------------------
-# This script installs Orthanc on a fresh Ubuntu install (tested on Ubuntu 15.10 64bits).
+# This script installs Orthanc on a fresh Ubuntu install (tested on Ubuntu 15.10 and 16.04 64bits).
 #
 # We'll run Orthanc inside docker so you can use the latest Orthanc version and don't have to wait
 # until the official packages become available.
@@ -117,8 +117,8 @@ environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8 ; Set UTF-8 as default encoding"
 mkdir -p $hostSupervisorLogs
 touch $hostSupervisorLogs/orthanc_supervisor.log
 
-# restart supervisor to take new settings into account
-supervisorctl reload
+# start supervisor and take new settings into account
+systemctl start supervisor
 
 #restart docker (it happens that Orthanc can't connect to postgresql before this restart ...)
 service docker restart
