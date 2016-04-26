@@ -119,6 +119,7 @@ touch $hostSupervisorLogs/orthanc_supervisor.log
 
 # start supervisor and take new settings into account
 systemctl start supervisor
+supervisorctl reload
 
 #restart docker (it happens that Orthanc can't connect to postgresql before this restart ...)
 service docker restart
