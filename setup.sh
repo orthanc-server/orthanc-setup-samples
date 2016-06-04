@@ -8,6 +8,9 @@
 # We'll also configure supervisor to start Orthanc automatically as the server boots and restart Orthanc
 # in the unlikely case it would crash.
 #
+# You must have elevated privileges to run the script.  So, to launch it, type
+# sudo ./setup.sh
+#
 # Disclaimer: this script is provided as is without any guarantee.  It should not be used as such in
 # a production environment.  Before running it, make sure you understand each step.
 #-------------------------------------
@@ -56,7 +59,7 @@ hostSupervisorLogs="$currentDir/OrthancLogs"
 mkdir -p $hostOrthancStorage                    
 
 # download the docker image
-sudo docker pull $dockerImage                   
+docker pull $dockerImage                   
 
 # retrieve the configuration file from the docker container (you will edit it later on)
 docker run --rm --entrypoint=cat $dockerImage /etc/orthanc/orthanc.json > $hostOrthancConfigPath
