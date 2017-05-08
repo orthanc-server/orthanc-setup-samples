@@ -1,2 +1,2 @@
-FROM jodogne/orthanc-plugins
+FROM osimis/orthanc-webviewer-plugin
 COPY orthanc.json /etc/orthanc/
