@@ -1,15 +1,9 @@
 {
         "Name": "Foo",
-        "StorageDirectory": "/var/lib/orthanc/db",
-        "Plugins": [
-                "/usr/share/orthanc/plugins", 
-                "/usr/local/share/orthanc/plugins" // ModalityWorklists and ServeFolders plugins are in this folder !
-        ], 
         "DicomAet": "FOO",
         "DicomModalities": {
                 "bar": ["BAR", "bar", 104]
         },
-        "RemoteAccessAllowed": true,
         "PostgreSQL": {
                 "EnableIndex": true,
                 "EnableStorage": false,
