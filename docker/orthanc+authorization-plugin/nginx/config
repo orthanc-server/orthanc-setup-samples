@@ -1,0 +1,31 @@
+server {
+	listen 80;
+	
+	location /orthanc-allowed/ {
+		rewrite /orthanc-allowed(.*) $1 break;
+		proxy_pass http://orthanc:8042;
+		proxy_set_header Host $http_host;
+		proxy_set_header my-auth-header good-token;
+		proxy_request_buffering off;
+		proxy_max_temp_file_size 0;
+		client_max_body_size 0;
+	}
+	location /orthanc-restricted/ {
+		rewrite /orthanc-restricted(.*) $1 break;
+		proxy_pass http://orthanc:8042;
+		proxy_set_header Host $http_host;
+		proxy_set_header my-auth-header restricted-token;
+		proxy_request_buffering off;
+		proxy_max_temp_file_size 0;
+		client_max_body_size 0;
+	}
+ 	location /orthanc-forbidden/ {
+ 		rewrite /orthanc-forbidden(.*) $1 break;
+ 		proxy_pass http://orthanc:8042;
+ 		proxy_set_header Host $http_host;
+ 		proxy_set_header my-auth-header bad-token;
+ 		proxy_request_buffering off;
+ 		proxy_max_temp_file_size 0;
+ 		client_max_body_size 0;
+ 	}
+}
