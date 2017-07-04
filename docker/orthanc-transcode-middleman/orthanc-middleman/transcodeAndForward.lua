@@ -16,7 +16,7 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
 
       -- Compress to JPEG2000 using gdcm
       local compressed = instanceId .. '-compressed.dcm'
-      os.execute('gdcmconv --j2k ' .. uncompressed .. ' ' .. compressed)
+      os.execute('gdcmconv -U --j2k ' .. uncompressed .. ' ' .. compressed)
 
       -- Generate a new SOPInstanceUID for the JPEG2000 file, as
       -- gdcmconv does not do this by itself
