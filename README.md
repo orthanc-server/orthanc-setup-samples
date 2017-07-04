@@ -1,6 +1,10 @@
-To start, use `docker-compose up --build -d`.
-To stop, use `docker-compose down`.
+# Orthanc Setup samples
 
-As described in the `docker-compose.yml` file, Orthanc's HTTP server is
-reachable via port 80 on the Docker host, and Orthanc's DICOM server is
-reachable via port 104 on the Docker host.
+This repository contains sample Orthanc configurations to demonstrate how it can be configured in many use cases.  Right now, most of these samples use Docker to deploy Orthanc.
+
+# Docker setups
+
+These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
+
+- [orthanc + postgresql](docker/orthanc+postgresql/README.md)
+- [orthanc + authorization plugin](docker/orthanc+authorization-plugin/README.md)

@@ -1,0 +1,19 @@
+version: "2"
+services:
+        nginx:
+                build: nginx
+                depends_on: [orthanc]
+                restart: unless-stopped
+                ports: ["80:80"]
+        orthanc:
+                build: orthanc
+                depends_on: [orthanc-auth-service]
+                restart: unless-stopped
+                ports: ["8042:8042"]
+                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+        orthanc-auth-service:
+                build: node-auth-server
+                ports: ["8000:8000"]
+                restart: unless-stopped
+volumes:
+        orthanc-storage:

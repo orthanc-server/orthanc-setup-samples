@@ -1,0 +1,18 @@
+{
+  "Name": "Orthanc-for-auth-plugin-demo",
+
+  "Authorization" : {
+    "WebService" : "http://orthanc-auth-service:8000/",  // the webservice to call to get authorizations
+    "TokenHttpHeaders" : [ "my-auth-header" ],  // the key of the HTTP header that is used to identify the user
+    "UncheckedResources" : [ // a list of resources that are accessible to everyone
+      "/plugins/explorer.js"  // everybody can access this js file
+    ],
+    "UncheckedFolders" : [ // a list of folders that are accessible to everyone
+      "/app/",
+      "/web-viewer/app/",
+      "/web-viewer/libs/",
+      "/wsi/app/"
+    ],
+    "UncheckedLevels" : [ "study", "series", "instances" ] // don't check authorization at study/series/instances level but only at patient level
+  }        
+}
