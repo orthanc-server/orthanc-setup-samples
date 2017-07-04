@@ -1,0 +1,16 @@
+{
+  "Name": "Orthanc-b-for-fulltls-demo",
+  "DicomWeb" : {
+      "Enable" : true,          // Whether DICOMweb support is enabled
+      "Root" : "/dicom-web/",   // Root URI of the DICOMweb API (for QIDO-RS, STOW-RS and WADO-RS)
+      "EnableWado" : true,      // Whether WADO-URI (previously known as WADO) support is enabled
+      "WadoRoot" : "/wado",     // Root URI of the WADO-URI (aka. WADO) API
+      "Host" : "localhost",     // Hard-codes the name of the host for subsequent WADO-RS requests
+      "Ssl" : false,            // Whether HTTPS should be used for subsequent WADO-RS requests
+      "StowMaxInstances" : 10,  // For STOW-RS client, the maximum number of instances in one single HTTP query (0 = no limit)
+      "StowMaxSize" : 10        // For STOW-RS client, the maximum size of the body in one single HTTP query (in MB, 0 = no limit)
+    },
+   "LuaScripts" : [
+   	 "/etc/share/orthanc/scripts/notify-external-web-service.lua"
+   ]
+}
