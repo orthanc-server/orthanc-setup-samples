@@ -1,0 +1,8 @@
+{
+  "Name": "Orthanc-modality",
+  "DicomAet": "MODALITY",
+  "DicomModalities": {
+      "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS
+      "middleman": ["MIDDLEMAN", "orthanc-middleman", 4242] // used as a C-Store destination
+  }
+}

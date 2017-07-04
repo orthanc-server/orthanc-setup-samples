@@ -1,0 +1,11 @@
+{
+  "Name": "Orthanc-middleman",
+  "DicomAet": "MIDDLEMAN",
+  "DicomModalities": {
+      "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS
+      "modality": ["MODALITY", "orthanc-modality", 4242]
+  },
+  "LuaScripts" : [
+    "/etc/share/orthanc/scripts/transcodeAndForward.lua"
+  ]
+}
