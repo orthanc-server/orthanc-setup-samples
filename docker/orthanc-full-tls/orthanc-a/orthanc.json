@@ -1,0 +1,28 @@
+{
+  "Name": "Orthanc-a-for-fulltls-demo",
+  "HttpsVerifyPeers" : true, 
+  "HttpsCACertificates" : "/etc/share/orthanc/tls/ca-crt.pem", // the CA to use to check the validity of the remote server certificate
+  
+  "DicomWeb" : {
+    "Enabled" : true,
+    "Servers" : {
+      "orthanc-b" : {
+        "Url" : "https://orthanc-b-server/orthanc/dicom-web/",  // this is the url of the HTTPS endpoint (provided by nginx-b in front of Orthanc-b)
+        "CertificateFile" : "/etc/share/orthanc/tls/cert.pem",
+        "CertificateKeyFile" : "/etc/share/orthanc/tls/privkey.pem",
+        "CertificateKeyPassword" : "password"
+      },
+      "orthanc-b-bypass-https" : {
+      	"Url" : "http://orthanc-b:8042/dicom-web"
+      }
+    }
+  },
+  "OrthancPeers" : {
+    "orthanc-b" : {
+      "Url" : "https://orthanc-b-server/orthanc/",  // this is the url of the HTTPS endpoint (provided by nginx-b in front of Orthanc-b)
+      "CertificateFile" : "/etc/share/orthanc/tls/cert.pem",
+      "CertificateKeyFile" : "/etc/share/orthanc/tls/privkey.pem",
+      "CertificateKeyPassword" : "password"
+    }
+  }
+}
