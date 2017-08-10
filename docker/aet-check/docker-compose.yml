@@ -1,0 +1,11 @@
+version: "2"
+services:
+        foo:
+                build: foo
+                ports: ["80:8042"]
+        bar:
+                build: bar
+                ports: ["81:8042"]
+        baz:
+                build: baz
+                ports: ["82:8042"]
