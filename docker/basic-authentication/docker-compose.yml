@@ -1,0 +1,5 @@
+version: "2"
+services:
+        orthanc:
+                build: orthanc
+                ports: ["80:8042"]
