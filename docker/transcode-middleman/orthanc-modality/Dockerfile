@@ -1,2 +1,2 @@
-FROM osimis/orthanc:17.6.1
+FROM osimis/orthanc
 COPY orthanc.json /etc/orthanc/
