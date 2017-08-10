@@ -11,3 +11,4 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc transcode middleman](docker/transcode-middleman/README.md) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
 - [Orthanc mutual TLS authentication](docker/full-tls/README.md) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).
 - [Orthanc basic DICOM association](docker/dicom-association/README.md) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
+- [Orthanc peering](docker/peering/README.md) to demonstrate Orthanc peering.
