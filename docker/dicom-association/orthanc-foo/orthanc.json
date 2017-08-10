@@ -1,0 +1,7 @@
+{
+        "Name": "Foo",
+        "DicomAet": "FOO",
+        "DicomModalities": {
+                "bar": ["BAR", "bar", 4242]
+        }
+}
