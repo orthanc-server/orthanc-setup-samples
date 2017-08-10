@@ -6,8 +6,8 @@ This repository contains sample Orthanc configurations to demonstrate how it can
 
 These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
 
-- [orthanc + postgresql](docker/postgresql/README.md) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
-- [orthanc + authorization plugin](docker/authorization-plugin/README.md) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html)
-- [orthanc transcode middleman](docker/transcode-middleman/README.md) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
-- [orthanc full TLS](docker/full-tls/README.md) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).
-- [orthanc dicom association](docker/dicom-association/README.md) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
+- [Orthanc + PostgreSQL](docker/postgresql/README.md) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
+- [Orthanc + Authorization Plugin](docker/authorization-plugin/README.md) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html)
+- [Orthanc transcode middleman](docker/transcode-middleman/README.md) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
+- [Orthanc mutual TLS authentication](docker/full-tls/README.md) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).
+- [Orthanc basic DICOM association](docker/dicom-association/README.md) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
