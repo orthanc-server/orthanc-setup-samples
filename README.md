@@ -10,3 +10,4 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [orthanc + authorization plugin](docker/orthanc+authorization-plugin/README.md) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html)
 - [orthanc transcode middleman](docker/orthanc-transcode-middleman/README.md) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
 - [orthanc full TLS](docker/orthanc-full-tls/README.md) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).
+- [orthanc dicom association](docker/dicom-association/README.md) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
