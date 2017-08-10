@@ -1,0 +1,4 @@
+{
+        "AuthenticationEnabled": true,
+        "RegisteredUsers": {"foo": "baz"}
+}
