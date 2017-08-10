@@ -13,3 +13,4 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc basic DICOM association](docker/dicom-association/README.md) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
 - [Orthanc peering](docker/peering/README.md) to demonstrate Orthanc peering.
 - [Orthanc basic HTTP authentication](docker/basic-authentication/README.md) to demonstrate static, basic HTTP authentication.
+- [Orthanc AET check](docker/aet-check/README.md) to demonstrate called AET checking.
