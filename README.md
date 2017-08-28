@@ -6,6 +6,7 @@ This repository contains sample Orthanc configurations to demonstrate how it can
 
 These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
 
+- [Basic Orthanc](docker/basic/README.md) to demonstrate a very basic Orthanc setup.
 - [Orthanc + PostgreSQL](docker/postgresql/README.md) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
 - [Orthanc + Authorization Plugin](docker/authorization-plugin/README.md) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html)
 - [Orthanc transcode middleman](docker/transcode-middleman/README.md) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
