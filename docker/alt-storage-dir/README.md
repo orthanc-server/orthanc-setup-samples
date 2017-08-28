@@ -13,5 +13,7 @@ To start the setup, type: `docker-compose up --build`
 
 Observe the selected Orthanc Storage and Index directory in the log:
 
+```
 orthanc_1  | W0828 08:29:25.366004 OrthancInitialization.cpp:1018] SQLite index directory: "/mnt"
 orthanc_1  | W0828 08:29:25.366871 OrthancInitialization.cpp:1088] Storage directory: "/mnt"
+```
