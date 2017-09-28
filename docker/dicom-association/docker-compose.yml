@@ -4,5 +4,13 @@ services:
                 build: orthanc-foo
                 ports: ["104:4242", "80:8042"]
         bar:
-                build: orthanc-bar
+                image: osimis/orthanc:17.9.4
                 ports: ["105:4242", "81:8042"]
+                environment:
+                        - GENERAL_NAME="Bar"
+                        - DICOM_AET="BAR"
+                        - >
+                          DICOM_MODALITIES=
+                          {
+                          "foo": ["FOO", "foo", 4242]
+                          }
