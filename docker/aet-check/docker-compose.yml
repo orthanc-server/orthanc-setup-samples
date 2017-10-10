@@ -6,7 +6,7 @@ services:
                 environment:
                         NAME: Foo
                         DICOM_AET: FOO
-                        DICOM_MODALITIES: >
+                        DICOM_MODALITIES: |
                                 {
                                         "bar": ["BAZ", "bar", 4242],
                                         "baz": ["BAR", "baz", 4242]
