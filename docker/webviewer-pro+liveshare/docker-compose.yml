@@ -6,7 +6,7 @@ services:
                 restart: unless-stopped
                 ports: ["80:80"]
         orthanc:
-                image: osimis/orthanc-pro:17.10.0
+                image: osimis/orthanc-pro
                 restart: unless-stopped
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:

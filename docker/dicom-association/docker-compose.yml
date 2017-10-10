@@ -1,7 +1,7 @@
 version: "2"
 services:
         orthanc-foo:
-                image: osimis/orthanc:17.10.0
+                image: osimis/orthanc
                 ports: ["104:4242", "80:8042"]
                 environment:
                         # this is one way to specify the environment variables
@@ -14,7 +14,7 @@ services:
                           }
 
         orthanc-bar:
-                image: osimis/orthanc:17.10.0
+                image: osimis/orthanc
                 ports: ["105:4242", "81:8042"]
                 environment:
                         # this is another way to specify the environment variables
