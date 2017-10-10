@@ -1,11 +1,11 @@
 version: "2"
 services:
         orthanc:
-                image: osimis/orthanc:17.9.4
+                image: osimis/orthanc:17.10.0
                 restart: unless-stopped
                 ports: ["104:4242", "80:8042"]
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:
-                        - GENERAL_NAME="My Orthanc"
+                        - NAME=My Orthanc
 volumes:
         orthanc-storage:
