@@ -1,8 +1,28 @@
 version: "2"
 services:
-        foo:
-                build: orthanc-foo
+        orthanc-foo:
+                image: osimis/orthanc
                 ports: ["104:4242", "80:8042"]
-        bar:
-                build: orthanc-bar
+                environment:
+                        # this is one way to specify the environment variables
+                        NAME: "Foo"
+                        BUNDLE_DEBUG: "true"
+                        DICOM_AET: "FOO"
+                        DICOM_MODALITIES: |
+                          {
+                          "bar": ["BAR", "orthanc-bar", 4242]
+                          }
+
+        orthanc-bar:
+                image: osimis/orthanc
                 ports: ["105:4242", "81:8042"]
+                environment:
+                        # this is another way to specify the environment variables
+                        - NAME=Orthanc Bar
+                        - BUNDLE_DEBUG=true
+                        - DICOM_AET=BAR
+                        - |
+                          DICOM_MODALITIES=
+                          {
+                          "foo": ["FOO", "orthanc-foo", 4242]
+                          }
