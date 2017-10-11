@@ -1,9 +1,0 @@
-{
-	"ServeFolders" : {
-		"AllowCache": false,
-		"Folders" : {
-	    	"/hello-world" : "/hello-world",
-    		"/custom-explorer" : "/custom-orthanc-explorer"
-    	}
-	}
-}

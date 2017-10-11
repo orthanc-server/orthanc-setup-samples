@@ -1,6 +1,6 @@
 FROM osimis/orthanc
 
-COPY orthanc.json /etc/orthanc/
+COPY serve-folders.json /etc/orthanc/
 COPY plugins.json /etc/orthanc/
 
 COPY hello-world/ /hello-world
