@@ -1,0 +1,47 @@
+ul.tree ul {
+    margin-left: 36px; 
+}
+
+#progress { 
+    position: relative; 
+    /*height: 2em; */
+    width: 100%; 
+    background-color: grey; 
+    height: 2.5em;
+}
+
+#progress .label {
+    z-index: 10; 
+    position: absolute; 
+    left:0; 
+    top: 0; 
+    width: 100%; 
+    font-weight: bold; 
+    text-align: center;  
+    text-shadow: none; 
+    padding: .5em;
+    color: white;
+}
+
+#progress .bar { 
+    z-index: 0; 
+    position: absolute; 
+    left:0; 
+    top: 0; 
+    height: 100%; 
+    width: 0%; 
+    background-color: green; 
+}
+
+.ui-title a {
+    text-decoration: none;
+    color: white !important;
+}
+
+.switch-container .ui-slider-switch {
+    width: 100%;
+}
+
+.ui-page {
+    background-color: lightblue !important;
+}
