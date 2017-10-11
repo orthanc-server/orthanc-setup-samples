@@ -4,3 +4,6 @@ services:
                 build: orthanc
                 restart: unless-stopped
                 ports: ["8042:8042"]
+                environment:
+                        - NAME=Orthanc for Serve Folders demo
+                        - VERBOSE_ENABLED=true
