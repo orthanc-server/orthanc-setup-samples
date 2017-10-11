@@ -4,10 +4,7 @@ services:
                 build: orthanc
                 restart: unless-stopped
                 ports: ["8042:8042"]
-                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:
                         - NAME=Orthanc for Serve Folders demo
                         - VERBOSE_ENABLED=true
                         - BUNDLE_DEBUG=true
-volumes:
-        orthanc-storage:
