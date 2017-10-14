@@ -15,7 +15,7 @@ To start the setup, type: `docker-compose up --build`
 # demo
 
 As described in the `docker-compose.yml` file, Orthanc's HTTP server is
-reachable via port 8042 on the Docker host (try [http://localhost:8042](http://localhost:80042))
+reachable via port 8042 on the Docker host (try [http://localhost:8042](http://localhost:8042))
 
 You now have access to 2 new interfaces in Orthanc:
 

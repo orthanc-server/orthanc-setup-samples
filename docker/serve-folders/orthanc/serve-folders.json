@@ -1,0 +1,8 @@
+{
+	"ServeFolders": {
+		"Folders": {
+			"/hello-world": "/srv/hello-world",
+			"/custom-explorer": "/srv/custom-orthanc-explorer"
+		}
+	}
+}
