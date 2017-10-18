@@ -1,0 +1,17 @@
+version: "2"
+services:
+        orthanc:
+                image: osimis/orthanc
+                depends_on: [index]
+                ports: ["104:4242", "80:8042"]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        PG_HOST: index
+                restart: unless-stopped
+        index:
+                image: postgres
+                volumes: ["index:/var/lib/postgresql/data:Z"]
+                restart: unless-stopped
+volumes:
+        storage:
+        index:
