@@ -5,7 +5,7 @@ services:
                 ports: ["104:4242", "80:8042"]
                 environment:
                         NAME: Foo
-                        PEERING_PEERS: |
+                        PEERS: |
                                 {
                                         "bar": ["http://bar:8042/"]
                                 }
@@ -14,7 +14,7 @@ services:
                 ports: ["105:4242", "81:8042"]
                 environment:
                         NAME: Bar
-                        PEERING_PEERS: |
+                        PEERS: |
                                 {
                                         "foo": ["http://foo:8042/"]
                                 }
