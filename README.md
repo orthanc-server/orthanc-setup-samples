@@ -10,7 +10,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
 - [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
-- [Orthanc peering](docker/peering) to demonstrate Orthanc peering.
+- [Orthanc peering](docker/peering) ([easy variant](docker/peering-easy)) to demonstrate Orthanc peering.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
 - [Orthanc AET check](docker/aet-check) to demonstrate called AET checking.
 
