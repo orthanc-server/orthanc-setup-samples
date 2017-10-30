@@ -24,3 +24,4 @@ services:
                 environment:
                         NAME: Baz
                         DICOM_AET: BAZ
+                        DICOM_AET_CHECK_ENABLED: "true"
