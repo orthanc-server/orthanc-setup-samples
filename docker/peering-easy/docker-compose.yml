@@ -1,0 +1,20 @@
+version: "2"
+services:
+    foo:
+        image: osimis/orthanc
+        ports: ["104:4242", "80:8042"]
+        environment:
+            NAME: Foo
+            PEERS: |
+                {
+                    "bar": ["http://bar:8042/"]
+                }
+    bar:
+        image: osimis/orthanc
+        ports: ["105:4242", "81:8042"]
+        environment:
+            NAME: Bar
+            PEERS: |
+                {
+                    "foo": ["http://foo:8042/"]
+                }
