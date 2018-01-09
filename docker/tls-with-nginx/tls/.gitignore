@@ -1,0 +1,6 @@
+ca-crt.pem
+ca-key.pem
+ca-crt.srl
+nginx-key.pem
+nginx-csr.pem
+nginx-crt.pem
