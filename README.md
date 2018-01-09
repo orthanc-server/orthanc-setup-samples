@@ -17,7 +17,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 
 ## for advanced users
 - [Orthanc transcode middleman](docker/transcode-middleman) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
-- [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement and Orthanc behind a reverse proxy.
+- [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
 
 ## for experts
 - [Enable Osimis WebViewer Liveshare](docker/webviewer-pro+liveshare) to demonstrate how to use Osimis WebViewer pro plugin and enable its Liveshare feature.
