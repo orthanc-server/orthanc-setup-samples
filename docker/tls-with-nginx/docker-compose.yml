@@ -2,23 +2,28 @@ version: "2"
 services:
     nginx:
         build: nginx
+        #entrypoint: ["ls",  "-a" , "/etc/nginx/tls"]
         depends_on: [orthanc-a, orthanc-b]
         restart: unless-stopped
         ports: ["443:443"]
         volumes: ["nginx-tls:/etc/nginx/tls:Z"]
     orthanc-a:
-        image: osimis/orthanc
+        build: orthanc-a
         restart: unless-stopped
-        environment:
-            - NAME=Orhtanc A
-            - DICOM_AET=ORTHANC-A
-            - |
-              DICOM_MODALITIES={"orthanc-b": ["ORTHANC-B", "orthanc-b", 4242]}
+        volumes: ["orthanc-a-tls:/etc/orthanc/tls:Z"]
     orthanc-b:
         image: osimis/orthanc
         restart: unless-stopped
         environment:
             - NAME=Orhtanc B
             - DICOM_AET=ORTHANC-B
+    orthanc-c:
+        image: osimis/orthanc
+        restart: unless-stopped
+        environment:
+            - NAME=Orhtanc C
+            - DICOM_AET=ORTHANC-C
 volumes:
-        nginx-tls:
+    nginx-tls:
+    orthanc-a-tls:
+
