@@ -36,4 +36,4 @@ This demo contains:
 - once the study has been uploaded, send it to the `orthanc-b-https` remote modality.  This transfer is performed over HTTPS.  We have configured Orthanc A to recognize the certificates of Orthanc B.
 - connect to Orthanc B to verify it has been transmitted.
 - from Orthanc A, send the study to the `orthanc-c-dicom` remote modality.  This transfer is performed over DICOM protocol.
-- connect to the Orthanc C interface and try to delete the patient. It shall be forbidden by nginx since we allow only the GET requests.
+- connect to the Orthanc C interface and try to delete the patient. It shall be forbidden by nginx since it allows only the GET requests.
