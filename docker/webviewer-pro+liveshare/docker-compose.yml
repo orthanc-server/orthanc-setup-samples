@@ -12,9 +12,10 @@ services:
                 environment:
                         - WVP_ALPHA_ENABLED=true
                         - WVP_LIVESHARE_ENABLED=true
-                        # note: this is a trial license expiring on 2017-10-31, replace with your license code
+                        # note: this is a trial license expiring on 2018-03-31, replace with your license code
                         # Prefer using Docker secret instead of environment variable whenever possible
-                        - WVP_LICENSE_STRING=1aHaauz8L3v2MFGZXU&___info%osimis.io___aaabu4WscYpGci6xkHctZNUSteL4ACuChkcZDgyYGfUpYzB
+                        - WVP_LICENSE_STRING=1bCaamBJFJSt32vVsQ&___info%osimis.io___aaabiENftmP2xccxhigD8C5NYv66zL6XUFjgapvTAqumHkm
+                        - WVP_ANNOTATIONS_STORAGE_ENABLED=true
         liveshare:
                 build: liveshare
                 restart: unless-stopped
