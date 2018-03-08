@@ -5,7 +5,7 @@ single PostgreSQL database. This should allow to improve performances.
 
 This sample also demonstrate how to configure an HTTP load balancer in front of
 multiple Orthanc instances.  Note that this load balancing shall applied to
-to GET requests only right now.
+to GET requests only right now (until [issue 83](https://bitbucket.org/sjodogne/orthanc/issues/83/serverindex-shall-implement-retries-for-db) is fixed).
 
 # Description
 
