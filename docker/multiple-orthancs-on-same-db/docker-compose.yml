@@ -1,0 +1,45 @@
+version: "2"
+services:
+        orthanc-dicom:
+                image: osimis/orthanc
+                depends_on: [index]
+                ports: ["104:4242"]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        - NAME=Orthanc DICOM
+                        - PG_HOST=index
+                restart: unless-stopped
+
+        nginx-load-balancer:
+                build: nginx
+                depends_on: [orthanc-http-a, orthanc-http-b]
+                restart: unless-stopped
+                ports: ["80:80"]
+
+        orthanc-http-a:
+                image: osimis/orthanc
+                depends_on: [index]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        - NAME=Orthanc HTTP A
+                        - PG_HOST=index
+                        - WVB_ENABLED=true
+                restart: unless-stopped
+
+        orthanc-http-b:
+                image: osimis/orthanc
+                depends_on: [index]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        - NAME=Orthanc HTTP B
+                        - PG_HOST=index
+                        - WVB_ENABLED=true
+                restart: unless-stopped
+
+        index:
+                image: postgres
+                volumes: ["index:/var/lib/postgresql/data:Z"]
+                restart: unless-stopped
+volumes:
+        storage:
+        index:
