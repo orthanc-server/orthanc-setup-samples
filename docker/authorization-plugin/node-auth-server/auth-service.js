@@ -21,6 +21,8 @@ function grantAccess(response, authToken, resourceLevel, orthancId) {
   	}	
   }
 
+  console.log('granted: ', granted);
+  
   var answer = {
     granted: granted,
     validity: 5 // the validity information returned is valid for 5 seconds (the Orthanc plugin will cache it for 5 seconds)
