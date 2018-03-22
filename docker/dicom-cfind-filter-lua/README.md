@@ -5,7 +5,7 @@ This is a sample setup to demonstrate how one can filter incoming C-Find request
 On some setup with hundred thousands of studies, we have observed workstations sending
 C-Find requests without a single filter criteria.  In that case, Orthanc would have to 
 parse it's entire database to respond to the C-Find request and that could take a few minutes
-to return a useless results anyway.
+to return a useless result anyway.
 
 This sample will analyze the C-Find requests and make it totaly invalid if it's not "specific" enough.
 
@@ -13,7 +13,7 @@ This sample will analyze the C-Find requests and make it totaly invalid if it's 
 
 This demo contains:
 
-- two orthanc containers that can comunicate in DICOM.
+- two orthanc containers that are configured to communicate in DICOM.
 - Orthanc B has installed a lua script to filter the C-Find requests.  Check the `cfind-filter.lua` script in `orthanc-b` folder
 
 # Starting the setup

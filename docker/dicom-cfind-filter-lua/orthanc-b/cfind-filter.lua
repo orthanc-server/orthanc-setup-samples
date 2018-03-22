@@ -4,7 +4,7 @@ function IsIdSpecificEnough(id, minimumLengthIfContainsWildcard)
 		return false
 	end
 
-	if (string.find(id, '*') == nil) then  -- if there's no wildcard, the user expects an exact match -> this is specific !
+	if (string.find(id, '*') == nil and string.len(id) ~= 0) then  -- if there's no wildcard or if string is empty, the user expects an exact match -> this is specific !
 		return true
 	end
 
@@ -18,7 +18,11 @@ end
 function IncomingFindRequestFilter(query, origin)
 
     -- PrintRecursive(query)
- 
+ 	
+ 	-- right now, we consider that when they request SERIES or INSTANCES, they will provide specific IDs so we won't filter them
+ 	if (query['0008,0052'] ~= "STUDY" and query['0008,0052'] ~= "PATIENT") then
+ 		return query
+ 	end
 
     -- make sure the request is specific enough and will not return too many results
     local specificIdentifierFound = false
