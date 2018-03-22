@@ -1,0 +1,11 @@
+{
+	"Name" : "Orthanc B",
+	"DicomAet" : "ORTHANCB",
+
+	"LuaScripts" : [
+        "/etc/orthanc/cfind-filter.lua"
+	],
+	"DicomModalities" : {
+		"a" : ["ORTHANCA", "orthanc-a", 4242]
+	}
+}

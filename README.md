@@ -16,6 +16,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
 
 ## for advanced users
+- [C-Find requests filtering](docker/dicom-cfind-filter-lua) to demonstrate how you can modify C-Find requests in a lua script.
 - [Orthanc transcode middleman](docker/transcode-middleman) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
