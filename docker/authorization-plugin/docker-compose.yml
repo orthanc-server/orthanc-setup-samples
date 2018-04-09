@@ -6,11 +6,38 @@ services:
                 restart: unless-stopped
                 ports: ["80:80"]
         orthanc:
-                build: orthanc
+                image: osimis/orthanc
                 depends_on: [orthanc-auth-service]
                 restart: unless-stopped
                 ports: ["8042:8042"]
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        - NAME=Orthanc-for-auth-plugin-demo
+                        - WVB_ENABLED=true
+
+                        # the webservice to call to get authorizations
+                        - AUTHZ_WEBSERVICE=http://orthanc-auth-service:8000/
+                        # the key of the HTTP header that is used to identify the user
+                        - AUTHZ_TOKEN_HTTP_HEADERS=["my-auth-header"]
+                        # a list of resources that are accessible to everyone
+                        - |
+                          AUTHZ_UNCHECKED_RESOURCES=
+                          [
+                                  "/osimis-viewer/config.js",
+                                  "/system"
+                          ]
+                        # a list of folders that are accessible to everyone
+                        - |
+                          AUTHZ_UNCHECKED_FOLDERS=
+                          [
+                                "/plugins",
+                                "/app/",
+                                "/wsi/app/",
+                                "/osimis-viewer/app/", 
+                                "/osimis-viewer/languages/"
+                          ]
+                        # don't check authorization at study/series/instances level but only at patient level
+                        - AUTHZ_UNCHECKED_LEVELS=["study", "series", "instances"]
         orthanc-auth-service:
                 build: node-auth-server
                 ports: ["8000:8000"]
