@@ -6,7 +6,7 @@ services:
                 restart: unless-stopped
                 ports: ["80:80"]
         orthanc:
-                image: osimis/orthanc:authz-env-vars
+                image: osimis/orthanc
                 depends_on: [orthanc-auth-service]
                 restart: unless-stopped
                 ports: ["8042:8042"]
