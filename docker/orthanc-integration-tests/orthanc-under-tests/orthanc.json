@@ -1,0 +1,28 @@
+{
+    "DicomScpTimeout" : 30,
+  
+    "AuthenticationEnabled" : true,
+  
+    "RegisteredUsers" : {
+      "alice" : "orthanctest"
+    },
+  
+    "DicomModalities" : {
+      "orthanctest" : [ "ORTHANCTEST", "orthanc-tests", 5001 ]
+    },
+  
+    "DicomScuTimeout" : 10,
+  
+    "OrthancPeers" : {
+      "peer" : [ "http://orthanc-tests:5000/", "alice", "orthanctest" ]
+    },
+  
+    "DicomAssociationCloseDelay" : 0,
+  
+    "AllowFindSopClassesInStudy" : true,
+    "Dictionary" : {
+      "00e1,10c2" : [ "UI", "PET-CT Multi Modality Name", 1, 1, "ELSCINT1" ],
+      "7053,1003" : [ "ST", "Original Image Filename", 1, 1, "Philips PET Private Group" ]
+    }
+  }
+  
