@@ -1,0 +1,13 @@
+{
+    "StorageDirectory" : "/var/lib/orthanc/db",
+    "IndexDirectory" : "/var/lib/orthanc/db",
+    "RemoteAccessAllowed" : true,
+    "WebViewer" : {
+        // this is a trial license expiring on 2018-06-17, replace with your license code
+        "LicenseString" : "1a6aaun5qqjG6szYZ{6___am%osimis.io___aaabiHfSXJ2kBjYWYW26chu9cqgzNpkvGgHbsE8shtN2KKy",
+        "LiveshareEnabled" : true
+    },
+    "Plugins" : [
+        "/usr/share/orthanc/plugins/"
+    ]
+}

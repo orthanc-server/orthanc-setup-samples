@@ -6,14 +6,10 @@ services:
                 restart: unless-stopped
                 ports: ["80:80"]
         orthanc:
-                image: osimis/orthanc-pro
+                build: orthanc-debian
                 restart: unless-stopped
+                ports: ["8042:8042"]
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - WVP_ALPHA_ENABLED=true
-                        - WVP_LIVESHARE_ENABLED=true
-                        # note: this is a trial license expiring on 2017-10-31, replace with your license code
-                        - WVP_LICENSE_STRING=1aHaauz8L3v2MFGZXU&___info%osimis.io___aaabu4WscYpGci6xkHctZNUSteL4ACuChkcZDgyYGfUpYzB
         liveshare:
                 build: liveshare
                 restart: unless-stopped
