@@ -1,0 +1,34 @@
+version: "2"
+services:
+        orthanc:
+                image: osimis/orthanc:orthanc-next
+                depends_on: [index]
+                ports: ["104:4242", "80:8042"]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        MYSQL_HOST: index
+                        MYSQL_USER: test-user
+                        MYSQL_DB: orthanc
+                        MYSQL_PASSWORD: foo
+                restart: unless-stopped
+        index:
+                image: mysql:5.7
+#                image: mariadb
+                # --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+                command: --default-authentication-plugin=mysql_native_password
+                volumes: ["index:/var/lib/mysql:Z"]
+                environment:
+                        MYSQL_PASSWORD: foo
+                        MYSQL_USER: test-user
+                        MYSQL_DATABASE: orthanc
+                        MYSQL_ROOT_PASSWORD: foo
+
+                restart: unless-stopped
+        mysql-admin:
+                image: adminer
+                depends_on: [index]
+                restart: unless-stopped
+                ports: ["8080:8080"]
+volumes:
+        storage:
+        index:
