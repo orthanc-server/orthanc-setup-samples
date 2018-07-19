@@ -20,7 +20,7 @@ info about its configuration.
 
 # Starting the setup
 
-To start the setup, type: `docker-compose up`
+To start the setup, type: `docker-compose up -d` and `docker-compose logs` to access the logs later on.
 
 # demo
 
