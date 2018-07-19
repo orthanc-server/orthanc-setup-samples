@@ -1,7 +1,7 @@
 version: "2"
 services:
         orthanc:
-                image: osimis/orthanc:orthanc-next
+                image: osimis/orthanc
                 depends_on: [index]
                 ports: ["104:4242", "80:8042"]
                 volumes: ["storage:/var/lib/orthanc/db:Z"]
@@ -22,11 +22,6 @@ services:
                         MYSQL_ROOT_PASSWORD: foo-root
 
                 restart: unless-stopped
-        mysql-admin:
-                image: adminer
-                depends_on: [index]
-                restart: unless-stopped
-                ports: ["8080:8080"]
 volumes:
         storage:
         index:
