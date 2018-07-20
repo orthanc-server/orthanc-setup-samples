@@ -1,0 +1,24 @@
+version: "2"
+services:
+        orthanc:
+                image: osimis/orthanc-pro
+                depends_on: [index]
+                ports: ["104:4242", "80:8042"]
+                volumes: ["storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        # note: this is a trial license expiring on 2018-09-30, replace with your license code
+                        # Prefer using Docker secret instead of environment variable whenever possible
+                        - MSSQL_LICENSE_STRING=1abaamBcReVXv6EtE_X___demo-orthanc%osimis.io___HHHnqVHYvEkR3jGs2Y3EvpbxZgTt7yaCniJa2Bz7hFWTMa
+                        - MSSQL_CONNECTION_STRING=Driver={ODBC Driver 13 for SQL Server};Server=tcp:index,1433;Database=master;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;
+                restart: unless-stopped
+        index:
+                image: microsoft/mssql-server-linux
+                volumes: ["index:/var/opt/mssql/data:Z"]
+                environment:
+                        - ACCEPT_EULA=Y
+                        - SA_PASSWORD=MyStrOngPa55word!
+
+                restart: unless-stopped
+volumes:
+        storage:
+        index:
