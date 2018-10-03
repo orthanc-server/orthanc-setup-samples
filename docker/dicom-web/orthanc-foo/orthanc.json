@@ -1,6 +1,8 @@
 {
         "Name": "Foo",
-        "OrthancPeers": {
-                "bar": ["http://bar:8042/"]
+        "DicomWeb": {
+        	"Servers" : {
+                "bar": ["http://bar:8042/dicom-web/"]
+            }
         }
 }

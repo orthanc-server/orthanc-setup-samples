@@ -12,6 +12,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc + MySQL](docker/mysql-easy) to demonstrate how to use the Orthanc [MySQL plugin](http://book.orthanc-server.com/plugins/mysql.html)
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
 - [Orthanc peering](docker/peering) ([easy variant](docker/peering-easy)) to demonstrate Orthanc peering.
+- [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
 - [Orthanc AET check](docker/aet-check) to demonstrate called AET checking.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
