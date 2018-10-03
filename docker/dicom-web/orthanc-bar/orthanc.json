@@ -1,0 +1,6 @@
+{
+        "Name": "Bar",
+        "OrthancPeers": {
+                "foo": ["http://foo:8042/"]
+        }
+}
