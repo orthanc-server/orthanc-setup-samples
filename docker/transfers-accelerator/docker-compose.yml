@@ -1,0 +1,22 @@
+version: "2"
+services:
+    foo:
+        image: osimis/orthanc:transfer-plugin
+        ports: ["80:8042"]
+        environment:
+            TRANSFERS_BUNDLE_DEFAULTS: "true"
+            NAME: Foo
+            PEERS: |
+                {
+                    "bar": ["http://bar:8042/"]
+                }
+    bar:
+        image: osimis/orthanc:transfer-plugin
+        ports: ["81:8042"]
+        environment:
+            TRANSFERS_BUNDLE_DEFAULTS: "true"
+            NAME: Bar
+            PEERS: |
+                {
+                    "foo": ["http://foo:8042/"]
+                }
