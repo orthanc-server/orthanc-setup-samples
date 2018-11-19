@@ -7,9 +7,9 @@ unzip \
 && rm -rf /var/lib/apt/lists/*
 
 # download liveshare js code
-RUN wget http://orthanc.osimis.io/public/wvp/live-share/latest.zip
+RUN wget http://orthanc.osimis.io/public/wvp/live-share/1.2.0.0.zip
 
-RUN unzip latest.zip -d /liveshare
+RUN unzip 1.2.0.0.zip -d /liveshare
 
 WORKDIR /liveshare
 RUN npm install
