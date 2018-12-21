@@ -1,0 +1,6 @@
+{
+        "Name": "Orthanc-A",
+        "OrthancPeers": {
+                "b": ["http://orthanc-b:8042/"]
+        }
+}
