@@ -1,0 +1,29 @@
+version: "3.7"
+x-orthanc-conf: &orthanc-conf
+    HTTP_PORT: 80
+    DICOM_PORT: 104
+services:
+    source:
+        image: osimis/orthanc
+        environment:
+            <<: *orthanc-conf
+            DICOM_AET: SOURCE
+            DICOM_MODALITIES: |
+                {"destination": ["DESTINATION", "destination", 104]}
+    destination:
+        image: osimis/orthanc
+        environment:
+            <<: *orthanc-conf
+            DICOM_AET: DESTINATION
+            DICOM_MODALITIES: |
+                {"source": ["SOURCE", "source", 104]}
+    retriever:
+        image: osimis/orthanc-dicom-retriever
+        environment:
+            ORTHANC_URI: http://destination
+            SOURCE: source
+            POLL_DAYS: 36500
+            POLL_DAYS_BATCH: 36500
+            POLL_INTERVAL: 5
+        restart: unless-stopped
+        depends_on: [source, destination]
