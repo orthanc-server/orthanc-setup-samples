@@ -7,6 +7,10 @@ This sample also demonstrates how to configure an HTTP load balancer in front of
 multiple Orthanc instances.  Note that this load balancing is applied to
 to GET requests only right now (until [issue 83](https://bitbucket.org/sjodogne/orthanc/issues/83/serverindex-shall-implement-retries-for-db) is fixed).
 
+Also note that when multiple Orthancs are connected to the same DB, it's important
+that none of them tries to save it Job Engine status in the DB to avoid
+conflicts.  This is done by settings `"SaveJobs":false` in the configuration file.
+
 # Description
 
 This demo contains:

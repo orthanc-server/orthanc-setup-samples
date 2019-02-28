@@ -24,6 +24,8 @@ services:
                         - NAME=Orthanc HTTP A
                         - PG_HOST=index
                         - WVB_ENABLED=true
+                        - SCHED_SAVE_JOBS=false
+                        - TRACE_ENABLED=true
                 restart: unless-stopped
 
         orthanc-http-b:
@@ -34,6 +36,8 @@ services:
                         - NAME=Orthanc HTTP B
                         - PG_HOST=index
                         - WVB_ENABLED=true
+                        - SCHED_SAVE_JOBS=false
+                        - TRACE_ENABLED=true
                 restart: unless-stopped
 
         index:
