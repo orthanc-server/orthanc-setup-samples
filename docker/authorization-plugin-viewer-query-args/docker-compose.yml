@@ -1,8 +1,8 @@
 version: "2"
 services:
         orthanc:
-                # note, you need at least 19.6.3 images
-                image: osimis/orthanc
+                # note, you need at least 19.6.4 images
+                image: osimis/orthanc:19.6.4
                 depends_on: [orthanc-auth-service]
                 restart: unless-stopped
                 ports: ["8042:8042"]

@@ -19,7 +19,7 @@ To start the setup, type: `docker-compose up --build`
 
 - open a terminal and cd into the `dicomFiles` folder
 - upload a sample file by adding a token in your request: `curl -v -X POST -H "token: good-token"  http://localhost:8042/instances --data-binary @anonymized1-MR-1-instance/MR000000.dcm`
-- upload another sample file by adding a token in your request: `curl -v -X POST -H "token: good-token"  http://localhost:8042/instances --data-binary @anonymized2-MR-1-instance/MR000000.dcm`
+- upload another sample file: `curl -v -X POST -H "token: good-token"  http://localhost:8042/instances --data-binary @anonymized2-MR-1-instance/MR000000.dcm`
 - you can also check that you can request the Orthanc API: `curl -v -X GET -H "token: good-token"  http://localhost:8042/studies`
 - Open this url in your browser:[http://localhost:8042/osimis-viewer/app/index.html?study=ad1d247b-6e0a0a02-98880beb-460a2261-d25594b2&token=good-token](http://localhost:8042/osimis-viewer/app/index.html?study=ad1d247b-6e0a0a02-98880beb-460a2261-d25594b2&token=good-token)  
 - You are now 'logged in' as a user that has access to the whole app and data.  The `token=good-token` query argument is converted
