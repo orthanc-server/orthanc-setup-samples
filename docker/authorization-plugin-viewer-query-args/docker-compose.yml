@@ -1,0 +1,43 @@
+version: "2"
+services:
+        orthanc:
+                image: osimis/orthanc:am-wvb-headers
+                depends_on: [orthanc-auth-service]
+                restart: unless-stopped
+                ports: ["8042:8042"]
+                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+                environment:
+                        - NAME=Orthanc-for-auth-plugin-demo
+                        - WVB_ALPHA_ENABLED=true
+
+                        # the webservice to call to get authorizations
+                        - AUTHZ_WEBSERVICE=http://orthanc-auth-service:8000/
+                        # the key of the HTTP header that is used to identify the user
+                        # Although the token is passed as an url parameters to the viewer,
+                        # internally, it is transformed into a HTTP header
+                        - AUTHZ_TOKEN_HTTP_HEADERS=["token"]
+                        # a list of resources that are accessible to everyone
+                        - |
+                          AUTHZ_UNCHECKED_RESOURCES=
+                          [
+                                  "/osimis-viewer/config.js",
+                                  "/system"
+                          ]
+                        # a list of folders that are accessible to everyone
+                        - |
+                          AUTHZ_UNCHECKED_FOLDERS=
+                          [
+                                "/plugins",
+                                "/app/",
+                                "/wsi/app/",
+                                "/osimis-viewer/app/", 
+                                "/osimis-viewer/languages/"
+                          ]
+                        # don't check authorization at study/series/instances level but only at patient level
+                        - AUTHZ_UNCHECKED_LEVELS=["study", "series", "instances"]
+        orthanc-auth-service:
+                build: node-auth-server
+                # don't expose port outside the docker network (only Orthanc needs to access it)
+                restart: unless-stopped
+volumes:
+        orthanc-storage:
