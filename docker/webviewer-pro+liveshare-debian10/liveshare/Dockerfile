@@ -1,4 +1,4 @@
-FROM debian:8.9
+FROM debian:10
 
 RUN apt-get update \
 && DEBIAN_FRONTEND=noninteractive apt-get -y install \
@@ -8,7 +8,7 @@ unzip wget curl \
 
 # force install of "old" NodeJS 6.X 
 RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install nodejs
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install nodejs npm
 
 # download liveshare js code
 RUN wget http://orthanc.osimis.io/public/wvp/live-share/latest.zip
