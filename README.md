@@ -15,7 +15,6 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
 - [Orthanc + Transfers accelerator](docker/transfers-accelerator) to demonstrate Transfers accelerator plugin.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
-- [Orthanc AET check](docker/aet-check) to demonstrate called AET checking.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
 
 ## for advanced users
@@ -31,7 +30,6 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 
 ## for software integrators
 - [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](http://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc
-- [Orthanc + Authorization Plugin](docker/authorization-plugin) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html)
 - [Orthanc + Authorization Plugin + Osimis WebViewer](docker/authorization-plugin-viewer-query-args) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html) with the [Osimis WebViewer plugin](https://bitbucket.org/osimis/osimis-webviewer-plugin/src/master/)
 - [Orthanc mutual TLS authentication](docker/full-tls) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).
 

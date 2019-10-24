@@ -1,15 +1,16 @@
 version: "2"
 services:
         orthanc:
-                # note, you need at least 19.6.4 images
-                image: osimis/orthanc:19.6.4
+                image: osimis/orthanc
                 depends_on: [orthanc-auth-service]
                 restart: unless-stopped
                 ports: ["8042:8042"]
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:
                         - NAME=Orthanc-for-auth-plugin-demo
-                        - WVB_ALPHA_ENABLED=true
+                        - WVB_ENABLED=true
+                        # disable basic authentication since we use the auth plugin
+                        - AC_AUTHENTICATION_ENABLED=false
 
                         # the webservice to call to get authorizations
                         - AUTHZ_WEBSERVICE=http://orthanc-auth-service:8000/
