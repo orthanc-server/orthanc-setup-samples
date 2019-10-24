@@ -1,0 +1,16 @@
+version: "3"
+services:
+  foo:
+    image: osimis/orthanc
+    environment:
+      DW_SERVERS: |
+        {"bar": ["http://bar/dicom-web"]}
+      HTTP_PORT: 80
+      AC_AUTHENTICATION_ENABLED: "false"
+  bar:
+    image: osimis/orthanc
+    environment:
+      DW_SERVERS: |
+        {"foo": ["http://foo/dicom-web"]}
+      HTTP_PORT: 80
+      AC_AUTHENTICATION_ENABLED: "false"
