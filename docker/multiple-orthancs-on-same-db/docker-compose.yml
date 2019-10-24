@@ -26,6 +26,9 @@ services:
                         - WVB_ENABLED=true
                         - SCHED_SAVE_JOBS=false
                         - TRACE_ENABLED=true
+                        - |
+                          AC_REGISTERED_USERS=
+                          {"demo": "demo"}
                 restart: unless-stopped
 
         orthanc-http-b:
@@ -38,6 +41,9 @@ services:
                         - WVB_ENABLED=true
                         - SCHED_SAVE_JOBS=false
                         - TRACE_ENABLED=true
+                        - |
+                          AC_REGISTERED_USERS=
+                          {"demo": "demo"}
                 restart: unless-stopped
 
         index:

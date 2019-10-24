@@ -31,6 +31,7 @@ To start the setup, type: `docker-compose up --build`
 
 # demo
 
+- login/pwd = demo/demo
 - Orthanc HTTP A is accessible at [http://localhost/orthanc-a/app/explorer.html](http://localhost/orthanc-a/app/explorer.html)
 - Orthanc HTTP B is accessible at [http://localhost/orthanc-b/app/explorer.html](http://localhost/orthanc-b/app/explorer.html)
 - Load balanced Orthancs are accessible at [http://localhost/orthanc-lb/app/explorer.html](http://localhost/orthanc-lb/app/explorer.html)

@@ -10,6 +10,10 @@ services:
                         MYSQL_USER: test-user
                         MYSQL_DB: orthanc
                         MYSQL_PASSWORD: foo
+                        AC_REGISTERED_USERS: 
+                          |
+                          {"demo": "demo"}
+
                 restart: unless-stopped
         index:
                 image: mysql:8.0
