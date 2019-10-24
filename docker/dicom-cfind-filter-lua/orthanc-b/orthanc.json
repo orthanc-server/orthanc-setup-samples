@@ -2,8 +2,13 @@
 	"Name" : "Orthanc B",
 	"DicomAet" : "ORTHANCB",
 
+	"RemoteAccessAllowed" : true,
+	"AuthenticationEnabled" : true,
+	"RegisteredUsers" : {
+		"demo": "demo"
+	},
 	"LuaScripts" : [
-        "/etc/orthanc/cfind-filter.lua"
+    "/etc/orthanc/cfind-filter.lua"
 	],
 	"DicomModalities" : {
 		"a" : ["ORTHANCA", "orthanc-a", 4242]

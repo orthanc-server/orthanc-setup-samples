@@ -1,8 +1,15 @@
 {
-        "Name": "Foo",
-        "DicomWeb": {
-        	"Servers" : {
-                "bar": ["http://bar:8042/dicom-web/"]
-            }
-        }
+  "Name": "Foo",
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "demo": "demo"
+  },
+  "DicomWeb": {
+    "Servers": {
+      "bar": [
+        "http://bar:8042/dicom-web/"
+      ]
+    }
+  }
 }

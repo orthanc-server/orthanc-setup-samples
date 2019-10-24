@@ -6,6 +6,9 @@ services:
         volumes: ["orthanc-storage-a:/var/lib/orthanc/db:Z"]
         environment:
             - NAME=Orthanc A
+            - |
+              AC_REGISTERED_USERS=
+              {"demo": "demo"}
             - DICOM_AET=ORTHANCA
             - |
               DICOM_MODALITIES=
