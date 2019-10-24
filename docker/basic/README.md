@@ -11,7 +11,7 @@ This demo contains:
 
 # Starting the setup
 
-To start the setup, type: `docker-compose up --build`
+To start the setup, type: `docker-compose up`
 
 # demo
 
@@ -19,3 +19,4 @@ As described in the `docker-compose.yml` file, Orthanc's HTTP server is
 reachable via port 80 on the Docker host (try
 [http://localhost/](http://localhost/)), and Orthanc's DICOM server is
 reachable via port 104 on the Docker host.
+Login/Pwd to connect to the demo: demo/demo

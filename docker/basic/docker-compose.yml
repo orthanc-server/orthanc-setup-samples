@@ -7,5 +7,9 @@ services:
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:
                         - NAME=My Orthanc
+                        - |
+                          AC_REGISTERED_USERS=
+                          {"demo":"demo"}
+
 volumes:
         orthanc-storage:
