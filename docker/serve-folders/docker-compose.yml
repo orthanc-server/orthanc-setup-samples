@@ -8,5 +8,9 @@ services:
                 environment:
                         - NAME=Orthanc for Serve Folders demo
                         - VERBOSE_ENABLED=true
+                        - AC_AUTHENTICATION=true
+                        - |
+                          AC_REGISTERED_USERS=
+                          {"demo": "demo"}
 volumes:
         orthanc-storage:

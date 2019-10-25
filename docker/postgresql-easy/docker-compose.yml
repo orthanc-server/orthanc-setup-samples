@@ -7,6 +7,10 @@ services:
                 volumes: ["storage:/var/lib/orthanc/db:Z"]
                 environment:
                         PG_HOST: index
+                        AC_AUTHENTICATION: "true"
+                        AC_REGISTERED_USERS: |
+                          {"demo": "demo"}
+
                 restart: unless-stopped
         index:
                 image: postgres
