@@ -16,6 +16,7 @@ This demo contains:
 
 # demo
 
+- login/pwd for web interfaces: demo/demo
 - Orthanc A is accessible at [http://localhost:8042](http://localhost:8042)
 - Orthanc B is accessible at [http://localhost:8043](https://localhost:8043)
 - upload a study to Orthanc A

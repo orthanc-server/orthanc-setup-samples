@@ -1,6 +1,13 @@
 {
   "Name": "Orthanc-B",
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "demo": "demo"
+  },
   "OrthancPeers": {
-          "a": ["http://orthanc-a:8042/"]
+    "a": [
+      "http://orthanc-a:8042/"
+    ]
   }
 }
