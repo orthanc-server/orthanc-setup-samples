@@ -1,5 +1,10 @@
 {
   "Name": "Orthanc-b-for-fulltls-demo",
+	"RemoteAccessAllowed" : true,
+	"AuthenticationEnabled" : true,
+	"RegisteredUsers" : {
+		"demo": "demo"
+	},
   "DicomWeb" : {
       "Enable" : true,          // Whether DICOMweb support is enabled
       "Root" : "/dicom-web/",   // Root URI of the DICOMweb API (for QIDO-RS, STOW-RS and WADO-RS)

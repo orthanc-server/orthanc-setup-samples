@@ -15,7 +15,9 @@
   },
   "OrthancPeers": {
     "orthanc-b-https": {
-      "Url": "https://nginx/orthanc-b" // orthanc-b is behind a reverse-proxy provided by nginx
+      "Url": "https://nginx/orthanc-b", // orthanc-b is behind a reverse-proxy provided by nginx
+      "Username": "demo",
+      "Password": "demo"
     }
   },
   // orthanc-a must know the root CA that was used to sign the certificate of orthanc-b peer.
