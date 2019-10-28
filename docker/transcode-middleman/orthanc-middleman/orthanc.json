@@ -1,5 +1,10 @@
 {
   "Name": "Orthanc-middleman",
+	"RemoteAccessAllowed" : true,
+	"AuthenticationEnabled" : true,
+	"RegisteredUsers" : {
+		"demo": "demo"
+	},
   "DicomAet": "MIDDLEMAN",
   "DicomModalities": {
       "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS

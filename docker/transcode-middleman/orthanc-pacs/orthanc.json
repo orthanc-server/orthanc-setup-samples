@@ -1,5 +1,10 @@
 {
   "Name": "Orthanc-pacs",
+	"RemoteAccessAllowed" : true,
+	"AuthenticationEnabled" : true,
+	"RegisteredUsers" : {
+		"demo": "demo"
+	},
   "DicomAet": "PACS",
   "DicomModalities": {
       "middleman": ["MIDDLEMAN", "orthanc-middleman", 4242], // used when pushing images to modality

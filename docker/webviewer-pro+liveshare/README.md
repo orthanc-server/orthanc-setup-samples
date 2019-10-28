@@ -16,6 +16,7 @@ To start the setup, type: `docker-compose up --build`
 
 # demo
 
+- login/pwd = demo/demo
 - Connect to orthanc on [http://localhost/orthanc/](http://localhost/orthanc/).
 - Upload an image to this instance of Orthanc.
 - In the Orthanc explorer, open the study, and click on 'Osimis Web Viewer'

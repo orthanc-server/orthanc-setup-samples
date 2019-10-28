@@ -17,12 +17,16 @@ services:
         environment:
             - NAME=Orhtanc B
             - DICOM_AET=ORTHANC-B
+            - |
+              AC_REGISTERED_USERS={"demo":"demo"}
     orthanc-c:
         image: osimis/orthanc
         restart: unless-stopped
         environment:
             - NAME=Orhtanc C
             - DICOM_AET=ORTHANC-C
+            - |
+              AC_REGISTERED_USERS={"demo":"demo"}
 volumes:
     nginx-tls:
     orthanc-a-tls:

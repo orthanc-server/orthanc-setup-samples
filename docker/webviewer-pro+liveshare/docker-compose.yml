@@ -10,11 +10,13 @@ services:
                 restart: unless-stopped
                 volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
                 environment:
+                        - |
+                          REGISTERED_USERS={"demo":"demo"}
                         - WVP_ALPHA_ENABLED=true
                         - WVP_LIVESHARE_ENABLED=true
-                        # note: this is a trial license expiring on 2019-01-15, replace with your license code
+                        # note: this is a trial license expiring on 2019-11-30, replace with your license code
                         # Prefer using Docker secret instead of environment variable whenever possible
-                        - WVP_LICENSE_STRING=1a6aau3gTMKG6K3Nx%k___demo-orthanc%example.com___aaabu5Ka4njdeAfZZpkSjLrfF7qArwUic7THDYCJwqthrqS
+                        - WVP_LICENSE_STRING=1aUaakjt58YyqrisHJX___demo-orthanc%osimis.io___aaabF6fNLSbALZKEWnnvZC5vpBmcSXxMHLWvdScz33Xr86R
                         - WVP_ANNOTATIONS_STORAGE_ENABLED=true
         liveshare:
                 build: liveshare

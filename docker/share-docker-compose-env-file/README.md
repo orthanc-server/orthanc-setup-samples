@@ -22,6 +22,7 @@ To start the setup, type: `docker-compose up`
 
 As described in the `docker-compose.yml` file, 
 
+- login/pwd = demo/demo
 - Orthanc A is accessible on [http://localhost:8042](http://localhost:8042))
 - Orthanc B is accessible on [http://localhost:8043](http://localhost:8043))
 - Orthanc C is accessible on [http://localhost:8044](http://localhost:8044))
