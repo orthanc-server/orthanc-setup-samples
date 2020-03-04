@@ -5,7 +5,7 @@ services:
                 ports: ["104:4242", "80:8042"]
                 environment:
                         # this is one way to specify the environment variables
-                        AC_AUTHENTICATION: "true"
+                        AC_AUTHENTICATION_ENABLED: "true"
                         AC_REGISTERED_USERS: |
                           {"demo": "demo"}
                         NAME: "Orthanc A"
