@@ -1,6 +1,6 @@
 # Orthanc Setup samples
 
-This repository contains sample Orthanc configurations to demonstrate how it can be configured in many use cases.  Right now, most of these samples use Docker to deploy Orthanc.
+This repository contains sample Orthanc configurations to demonstrate how it can be configured in many use cases.  Right now, most of these samples use Docker to deploy Orthanc but some Windows setups are coming.
 
 # Docker setups
 
@@ -35,3 +35,12 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
+
+# Windows
+
+All these setups assume that Orthanc has been installed on your Windows OS at the default location.
+Furthermore, the samples make use of the DCMTK toolkit that is assumed to be available in your path.
+You might need to change a few path in the scripts in order to make them work on your system.
+
+## for advanced users
+- [Pre-fetching](windows/prefetching) to demonstrate how to trigger retrieval of prior studies

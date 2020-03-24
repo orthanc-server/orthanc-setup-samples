@@ -1,0 +1,20 @@
+{
+  // specific to each config
+  "Name" : "WORKSTATION",
+  "StorageDirectory" : "StorageWorkstation",
+  "DicomAet" : "WORKSTATION",
+  "DicomPort" : 4247,
+  "HttpPort" : 8247,
+
+  // common to all configs
+
+  "RemoteAccessAllowed" : true,
+  "AuthenticationEnabled" : false,
+
+  "DicomModalities" : {
+    "pacs" : [ "PACS", "127.0.0.1", 4245 ],
+    "middleman" : [ "MIDDLEMAN", "127.0.0.1", 4246 ],
+    "workstation" : ["WORKSTATION", "127.0.0.1", 4247]
+  }
+
+}

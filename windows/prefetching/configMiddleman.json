@@ -1,0 +1,25 @@
+{
+  // specific to each config
+  "Name" : "MIDDLEMAN",
+  "StorageDirectory" : "StorageMiddleman",
+  "DicomAet" : "MIDDLEMAN",
+  "DicomPort" : 4246,
+  "HttpPort" : 8246,
+
+  "StableAge": 2,
+  "LuaScripts" : [
+    "prefetching.lua"
+  ],
+
+  // common to all configs
+
+  "RemoteAccessAllowed" : true,
+  "AuthenticationEnabled" : false,
+
+  "DicomModalities" : {
+    "pacs" : [ "PACS", "127.0.0.1", 4245 ],
+    "middleman" : [ "MIDDLEMAN", "127.0.0.1", 4246 ],
+    "workstation" : ["WORKSTATION", "127.0.0.1", 4247]
+  }
+
+}
