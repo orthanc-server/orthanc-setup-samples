@@ -16,6 +16,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc + Transfers accelerator](docker/transfers-accelerator) to demonstrate Transfers accelerator plugin.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
+- [Orthanc GCP Healthcare DICOM store connector](docker/gcp-dicom) to demonstrate integration with the Google Cloud Platform Healthcare API, specifically DICOM data stores.
 
 ## for advanced users
 - [C-Find requests filtering](docker/dicom-cfind-filter-lua) to demonstrate how you can modify C-Find requests in a lua script.
