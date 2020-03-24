@@ -1,18 +1,16 @@
 function OnStableStudy(studyId, tags, metadata)
   --PrintRecursive(tags)
   
-  --first forward this study to the Workstation
+  -- forward this "current" study to the Workstation
   local moveBody = {}
   moveBody["Synchronous"] = false
   moveBody["Resources"] = {}
   table.insert(moveBody["Resources"], studyId)
 
-  -- print(DumpJson(moveBody))
-  -- PrintRecursive(moveBody)
   local moveJobId = ParseJson(RestApiPost('/modalities/workstation/store', DumpJson(moveBody)))["ID"]
   print('moving current study to workstation in job ' .. moveJobId)
-  --Retrieve PatientID
 
+  -- retrieve PatientID to sea
   local StudyInstanceUID = tags["StudyInstanceUID"]
   local PatientID = ParseJson(RestApiGet('/studies/' .. studyId .. '/patient'))["MainDicomTags"]["PatientID"]
 
@@ -22,14 +20,13 @@ function OnStableStudy(studyId, tags, metadata)
   queryBody["Query"] = {}
   queryBody["Query"]["PatientID"] = PatientID
 
-  -- PrintRecursive(queryBody)
   local queryId = ParseJson(RestApiPost('/modalities/pacs/query', DumpJson(queryBody)))["ID"]
-
   local queryResponse = ParseJson(RestApiGet('/queries/' .. queryId .. '/answers'))
+
   for k, v in pairs(queryResponse) do
     local study = ParseJson(RestApiGet('/queries/' .. queryId .. '/answers/' .. v .. '/content?simplify'))
     
-    -- if the study is not the current one, send it directly from the PACS to the PRIOR server  
+    -- if the study is not the current one, send it directly from the PACS to the Workstation
     if study["StudyInstanceUID"] ~= StudyInstanceUID then
       local retrieveBody = {}
       retrieveBody["TargetAet"] = "WORKSTATION"
