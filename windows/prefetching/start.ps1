@@ -1,6 +1,6 @@
-$dcmodifyPath="C:\\Apps\\dcmodify.exe"
-$storescuPath="C:\\Apps\\storescu.exe"
-$movescuPath="C:\\Apps\\movescu.exe"
+$dcmodifyPath="dcmodify.exe"
+$storescuPath="storescu.exe"
+$movescuPath="movescu.exe"
 $orthancPath = "C:\\Program Files\\Orthanc Server\\Orthanc.exe"
 
 Write-Host "Clearing setup"

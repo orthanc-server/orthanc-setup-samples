@@ -17,12 +17,15 @@ To start the setup, type: `./start.ps1`.  This will start 3 orthanc and push two
 # demo
 
 Connect to the PACS web interface on [http://localhost:8245](http://localhost:8245)
+
 - open the latest study and click "Send to modality", send it to the middleman
 
 After a few seconds, connect to the Workstation web interface on [http://localhost:8247](http://localhost:8247)
+
 - you should now see 2 studies there (the one you've sent to the middleman and the oldest one)
 
 At the end of the demo:
+
 - the PACS should still contain the 2 studies
 - the middleman shall be empty
 - the workstation shall contain the 2 studies too
