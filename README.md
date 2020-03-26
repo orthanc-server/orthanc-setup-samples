@@ -2,6 +2,8 @@
 
 This repository contains sample Orthanc configurations to demonstrate how it can be configured in many use cases.  Right now, most of these samples use Docker to deploy Orthanc but some Windows setups are coming.
 
+We also provide sample lua scripts
+
 # Docker setups
 
 These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
@@ -45,3 +47,12 @@ You might need to change a few path in the scripts in order to make them work on
 
 ## for advanced users
 - [Pre-fetching](windows/prefetching) to demonstrate how to trigger retrieval of prior studies
+
+
+# Lua scripts
+
+- [IncomingHttpRequestFilter](lua-samples/filter-http.lua)
+- [Pre-fetching](windows/prefetching/prefetching.lua)
+- [Transcode and forward](docker/transcode-middleman/orthanc-middleman/transcodeAndForward.lua)
+- [IncomingFindRequestFilter](docker/dicom-cfind-filter-lua/orthanc-b/cfind-filter.lua)
+- [Notify external web service](docker/full-tls/orthanc-b/notify-external-web-service.lua)
