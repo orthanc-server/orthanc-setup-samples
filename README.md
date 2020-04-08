@@ -21,6 +21,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc GCP Healthcare DICOM store connector](docker/gcp-dicom) to demonstrate integration with the Google Cloud Platform Healthcare API, specifically DICOM data stores.
 
 ## for advanced users
+- [Dicom modification of received instances](docker/modify-instances) to demonstrate how to use Orthanc to modify incoming instances.
 - [C-Find requests filtering](docker/dicom-cfind-filter-lua) to demonstrate how you can modify C-Find requests in a lua script.
 - [Orthanc transcode middleman](docker/transcode-middleman) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
@@ -50,6 +51,7 @@ You might need to change a few path in the scripts in order to make them work on
 
 # Lua scripts
 
+- [Dicom modification in OnStoredInstance](docker/modify-instances/modify.lua)
 - [IncomingHttpRequestFilter](lua-samples/filter-http.lua)
 - [Pre-fetching](windows/prefetching/prefetching.lua)
 - [Transcode and forward](docker/transcode-middleman/orthanc-middleman/transcodeAndForward.lua)

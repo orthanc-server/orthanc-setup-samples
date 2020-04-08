@@ -1,0 +1,19 @@
+{
+  "Name": "Orthanc-pacs",
+	"RemoteAccessAllowed" : true,
+	"AuthenticationEnabled" : true,
+	"RegisteredUsers" : {
+		"demo": "demo"
+	},
+  "DicomAet": "PACS",
+  "DicomModalities": {
+      "modality": ["MODALITY", "orthanc-modality", 4242]
+  },
+  "LuaScripts" : [
+    "/etc/share/orthanc/scripts/modify.lua"
+  ],
+  "OverwriteInstances": true, // this is very important in order to upload a modified version of the instance !
+  "StableAge" : 3
+
+
+}
