@@ -10,6 +10,8 @@ services:
                 image: postgres
                 restart: unless-stopped
                 volumes: ["orthanc-index:/var/lib/postgresql/data:Z"]
+                environment:
+                        POSTGRES_PASSWORD: "postgres"
 volumes:
         orthanc-storage:
         orthanc-index:
