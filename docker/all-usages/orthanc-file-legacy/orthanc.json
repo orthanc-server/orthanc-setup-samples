@@ -1,0 +1,10 @@
+{
+  "Name": "orthanc-file-legacy",
+  "RegisteredUsers": {
+    "demo": "demo"
+  },
+  "PostgreSQL": {
+    "Password": "pg-password",
+    "Host": "index-db"
+  }
+}

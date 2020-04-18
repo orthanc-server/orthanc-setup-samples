@@ -1,0 +1,10 @@
+{
+  "Name": "orthanc-file",
+  "RegisteredUsers": {
+    "demo": "demo"
+  },
+  "PostgreSQL": {
+    "Password": "pg-password",
+    "Host": "index-db"
+  }
+}

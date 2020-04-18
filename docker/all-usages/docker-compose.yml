@@ -1,0 +1,174 @@
+version: "3.3"
+services:
+
+
+  orthanc-all-env-vars:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8000:8042"]
+    environment:
+      ORTHANC__NAME: "orthanc-all-env-vars"
+      VERBOSE_ENABLED: "true"
+
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+
+      ORTHANC__POSTGRESQL__PASSWORD: "pg-password"
+      ORTHANC__POSTGRESQL__HOST: "index-db"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+
+
+  orthanc-file:
+    build: orthanc-file
+    depends_on: [index-db]
+    ports: ["8001:8042"]
+    environment:
+      VERBOSE_STARTUP: "true"
+
+
+  orthanc-file-in-env-var:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8200:8042"]
+    environment:
+      VERBOSE_ENABLED: "true"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+
+      ORTHANC_JSON: |
+        {
+          "Name": "orthanc-file-in-env-var",
+          "PostgreSQL" : {
+            "Host": "index-db",
+            "Password": "pg-password"
+          },
+          "RegisteredUsers": {
+            "demo": "demo"
+          }
+        }
+
+  orthanc-file-in-secrets:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8201:8042"]
+    environment:
+      VERBOSE_STARTUP: "true"
+
+    secrets:
+      - orthanc.secret.json
+
+
+
+  orthanc-with-indirect-secret:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8002:8042"]
+    environment:
+      ORTHANC__NAME: "orthanc-with-indirect-secret"
+      VERBOSE_ENABLED: "true"
+
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+
+      ORTHANC__POSTGRESQL__PASSWORD_SECRET: "pg_indirect_pwd"
+      ORTHANC__POSTGRESQL__HOST: "index-db"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+
+    secrets:
+      - pg_indirect_pwd
+
+
+  orthanc-with-direct-secret:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8003:8042"]
+    environment:
+      NAME: "orthanc-with-direct-secret"
+      VERBOSE_ENABLED: "true"
+
+      WVB_ENABLED: "true"
+
+      PG_HOST: "index-db"
+      AC_REGISTERED_USERS: |
+        {"demo": "demo"}
+
+    secrets:
+      - PG_PASSWORD
+
+
+
+  # do not use these legacy settings, they are here to demonstrate the backward compatibility
+
+  orthanc-all-env-vars-legacy:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8100:8042"]
+    environment:
+      NAME: "orthanc-all-env-vars-legacy"
+      VERBOSE_ENABLED: "true"
+
+      WVB_ENABLED: "true"
+
+      PG_PASSWORD: "pg-password"
+      PG_HOST: "index-db"
+      AC_REGISTERED_USERS: |
+        {"demo": "demo"}
+
+
+  orthanc-file-legacy:
+    build: orthanc-file-legacy
+    depends_on: [index-db]
+    ports: ["8101:8042"]
+
+
+  orthanc-with-indirect-secret-legacy:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8102:8042"]
+    environment:
+      NAME: "orthanc-with-indirect-secret-legacy"
+      VERBOSE_ENABLED: "true"
+
+      WVB_ENABLED: "true"
+
+      PG_PASSWORD_SECRET: "pg_indirect_pwd"
+      PG_HOST: "index-db"
+      AC_REGISTERED_USERS: |
+        {"demo": "demo"}
+
+    secrets:
+      - pg_indirect_pwd
+
+
+  orthanc-with-direct-secret-legacy:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8103:8042"]
+    environment:
+      NAME: "orthanc-with-indirect-secret-legacy"
+      VERBOSE_ENABLED: "true"
+
+      WVB_ENABLED: "true"
+
+      PG_HOST: "index-db"
+      AC_REGISTERED_USERS: |
+        {"demo": "demo"}
+
+    secrets:
+      - PG_PASSWORD
+
+
+  index-db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: "pg-password"
+
+
+secrets:
+  pg_indirect_pwd:
+    file: my-secret-file-for-pg-password
+  PG_PASSWORD:
+    file: PG_PASSWORD
+  ORTHANC__POSTGRESQL__PASSWORD:
+    file: ORTHANC__POSTGRESQL__PASSWORD
+  orthanc.secret.json:
+    file: orthanc.secret.json
