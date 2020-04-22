@@ -1,16 +1,14 @@
 version: "2"
 services:
-        orthanc:
-                build: orthanc
-                restart: unless-stopped
-                ports: ["8042:8042"]
-                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=Orthanc for Serve Folders demo
-                        - VERBOSE_ENABLED=true
-                        - AC_AUTHENTICATION=true
-                        - |
-                          AC_REGISTERED_USERS=
-                          {"demo": "demo"}
+  orthanc:
+    build: orthanc
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc for Serve Folders demo"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
 volumes:
-        orthanc-storage:
+  orthanc-storage:

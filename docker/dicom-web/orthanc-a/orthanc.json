@@ -1,5 +1,5 @@
 {
-  "Name": "Foo",
+  "Name": "Orthanc A",
   "RemoteAccessAllowed": true,
   "AuthenticationEnabled": true,
   "RegisteredUsers": {
@@ -7,8 +7,8 @@
   },
   "DicomWeb": {
     "Servers": {
-      "bar": [
-        "http://bar:8042/dicom-web/"
+      "b": [
+        "http://orthanc-b:8042/dicom-web/", "demo", "demo"
       ]
     }
   }

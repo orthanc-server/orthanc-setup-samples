@@ -1,55 +1,53 @@
 version: "2"
 services:
-        orthanc-dicom:
-                image: osimis/orthanc
-                depends_on: [index]
-                ports: ["104:4242"]
-                volumes: ["storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=Orthanc DICOM
-                        - PG_HOST=index
-                restart: unless-stopped
+  orthanc-dicom:
+    image: osimis/orthanc
+    depends_on: [index]
+    ports: ["104:4242"]
+    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc DICOM"
+      ORTHANC__POSTGRESQL__HOST: "index"
+    restart: unless-stopped
 
-        nginx-load-balancer:
-                build: nginx
-                depends_on: [orthanc-http-a, orthanc-http-b]
-                restart: unless-stopped
-                ports: ["80:80"]
+  nginx-load-balancer:
+    build: nginx
+    depends_on: [orthanc-http-a, orthanc-http-b]
+    restart: unless-stopped
+    ports: ["80:80"]
 
-        orthanc-http-a:
-                image: osimis/orthanc
-                depends_on: [index]
-                volumes: ["storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=Orthanc HTTP A
-                        - PG_HOST=index
-                        - WVB_ENABLED=true
-                        - SCHED_SAVE_JOBS=false
-                        - TRACE_ENABLED=true
-                        - |
-                          AC_REGISTERED_USERS=
-                          {"demo": "demo"}
-                restart: unless-stopped
+  orthanc-http-a:
+    image: osimis/orthanc
+    depends_on: [index]
+    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc HTTP A"
+      ORTHANC__POSTGRESQL__HOST: "index"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      ORTHANC__SAVE_JOBS: "false"
+      TRACE_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+    restart: unless-stopped
 
-        orthanc-http-b:
-                image: osimis/orthanc
-                depends_on: [index]
-                volumes: ["storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=Orthanc HTTP B
-                        - PG_HOST=index
-                        - WVB_ENABLED=true
-                        - SCHED_SAVE_JOBS=false
-                        - TRACE_ENABLED=true
-                        - |
-                          AC_REGISTERED_USERS=
-                          {"demo": "demo"}
-                restart: unless-stopped
+  orthanc-http-b:
+    image: osimis/orthanc
+    depends_on: [index]
+    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc HTTP B"
+      ORTHANC__POSTGRESQL__HOST: "index"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      ORTHANC__SAVE_JOBS: "false"
+      TRACE_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+    restart: unless-stopped
 
-        index:
-                image: postgres
-                volumes: ["index:/var/lib/postgresql/data:Z"]
-                restart: unless-stopped
+  index:
+    image: postgres
+    volumes: ["index:/var/lib/postgresql/data:Z"]
+    restart: unless-stopped
 volumes:
-        storage:
-        index:
+  storage:
+  index:

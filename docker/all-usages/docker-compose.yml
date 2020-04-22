@@ -22,8 +22,6 @@ services:
     build: orthanc-file
     depends_on: [index-db]
     ports: ["8001:8042"]
-    environment:
-      VERBOSE_STARTUP: "true"
 
 
   orthanc-file-in-env-var:
@@ -32,6 +30,7 @@ services:
     ports: ["8200:8042"]
     environment:
       VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
       OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
 
       ORTHANC_JSON: |
@@ -46,11 +45,35 @@ services:
           }
         }
 
-  orthanc-file-in-secrets:
+  orthanc-file-in-env-var-and-password-in-secret:
     image: osimis/orthanc
     depends_on: [index-db]
     ports: ["8201:8042"]
     environment:
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+
+      ORTHANC_JSON: |
+        {
+          "Name": "orthanc-file-in-env-var-and-password-in-secret",
+          "PostgreSQL" : {
+            "Host": "index-db"
+          },
+          "RegisteredUsers": {
+            "demo": "demo"
+          }
+        }
+    secrets:
+      - PG_PASSWORD
+
+
+  orthanc-file-in-secrets:
+    image: osimis/orthanc
+    depends_on: [index-db]
+    ports: ["8202:8042"]
+    environment:
+      VERBOSE_ENABLED: "true"
       VERBOSE_STARTUP: "true"
 
     secrets:
@@ -65,6 +88,7 @@ services:
     environment:
       ORTHANC__NAME: "orthanc-with-indirect-secret"
       VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
 
       OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
 
@@ -84,15 +108,16 @@ services:
     environment:
       NAME: "orthanc-with-direct-secret"
       VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
 
-      WVB_ENABLED: "true"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
 
-      PG_HOST: "index-db"
-      AC_REGISTERED_USERS: |
+      ORTHANC__POSTGRESQL__HOST: "index-db"
+      ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
 
     secrets:
-      - PG_PASSWORD
+      - ORTHANC__POSTGRESQL__PASSWORD
 
 
 
@@ -110,7 +135,7 @@ services:
 
       PG_PASSWORD: "pg-password"
       PG_HOST: "index-db"
-      AC_REGISTERED_USERS: |
+      ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
 
 

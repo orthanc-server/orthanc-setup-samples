@@ -1,15 +1,14 @@
 version: "2"
 services:
-        orthanc:
-                image: osimis/orthanc
-                restart: unless-stopped
-                ports: ["104:4242", "80:8042"]
-                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=My Orthanc
-                        - |
-                          AC_REGISTERED_USERS=
-                          {"demo":"demo"}
+  orthanc:
+    image: osimis/orthanc
+    restart: unless-stopped
+    ports: ["104:4242", "80:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "My Orthanc"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
 
 volumes:
-        orthanc-storage:
+  orthanc-storage:

@@ -1,26 +1,24 @@
 version: "2"
 services:
-    orthanc-a:
-        image: osimis/orthanc
-        ports: ["8042:8042"]
-        volumes: ["orthanc-storage-a:/var/lib/orthanc/db:Z"]
-        environment:
-            - NAME=Orthanc A
-            - |
-              AC_REGISTERED_USERS=
-              {"demo": "demo"}
-            - DICOM_AET=ORTHANCA
-            - |
-              DICOM_MODALITIES=
-              {
-                  "b": ["ORTHANCB", "orthanc-b", 4242]
-              }
+  orthanc-a:
+    image: osimis/orthanc
+    ports: ["8042:8042"]
+    volumes: ["orthanc-storage-a:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc A"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+      ORTHANC__DICOM_AET: "ORTHANCA"
+      ORTHANC__DICOM_MODALITIES:
+        {
+          "b": ["ORTHANCB", "orthanc-b", 4242]
+        }
 
-    orthanc-b:
-        build: orthanc-b
-        ports: ["8043:8042"]
-        volumes: ["orthanc-storage-b:/var/lib/orthanc/db:Z"]
+  orthanc-b:
+    build: orthanc-b
+    ports: ["8043:8042"]
+    volumes: ["orthanc-storage-b:/var/lib/orthanc/db:Z"]
 
 volumes:
-    orthanc-storage-a:
-    orthanc-storage-b:
+  orthanc-storage-a:
+  orthanc-storage-b:

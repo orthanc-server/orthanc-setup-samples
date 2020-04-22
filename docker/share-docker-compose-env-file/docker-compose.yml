@@ -1,29 +1,29 @@
 version: "2"
 services:
-    orthanc-a:
-        image: osimis/orthanc
-        ports: ["8042:8042"]
-        environment:
-            - DICOM_AET=ORTHANC-A
-        env_file: 
-            - dicom-modalities.env
-            - default-orthanc-config.env
-    orthanc-b:
-        image: osimis/orthanc
-        ports: ["8043:8042"]
-        environment:
-            - DICOM_AET=ORTHANC-B
-        env_file: 
-            - dicom-modalities.env
-            - default-orthanc-config.env
-    orthanc-c:
-        image: osimis/orthanc
-        ports: ["8044:8042"]
-        environment:
-            - DICOM_AET=ORTHANC-C
-            # try to override a value from an env file (environment section overrides values from env_file)
-            - NAME=My customized orthanc name (orthanc-c)
-            - WVB_ENABLED=false
-        env_file: 
-            - dicom-modalities.env
-            - default-orthanc-config.env
+  orthanc-a:
+    image: osimis/orthanc
+    ports: ["8042:8042"]
+    environment:
+      ORTHANC__DICOM_AET: "ORTHANC-A"
+    env_file:
+      - dicom-modalities.env
+      - default-orthanc-config.env
+  orthanc-b:
+    image: osimis/orthanc
+    ports: ["8043:8042"]
+    environment:
+      ORTHANC__DICOM_AET: "ORTHANC-B"
+    env_file:
+      - dicom-modalities.env
+      - default-orthanc-config.env
+  orthanc-c:
+    image: osimis/orthanc
+    ports: ["8044:8042"]
+    environment:
+      ORTHANC__DICOM_AET: "ORTHANC-C"
+      # try to override a value from an env file (environment section overrides values from env_file)
+      ORTHANC__NAME: "My customized orthanc name (orthanc-c)"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+    env_file:
+      - dicom-modalities.env
+      - default-orthanc-config.env

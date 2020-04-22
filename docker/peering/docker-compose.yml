@@ -1,8 +1,21 @@
 version: "2"
 services:
+  # orthanc-a is configured via a configuration file and a build step
   orthanc-a:
     build: orthanc-a
     ports: ["8042:8042"]
+
+  # orthanc-b is configured via a environment variables
   orthanc-b:
-    build: orthanc-b
+    image: osimis/orthanc
     ports: ["8043:8042"]
+    environment:
+      ORTHANC__NAME: "orthanc-b"
+      ORTHANC__ORTHANC_PEERS: |
+        {
+          "b": [
+            "http://orthanc-b:8042/", "demo", "demo"
+          ]
+        }
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}

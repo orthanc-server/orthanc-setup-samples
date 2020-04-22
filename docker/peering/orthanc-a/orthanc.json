@@ -7,7 +7,7 @@
   },
   "OrthancPeers": {
     "b": [
-      "http://orthanc-b:8042/"
+      "http://orthanc-b:8042/", "demo", "demo"
     ]
   }
 }

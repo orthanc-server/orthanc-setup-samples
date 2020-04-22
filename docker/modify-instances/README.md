@@ -18,9 +18,9 @@ To start the setup, type: `docker-compose up --build`
 # demo
 
 - login/pwd = demo/demo
-- Connect to the orthanc simulating the modality on [http://localhost:8044](http://localhost:8044 login/pwd: demo/demo).
+- Connect to the orthanc simulating the modality on [http://locdemoalhost:8044](http://localhost:8044 login/pwd: demo/demo).
 - Upload an image to this instance of Orthanc.
-- In the Orthanc explorer, open the study, select 'send to modality', select the 'middleman' and send
-- the instance is forwarded to the middleman that will modify the InstitutionName
+- In the Orthanc explorer, open the study, select 'send to pacs' and send
+- the instance is forwarded to the pacs that will modify the InstitutionName on reception
 - Open the orthanc acting as a PACS on [http://localhost:8042](http://localhost:8042 login/pwd: demo/demo) and check that the InstitutionName has changed.
 

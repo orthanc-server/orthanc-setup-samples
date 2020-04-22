@@ -1,33 +1,32 @@
 version: "2"
 services:
-    nginx:
-        build: nginx
-        #entrypoint: ["ls",  "-a" , "/etc/nginx/tls"]
-        depends_on: [orthanc-a, orthanc-b]
-        restart: unless-stopped
-        ports: ["443:443"]
-        volumes: ["nginx-tls:/etc/nginx/tls:Z"]
-    orthanc-a:
-        build: orthanc-a
-        restart: unless-stopped
-        volumes: ["orthanc-a-tls:/etc/orthanc/tls:Z"]
-    orthanc-b:
-        image: osimis/orthanc
-        restart: unless-stopped
-        environment:
-            - NAME=Orhtanc B
-            - DICOM_AET=ORTHANC-B
-            - |
-              AC_REGISTERED_USERS={"demo":"demo"}
-    orthanc-c:
-        image: osimis/orthanc
-        restart: unless-stopped
-        environment:
-            - NAME=Orhtanc C
-            - DICOM_AET=ORTHANC-C
-            - |
-              AC_REGISTERED_USERS={"demo":"demo"}
+  nginx:
+    build: nginx
+    #entrypoint: ["ls",  "-a" , "/etc/nginx/tls"]
+    depends_on: [orthanc-a, orthanc-b]
+    restart: unless-stopped
+    ports: ["443:443"]
+    volumes: ["nginx-tls:/etc/nginx/tls:Z"]
+  orthanc-a:
+    build: orthanc-a
+    restart: unless-stopped
+    volumes: ["orthanc-a-tls:/etc/orthanc/tls:Z"]
+  orthanc-b:
+    image: osimis/orthanc
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orhtanc B"
+      ORTHANC__DICOM_AET: "ORTHANC-B"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+  orthanc-c:
+    image: osimis/orthanc
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orhtanc C"
+      ORTHANC__DICOM_AET: "ORTHANC-C"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
 volumes:
-    nginx-tls:
-    orthanc-a-tls:
-
+  nginx-tls:
+  orthanc-a-tls:

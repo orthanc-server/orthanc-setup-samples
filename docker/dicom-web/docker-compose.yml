@@ -1,8 +1,8 @@
 version: "2"
 services:
-        foo:
-                build: orthanc-foo
-                ports: ["104:4242", "80:8042"]
-        bar:
-                build: orthanc-bar
-                ports: ["105:4242", "81:8042"]
+  orthanc-a:
+    build: orthanc-a
+    ports: ["104:4242", "80:8042"]
+  orthanc-b:
+    build: orthanc-b
+    ports: ["105:4242", "81:8042"]

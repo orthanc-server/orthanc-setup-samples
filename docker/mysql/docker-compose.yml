@@ -1,0 +1,35 @@
+version: "2"
+services:
+  orthanc:
+    image: osimis/orthanc
+    depends_on: [index]
+    ports: ["104:4242", "80:8042"]
+    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__MYSQL__HOST: index
+      ORTHANC__MYSQL__USERNAME: test-user
+      ORTHANC__MYSQL__DATABASE: orthanc
+      ORTHANC__MYSQL__PASSWORD: foo
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+
+    restart: unless-stopped
+  index:
+    image: mysql:8.0
+    command:
+      [
+        mysqld,
+        --default-authentication-plugin=mysql_native_password,
+        --log-bin-trust-function-creators=1,
+      ]
+    volumes: ["index:/var/lib/mysql:Z"]
+    environment:
+      MYSQL_PASSWORD: foo
+      MYSQL_USER: test-user
+      MYSQL_DATABASE: orthanc
+      MYSQL_ROOT_PASSWORD: foo-root
+
+    restart: unless-stopped
+volumes:
+  storage:
+  index:

@@ -6,7 +6,7 @@ Dicom modalities and another file to share default settings.
 
 We also demonstrate how one can override some settings from env_file by
 providing custom env var in the `environment` section of the service (check for
-the `NAME` of the `orthanc-c` service and for the `WVB_ENABLED` option)
+the `NAME` of the `orthanc-c` service and for the `OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED` option)
 
 # Description
 

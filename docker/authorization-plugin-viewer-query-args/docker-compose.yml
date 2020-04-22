@@ -1,45 +1,45 @@
 version: "2"
 services:
-        orthanc:
-                image: osimis/orthanc
-                depends_on: [orthanc-auth-service]
-                restart: unless-stopped
-                ports: ["8042:8042"]
-                volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
-                environment:
-                        - NAME=Orthanc-for-auth-plugin-demo
-                        - WVB_ENABLED=true
-                        # disable basic authentication since we use the auth plugin
-                        - AC_AUTHENTICATION_ENABLED=false
+  orthanc:
+    image: osimis/orthanc
+    depends_on: [orthanc-auth-service]
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+    environment:
+      ORTHANC__NAME: "Orthanc-for-auth-plugin-demo"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      # disable basic authentication since we use the auth plugin
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
 
-                        # the webservice to call to get authorizations
-                        - AUTHZ_WEBSERVICE=http://orthanc-auth-service:8000/
-                        # the key of the HTTP header that is used to identify the user
-                        # Although the token is passed as an url parameters to the viewer,
-                        # internally, it is transformed into a HTTP header
-                        - AUTHZ_TOKEN_HTTP_HEADERS=["token"]
-                        # a list of resources that are accessible to everyone
-                        - |
-                          AUTHZ_UNCHECKED_RESOURCES=
-                          [
-                                  "/osimis-viewer/config.js",
-                                  "/system"
-                          ]
-                        # a list of folders that are accessible to everyone
-                        - |
-                          AUTHZ_UNCHECKED_FOLDERS=
-                          [
-                                "/plugins",
-                                "/app/",
-                                "/wsi/app/",
-                                "/osimis-viewer/app/", 
-                                "/osimis-viewer/languages/"
-                          ]
-                        # don't check authorization at study/series/instances level but only at patient level
-                        - AUTHZ_UNCHECKED_LEVELS=["study", "series", "instances"]
-        orthanc-auth-service:
-                build: node-auth-server
-                # don't expose port outside the docker network (only Orthanc needs to access it)
-                restart: unless-stopped
+      # the webservice to call to get authorizations
+      ORTHANC__AUTHORIZATION__WEB_SERVICE: "http://orthanc-auth-service:8000/"
+      # the key of the HTTP header that is used to identify the user
+      # Although the token is passed as an url parameters to the viewer,
+      # internally, it is transformed into a HTTP header
+      ORTHANC__AUTHORIZATION__TOKEN_HTTP_HEADERS: |
+        ["token"]
+      # a list of resources that are accessible to everyone
+      ORTHANC__AUTHORIZATION__UNCHECKED_RESOURCES: |
+        [
+          "/osimis-viewer/config.js",
+          "/system"
+        ]
+      # a list of folders that are accessible to everyone
+      ORTHANC__AUTHORIZATION__UNCHECKED_FOLDERS: |
+        [
+          "/plugins",
+          "/app/",
+          "/wsi/app/",
+          "/osimis-viewer/app/",
+          "/osimis-viewer/languages/"
+        ]
+      # don't check authorization at study/series/instances level but only at patient level
+      ORTHANC__AUTHORIZATION__UNCHECKED_LEVELS: |
+        ["study", "series", "instances"]
+  orthanc-auth-service:
+    build: node-auth-server
+    # don't expose port outside the docker network (only Orthanc needs to access it)
+    restart: unless-stopped
 volumes:
-        orthanc-storage:
+  orthanc-storage:

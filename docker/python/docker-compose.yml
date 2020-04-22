@@ -1,0 +1,16 @@
+version: "3.3"
+services:
+
+  orthanc:
+    build: orthanc
+    ports: ["8000:8042"]
+    environment:
+      ORTHANC__NAME: "orthanc-python"
+
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      ORTHANC__PYTHON_SCRIPT: "/python/test.py"
+      ORTHANC__PYTHON_VERBOSE: "true"
+
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
