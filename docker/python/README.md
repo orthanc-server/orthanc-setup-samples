@@ -9,7 +9,7 @@ This demo contains:
 - an Orthanc container with the Python plugin enabled
 - a test.py script that extends the Orthanc Rest API with a 
   route calling pydicom and also adds 2 buttons in the
-  Orthanc
+  Orthanc Explorer.
 
 # Starting the setup
 
