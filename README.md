@@ -10,17 +10,21 @@ Content:
 
 These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
 
+Note that, from tag 20.4.2, the osimis/orthanc images that are used here have changed a lot.  All these demo setups have been updated to work with these images.  They
+won't work with previous images.  Go back in the git history of this repo to get setups for older images.
+
 ## Getting started
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
 - [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
-- [Orthanc + MySQL](docker/mysql-easy) to demonstrate how to use the Orthanc [MySQL plugin](http://book.orthanc-server.com/plugins/mysql.html)
+- [Various configuration](docker/all-usages) to demonstrate the different ways to configure the Docker images.
+- [Orthanc + MySQL](docker/mysql) to demonstrate how to use the Orthanc [MySQL plugin](http://book.orthanc-server.com/plugins/mysql.html)
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
-- [Orthanc peering](docker/peering) ([easy variant](docker/peering-easy)) to demonstrate Orthanc peering.
+- [Orthanc peering](docker/peering) to demonstrate Orthanc peering.
 - [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
 - [Orthanc + Transfers accelerator](docker/transfers-accelerator) to demonstrate Transfers accelerator plugin.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
+- [Orthanc Python plugin](docker/python) to demonstrate the use of the Python plugin.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
-- [Orthanc GCP Healthcare DICOM store connector](docker/gcp-dicom) to demonstrate integration with the Google Cloud Platform Healthcare API, specifically DICOM data stores.
 
 ## for advanced users
 - [Dicom modification of received instances](docker/modify-instances) to demonstrate how to use Orthanc to modify incoming instances.
