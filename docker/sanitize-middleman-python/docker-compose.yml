@@ -1,0 +1,14 @@
+version: "2"
+services:
+  orthanc-pacs:
+    build: orthanc-pacs
+    restart: unless-stopped
+    ports: ["8042:8042"]
+  orthanc-middleman:
+    build: orthanc-middleman
+    restart: unless-stopped
+    ports: ["8043:8042"]
+  orthanc-modality:
+    build: orthanc-modality
+    restart: unless-stopped
+    ports: ["8044:8042"]

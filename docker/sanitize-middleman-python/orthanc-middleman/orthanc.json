@@ -1,0 +1,14 @@
+{
+  "Name": "Orthanc-middleman",
+	"RegisteredUsers" : {
+    "demo": "demo",
+    "python-script": "my-python-password"
+	},
+  "DicomAet": "MIDDLEMAN",
+  "DicomModalities": {
+      "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS
+      "modality": ["MODALITY", "orthanc-modality", 4242]
+  },
+  "PythonScript" : "/python/sanitize.py",
+  "OverwriteInstances": true
+}
