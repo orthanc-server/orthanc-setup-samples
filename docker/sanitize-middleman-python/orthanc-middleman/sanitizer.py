@@ -122,17 +122,3 @@ def worker(workerName: str, sanitizer: Sanitizer):
     sanitizer.modifyInstance(instanceId)
 
   print("Exiting python worker " + workerName)
-
-
-# def retrier(sanitizer: Sanitizer):
-#   orthanc.LogWarning("Starting python retrier")
-
-#   while not sanitizer.workersShouldStop:
-#     instanceId = sanitizer.instancesToProcess.get()
-
-#     if sanitizer.workersShouldStop:
-#       break
-
-#     sanitizer.modifyInstance(instanceId)
-
-#   orthanc.LogWarning("Exiting python retrier")
