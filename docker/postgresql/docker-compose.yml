@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     volumes: ["orthanc-index:/var/lib/postgresql/data:Z"]
     environment:
-      ORTHANC__POSTGRESQL__PASSWORD: "postgres"
+      POSTGRES_PASSWORD: "postgres"
 
   # second setup through environment variables
   orthanc-b:
