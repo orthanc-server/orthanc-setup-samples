@@ -60,6 +60,7 @@ You might need to change a few path in the scripts in order to make them work on
 
 - [Dicom modification in OnStoredInstance](docker/modify-instances/modify.lua)
 - [IncomingHttpRequestFilter](lua-samples/filter-http.lua)
+- [Send to peer with retry](lua-samples/send-to-peer-with-retry.lua)
 - [Pre-fetching](windows/prefetching/prefetching.lua)
 - [Transcode and forward](docker/transcode-middleman/orthanc-middleman/transcodeAndForward.lua)
 - [IncomingFindRequestFilter](docker/dicom-cfind-filter-lua/orthanc-b/cfind-filter.lua)
