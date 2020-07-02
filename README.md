@@ -34,10 +34,6 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 
-## for commercial plugins users 
-- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
-
-
 ## for software integrators
 - [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](http://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc
 - [Orthanc + Authorization Plugin + Osimis WebViewer](docker/authorization-plugin-viewer-query-args) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html) with the [Osimis WebViewer plugin](https://bitbucket.org/osimis/osimis-webviewer-plugin/src/master/)
@@ -45,6 +41,15 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
+
+## for osimis/orthanc-pro image users
+
+Note that the osimis/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
+
+- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
+- [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
+- Orthanc on AWS (coming soon)
+- Orthanc on Google Cloud (coming soon)
 
 # Windows
 
