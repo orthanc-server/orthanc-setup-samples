@@ -46,10 +46,10 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 Note that the osimis/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
 
-- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
 - [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
-- Orthanc on AWS (coming soon)
+- [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
 - Orthanc on Google Cloud (coming soon)
+- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
 
 # Windows
 
