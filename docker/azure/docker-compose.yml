@@ -1,7 +1,7 @@
 version: "3.3"
 
 services:
-    test-swisscom:
+    orthanc:
         image: osimis/orthanc-pro:new-pro-images
         ports: [8042:8042]
         environment:
