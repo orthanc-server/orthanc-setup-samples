@@ -1,1 +1,1 @@
-DefaultEndpointsProtocol=https;AccountName=orthancblobstoragetests;AccountKey=KzQCNmZ9DXrs7PnUbduoI7AGgTXA1JI2oBl95oMp0m+ElxBXMyC4eM8ILKm4KVMDsA86BYciYlxCbo2kuhRHow==;EndpointSuffix=core.windows.net
+DefaultEndpointsProtocol=https;AccountName=yourblobstorage;AccountKey=yyy==;EndpointSuffix=core.windows.net.
