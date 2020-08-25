@@ -1,0 +1,30 @@
+version: "3.3"
+
+services:
+    orthanc:
+        image: osimis/orthanc-pro:20.8.0
+        ports: [8042:8042]
+        environment:
+            - ORTHANC__GOOGLE_CLOUD_STORAGE__BUCKET_NAME=your-orthanc-test-bucket
+            - ORTHANC__GOOGLE_CLOUD_STORAGE__SERVICE_ACCOUNT_FILE=/run/secrets/service-account.json
+            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=AK123456789
+
+            - ORTHANC__POSTGRESQL__HOST=10.20.30.40
+            - ORTHANC__POSTGRESQL__PORT=5432
+            - ORTHANC__POSTGRESQL__USERNAME=postgres
+            - ORTHANC__POSTGRESQL__DATABASE=orthanc
+            - ORTHANC__POSTGRESQL__ENABLE_SSL=true
+
+            - ORTHANC__AUTHENTICATION_ENABLED=false
+            - ORTHANC__DICOM_SERVER_ENABLED=false
+
+        secrets:
+          - service-account.json
+          - ORTHANC__POSTGRESQL__PASSWORD
+
+secrets:
+  service-account.json:
+    file: service-account.json
+  ORTHANC__POSTGRESQL__PASSWORD:
+    file: sql-password.txt
+
