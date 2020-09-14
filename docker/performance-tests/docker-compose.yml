@@ -1,0 +1,50 @@
+version: "2"
+services:
+
+  orthanc-fast-ssd:
+    image: osimis/orthanc
+    ports: ["8043:8042"]
+    volumes:
+      - "/fast-ssd/orthanc-storage:/var/lib/orthanc/db/files"
+      - "/fast-ssd/fast-db:/var/lib/orthanc/db/sql"
+    environment:
+      ORTHANC_JSON: |
+        {
+          "Name": "orthanc-fast-ssd",
+          "AuthenticationEnabled": false,
+          "StorageDirectory": "/var/lib/orthanc/db/files",
+          "IndexDirectory": "/var/lib/orthanc/db/sql"
+        }
+
+  # uncomment either the s3 or the azure service depending on your cloud provider
+
+  # orthanc-s3:
+  #   image: osimis/orthanc-pro:20.9.5
+  #   ports: [8044:8042]
+  #   volumes:
+  #     - "/fast-ssd/s3-db:/var/lib/orthanc/db/sql"
+  #   environment:
+  #     ORTHANC__AWS_S3_STORAGE__BUCKET_NAME: "test-orthanc-s3-plugin"
+  #     ORTHANC__AWS_S3_STORAGE__REGION: "eu-central-1"
+  #     ORTHANC__AWS_S3_STORAGE__ACCESS_KEY: "AK123456789"
+  #     ORTHANC__AWS_S3_STORAGE__SECRET_KEY: "XXX"
+  #     ORTHANC_JSON: |
+  #       {
+  #         "Name": "orthanc-s3",
+  #         "AuthenticationEnabled": false,
+  #         "IndexDirectory": "/var/lib/orthanc/db/sql"
+  #       }
+
+  orthanc-azure:
+    image: osimis/orthanc-pro:20.9.5
+    ports: [8044:8042]
+    volumes:
+      - "/fast-ssd/azure-db:/var/lib/orthanc/db/sql"
+    environment:
+      - ORTHANC__AZURE_BLOB_STORAGE__CONTAINER_NAME=testcontainer
+      - ORTHANC__AZURE_BLOB_STORAGE__CONNECTION_STRING=xxxxx
+
+      - ORTHANC__AUTHENTICATION_ENABLED=false
+      - ORTHANC__DICOM_SERVER_ENABLED=false
+      - VERBOSE_ENABLED=false
+      - VERBOSE_STARTUP=true

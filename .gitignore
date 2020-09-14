@@ -1,4 +1,5 @@
 .idea/
 .vs/
+.vscode/
 docker/couchdb/
 docker/python-bug/
