@@ -5,29 +5,34 @@ The aim of this setup is to compare the read/write performance of
 object-storage vs VM SSDs in cloud environments
 
 3 studies are used for tests with variations in the file size and numbers:
+
 - MAMMO: 853 MB in 8 files
 - CARDIO: 251 MB in 26 files
 - ONCO: 356 MB in 1635 files
 
 4 tasks are performed:
+
 - upload the study with a single HTTP client
 - upload the study with 10 HTTP clients in parallel
 - download the study with a single HTTP client
 - download the study with 10 HTTP clients in parallel
 
 We also compare performance with raw disk performance:
+
 - write 1 GB: `time dd if=/dev/zero of=file.1gb count=1024 bs=1048576`
 - clear disk cache & read 1 GB:  `sync; echo 3 > /proc/sys/vm/drop_caches && time cat file.1gb > /dev/null`
 
 Other remarks:
+
 - All these tests have been performed with osimis/orthanc-pro:20.9.5 (Orthanc 1.7.3 + objects-storage 1.0.0)
 - When not specified, the units in the tables are [seconds].
 - We've not observed any significant differences when using SQLite vs PostgreSQL for the orthanc DB.  Therefore, all
   tests have been performed with SQLite.
 
 To run the tests, you'll execute the python script on your VM.  Here are some sample command lines:
+
 - `pip3 install -r requirements.txt`
-- `python3 tester.py --orthancUrl http://localhost:8044 -u -dtn -t 10`
+- `python3 tester.py --orthancUrl http://localhost:8044 -u -dt -t 10`
 
 AWS S3
 ------
