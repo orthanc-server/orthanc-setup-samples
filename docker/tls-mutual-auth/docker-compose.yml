@@ -1,0 +1,51 @@
+version: "2"
+services:
+  orthanc-a:
+    # TODO: upgrade to an image containing Orthanc 1.7.4
+    image: osimis/orthanc:dev
+    ports: ["8042:8042"]
+    volumes: ["./tls:/tls", ]
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      CONNECTIVITY_CHECKS_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "orthanc-a",
+          "AuthenticationEnabled": false,
+          "HttpsVerifyPeers": false,    // since we use self-signed certificates on server side
+          "OrthancPeers" : {
+            "orthanc-b" : {
+              "Url" : "https://orthanc-b:8042",
+              "CertificateFile" : "/tls/client-crt.pem",
+              "CertificateKeyFile" : "/tls/client-key.pem",
+              "CertificateKeyPassword": "password"
+            }
+          },
+          "DicomWeb" : {
+            "Servers": {
+              "orthanc-b" : {
+                "Url" : "https://orthanc-b:8042/dicom-web",
+                "CertificateFile" : "/tls/client-crt.pem",
+                "CertificateKeyFile" : "/tls/client-key.pem",
+                "CertificateKeyPassword": "password"
+              }
+            }
+          }
+        }
+  orthanc-b:
+    # TODO: upgrade to an image containing Orthanc 1.7.4
+    image: osimis/orthanc:dev
+    ports: ["8043:8042"]
+    volumes: ["./tls:/tls"]
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "orthanc-b",
+          "AuthenticationEnabled": false,
+
+          "SslEnabled": true,
+          "SslCertificate": "/tls/server-crt+key.pem",
+          "SslTrustedClientCertificates": "/tls/client-crt.pem",
+          "SslVerifyPeers": true
+        }
