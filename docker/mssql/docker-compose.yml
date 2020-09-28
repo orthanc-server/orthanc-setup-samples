@@ -1,28 +1,28 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc-pro:orthanc-dyn-build
+    image: osimis/orthanc-pro
     depends_on: [index]
-    ports: ["104:4242", "80:8042"]
+    ports: ["104:4242", "8042:8042"]
     volumes: ["storage:/var/lib/orthanc/db:Z"]
     environment:
-      # note: this is a trial license expiring on 2020-06-01, replace with your license code
+      # note: this is a trial license expiring on 2020-12-01, replace with your license code
       # Prefer using Docker secret instead of environment variable whenever possible
-      - MSSQL_LICENSE_STRING=1a6aauPGKEbsLs5Pii0___demo%osimis.io___aaabcu8grWLgF2H3PBAReWTmRiXbLfR9Sd3yNsPb8pSYySde
-      - MSSQL_CONNECTION_STRING=Driver={ODBC Driver 17 for SQL Server};Server=tcp:index,1433;Database=master;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;
-      - MSSQL_MAXIMUM_CONNECTION_RETRIES=4
-      - MSSQL_CONNECTION_RETRY_INTERVAL=8
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
-      - VERBOSE_STARTUP=true
-      - VERBOSE_ENABLED=true
+      ORTHANC__MSSQL__LICENSE_STRING: "1abaamJzhu65d5PAXL0___demo%osimis.io___aaabLFs2e9i7vzdttLR9DEgYzutb25VJkbTn7nUn9AvDVbu3"
+      ORTHANC__MSSQL__CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:index,1433;Database=master;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
+      ORTHANC__MSSQL__MAXIMUM_CONNECTION_RETRIES: 4
+      ORTHANC__MSSQL__CONNECTION_RETRY_INTERVAL: 8
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
     restart: unless-stopped
   index:
     image: microsoft/mssql-server-linux
+    ports: ["1433:1433"]
     volumes: ["index:/var/opt/mssql/data:Z"]
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=MyStrOngPa55word!
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "MyStrOngPa55word!"
 
     restart: unless-stopped
 volumes:

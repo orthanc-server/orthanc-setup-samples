@@ -25,6 +25,6 @@ To start the setup, type: `docker-compose up -d` and `docker-compose logs` to ac
 # demo
 
 As described in the `docker-compose.yml` file, Orthanc's HTTP server is
-reachable via port 80 on the Docker host (try
-[http://localhost](http://localhost)), and Orthanc's DICOM server is
+reachable via port 8042 on the Docker host (try
+[http://localhost:8042](http://localhost:8042)), and Orthanc's DICOM server is
 reachable via port 104 on the Docker host.
