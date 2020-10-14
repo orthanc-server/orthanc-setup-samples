@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc-pro:new-pro-images
+        image: osimis/orthanc-pro
         ports: [8042:8042]
         environment:
             - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=test-orthanc-s3-plugin
