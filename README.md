@@ -74,3 +74,4 @@ You might need to change a few path in the scripts in order to make them work on
 - [Transcode and forward](docker/transcode-middleman/orthanc-middleman/transcodeAndForward.lua)
 - [IncomingFindRequestFilter](docker/dicom-cfind-filter-lua/orthanc-b/cfind-filter.lua)
 - [Notify external web service](docker/full-tls/orthanc-b/notify-external-web-service.lua)
+- [Fix invalid UTF-8 tag values](lua-samples/sanitizeInvalidUtf8TagValues.lua)
