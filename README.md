@@ -75,3 +75,8 @@ You might need to change a few path in the scripts in order to make them work on
 - [IncomingFindRequestFilter](docker/dicom-cfind-filter-lua/orthanc-b/cfind-filter.lua)
 - [Notify external web service](docker/full-tls/orthanc-b/notify-external-web-service.lua)
 - [Fix invalid UTF-8 tag values](lua-samples/sanitizeInvalidUtf8TagValues.lua)
+
+# Python plugins
+
+- [retry jobs](lua-samples/job-retries.py)
+- [pydicom integration](docker/python/orthanc/test.py)
