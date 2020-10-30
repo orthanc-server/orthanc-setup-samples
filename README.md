@@ -78,5 +78,6 @@ You might need to change a few path in the scripts in order to make them work on
 
 # Python plugins
 
-- [retry jobs](lua-samples/job-retries.py)
+- [retry jobs](python-samples/job-retries.py)
 - [pydicom integration](docker/python/orthanc/test.py)
+- [show python functions/classes](python-samples/doc.py)

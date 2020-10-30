@@ -9,16 +9,16 @@ def OnChange(changeType, level, resource):
 
   if changeType == orthanc.ChangeType.JOB_SUCCESS:
 
-    print(f"job {resource} has succeeded")
+    orthanc.LogInfo(f"job {resource} has succeeded")
 
   elif changeType == orthanc.ChangeType.JOB_FAILURE:
 
-    print(f"job {resource} has failed, retrying")
+    orthanc.LogWarning(f"job {resource} has failed, retrying")
     orthanc.RestApiPost(f"/jobs/{resource}/resubmit", "")
 
   elif changeType == orthanc.ChangeType.JOB_SUBMITTED:
 
-    print(f"job {resource} has been submitted")
+    orthanc.LogInfo(f"job {resource} has been submitted")
 
 
 orthanc.RegisterOnChangeCallback(OnChange)
