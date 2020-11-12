@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc-pro:20.8.0
+        image: osimis.azurecr.io/orthanc-pro
         ports: [8042:8042]
         environment:
             - ORTHANC__GOOGLE_CLOUD_STORAGE__BUCKET_NAME=your-orthanc-test-bucket

@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc-pro
+    image: osimis.azurecr.io/orthanc-pro
     depends_on: [index]
     ports: ["104:4242", "8042:8042"]
     volumes: ["storage:/var/lib/orthanc/db:Z"]

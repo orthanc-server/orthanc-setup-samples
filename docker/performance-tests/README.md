@@ -24,7 +24,7 @@ We also compare performance with raw disk performance:
 
 Other remarks:
 
-- All these tests have been performed with osimis/orthanc-pro:20.9.5 (Orthanc 1.7.3 + objects-storage 1.1.0)
+- All these tests have been performed with osimis.azurecr.io/orthanc-pro:20.9.5 (Orthanc 1.7.3 + objects-storage 1.1.0)
 - When not specified, the units in the tables are [seconds].
 - We've not observed any significant differences when using SQLite vs PostgreSQL for the orthanc DB.  Therefore, all
   tests have been performed with SQLite.

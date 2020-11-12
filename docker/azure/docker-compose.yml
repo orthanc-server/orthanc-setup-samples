@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc-pro:20.8.1
+        image: osimis.azurecr.io/orthanc-pro
         ports: [8042:8042]
         environment:
             - ORTHANC__AZURE_BLOB_STORAGE__CONTAINER_NAME=testcontainer

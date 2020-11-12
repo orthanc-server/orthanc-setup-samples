@@ -19,7 +19,7 @@ services:
   # uncomment either the s3 or the azure service depending on your cloud provider
 
   # orthanc-s3:
-  #   image: osimis/orthanc-pro:20.9.5
+  #   image: osimis.azurecr.io/orthanc-pro:20.9.5
   #   ports: [8044:8042]
   #   volumes:
   #     - "/fast-ssd/s3-db:/var/lib/orthanc/db/sql"
@@ -36,7 +36,7 @@ services:
   #       }
 
   orthanc-azure:
-    image: osimis/orthanc-pro:20.9.5
+    image: osimis.azurecr.io/orthanc-pro
     ports: [8044:8042]
     volumes:
       - "/fast-ssd/azure-db:/var/lib/orthanc/db/sql"

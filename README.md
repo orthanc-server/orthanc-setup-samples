@@ -44,9 +44,9 @@ won't work with previous images.  Go back in the git history of this repo to get
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
 
-## for osimis/orthanc-pro image users
+## for osimis.azurecr.io/orthanc-pro image users
 
-Note that the osimis/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
+Note that the osimis.azurecr.io/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
 
 - [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
 - [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
