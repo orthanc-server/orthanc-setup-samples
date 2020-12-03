@@ -3,7 +3,7 @@ services:
   orthanc:
     # use at least osimis/orthanc:20.12.1
     image: osimis/orthanc
-    ports: ["9241:8042"]
+    ports: ["8042:8042"]
     environment:
       VERBOSE_STARTUP: "true"
       VERBOSE_ENABLED: "true"
