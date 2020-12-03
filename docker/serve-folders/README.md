@@ -1,12 +1,12 @@
 # Purpose
 
-This is a sample setup to demonstrate how to use the Orthanc [Serve-Folders](http://book.orthanc-server.com/plugins/serve-folders.html) plugin.
+This is a sample setup to demonstrate how to use the Orthanc [Serve-Folders](https://book.orthanc-server.com/plugins/serve-folders.html) plugin.
 
 # Description
 
 This demo contains:
 
-- an Orthanc container with the [Serve-Folders plugin](http://book.orthanc-server.com/plugins/serve-folders.html) enabled.
+- an Orthanc container with the [Serve-Folders plugin](https://book.orthanc-server.com/plugins/serve-folders.html) enabled.
 
 # Starting the setup
 

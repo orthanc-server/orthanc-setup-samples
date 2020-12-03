@@ -15,10 +15,10 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 ## Getting started
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
-- [Stone Web Viewer](docker/stone-viewer) to demonstrate how to enable the [Stone Web Viewer plugin](http://book.orthanc-server.com/plugins/stone-webviewer.html).
-- [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
+- [Stone Web Viewer](docker/stone-viewer) to demonstrate how to enable the [Stone Web Viewer plugin](https://book.orthanc-server.com/plugins/stone-webviewer.html).
+- [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](https://book.orthanc-server.com/plugins/postgresql.html)
 - [Various configuration](docker/all-usages) to demonstrate the different ways to configure the Docker images.
-- [Orthanc + MySQL](docker/mysql) to demonstrate how to use the Orthanc [MySQL plugin](http://book.orthanc-server.com/plugins/mysql.html)
+- [Orthanc + MySQL](docker/mysql) to demonstrate how to use the Orthanc [MySQL plugin](https://book.orthanc-server.com/plugins/mysql.html)
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
 - [Orthanc peering](docker/peering) to demonstrate Orthanc peering.
 - [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
@@ -36,8 +36,8 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 
 ## for software integrators
-- [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](http://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc
-- [Orthanc + Authorization Plugin + Osimis WebViewer](docker/authorization-plugin-viewer-query-args) to demonstrate how to use the Orthanc [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html) with the [Osimis WebViewer plugin](https://bitbucket.org/osimis/osimis-webviewer-plugin/src/master/)
+- [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](https://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc
+- [Orthanc + Authorization Plugin + Osimis WebViewer](docker/authorization-plugin-viewer-query-args) to demonstrate how to use the Orthanc [authorization plugin](https://book.orthanc-server.com/plugins/authorization.html) with the [Osimis WebViewer plugin](https://bitbucket.org/osimis/osimis-webviewer-plugin/src/master/)
 - [Orthanc mutual TLS authentication](docker/tls-mutual-auth) to demonstrate how to use client certificates to authentify Orthanc instances between them.
 - [Orthanc mutual TLS authentication - 2](docker/full-tls) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).  This sample uses nginx to implement
   server side TLS.

@@ -8,7 +8,7 @@ MySQL database for its index the easy way.
 This demo contains:
 
 - an Orthanc container with the [MySQL
-  plugin](http://book.orthanc-server.com/plugins/mysql.html)
+  plugin](https://book.orthanc-server.com/plugins/mysql.html)
 enabled.
 - a MySQL container that will store the Orthanc Index DB (the dicom
   files are stored in a Docker volume)

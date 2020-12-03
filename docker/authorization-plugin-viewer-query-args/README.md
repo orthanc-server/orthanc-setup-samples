@@ -6,7 +6,7 @@ This is a sample setup to demonstrate the usage of the Orthanc authorization plu
 
 This demo contains:
 
-- an Orthanc container with the [authorization plugin](http://book.orthanc-server.com/plugins/authorization.html) enabled.
+- an Orthanc container with the [authorization plugin](https://book.orthanc-server.com/plugins/authorization.html) enabled.
 - a small authorization micro service that Orthanc will request to authorize/forbids access to its resources.  This autorization service would most likely be part of your web-app but should only be accessible to Orthanc (not from the external world).
 
 # Starting the setup

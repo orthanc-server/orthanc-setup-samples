@@ -6,7 +6,7 @@ This is a sample setup to demonstrate how to configure Orthanc with a PostgreSQL
 
 This demo contains:
 
-- an Orthanc container with the [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html) enabled.
+- an Orthanc container with the [PostgreSQL plugin](https://book.orthanc-server.com/plugins/postgresql.html) enabled.
 - a PostgreSQL container that will store the Orthanc Index DB (the dicom files are stored in a Docker volume)
 
 By using PostgreSQL default DB name and username, there is no need to configure anything in the PostgreSQL container.
