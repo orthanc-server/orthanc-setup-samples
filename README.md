@@ -15,6 +15,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 ## Getting started
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
+- [Stone Web Viewer](docker/stone-viewer) to demonstrate how to enable the [Stone Web Viewer plugin](http://book.orthanc-server.com/plugins/stone-webviewer.html).
 - [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](http://book.orthanc-server.com/plugins/postgresql.html)
 - [Various configuration](docker/all-usages) to demonstrate the different ways to configure the Docker images.
 - [Orthanc + MySQL](docker/mysql) to demonstrate how to use the Orthanc [MySQL plugin](http://book.orthanc-server.com/plugins/mysql.html)

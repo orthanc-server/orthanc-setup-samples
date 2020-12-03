@@ -1,0 +1,19 @@
+version: "2"
+services:
+  orthanc:
+    # use at least osimis/orthanc:20.12.1
+    image: osimis/orthanc
+    ports: ["9241:8042"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+
+      # you must enable the StoneViewer and the DicomWeb plugins
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+      # StoneViewer configurations
+      ORTHANC__STONE_WEB_VIEWER__DATE_FORMAT: "DD/MM/YYYY"
+
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
