@@ -1,0 +1,40 @@
+version: "3.3"
+
+services:
+    orthanc:
+        image: osimis.azurecr.io/orthanc-pro:upgrade-aws
+        ports: [8042:8042]
+        environment:
+            - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=my-sample-bucket
+            - ORTHANC__AWS_S3_STORAGE__REGION=eu-west-1
+            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=minio
+            - ORTHANC__AWS_S3_STORAGE__SECRET_KEY=miniopwd
+            - ORTHANC__AWS_S3_STORAGE__ENDPOINT=http://minio:9000
+            - ORTHANC__AWS_S3_STORAGE__VIRTUAL_ADDRESSING=false
+            - ORTHANC__AUTHENTICATION_ENABLED=false
+            - ORTHANC__DICOM_SERVER_ENABLED=false
+            - VERBOSE_ENABLED=true
+            - VERBOSE_STARTUP=true
+        volumes:
+            - orthanc-sqlite-storage:/var/lib/orthanc/db
+        networks:
+            test:
+
+    minio:
+        command: "server /data"
+        image: minio/minio
+        ports: [9000:9000]
+        environment:
+            - MINIO_REGION=eu-west-1
+            - MINIO_ROOT_USER=minio
+            - MINIO_ROOT_PASSWORD=miniopwd
+        volumes:
+            - minio-storage:/data
+        networks:
+            test:
+volumes:
+    minio-storage:
+    orthanc-sqlite-storage:
+networks:
+    test:
+

@@ -51,6 +51,7 @@ Note that the osimis.azurecr.io/orthanc-pro images are private.  Access is restr
 
 - [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
 - [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
+- [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
 - [Orthanc on Google Cloud](docker/google-cloud-storage) to demonstrate how to use the Orthanc in an Google Cloud environment (using SQL Instance and Google Cloud Storage)
 - [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
