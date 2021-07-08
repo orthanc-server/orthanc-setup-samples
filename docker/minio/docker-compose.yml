@@ -17,8 +17,6 @@ services:
             - VERBOSE_STARTUP=true
         volumes:
             - orthanc-sqlite-storage:/var/lib/orthanc/db
-        networks:
-            test:
 
     minio:
         command: "server /data"
@@ -30,8 +28,6 @@ services:
             - MINIO_ROOT_PASSWORD=miniopwd
         volumes:
             - minio-storage:/data
-        networks:
-            test:
 volumes:
     minio-storage:
     orthanc-sqlite-storage:
