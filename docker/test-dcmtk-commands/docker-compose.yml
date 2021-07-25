@@ -1,0 +1,35 @@
+version: "3.3"
+services:
+    orthanc:
+        image: osimis/orthanc
+        ports: ["104:4242", "80:8042"]
+        environment:
+            ORTHANC__REGISTERED_USERS: |
+                {"demo": "demo"}
+            ORTHANC__NAME: "Orthanc"
+            ORTHANC__DICOM_AET: "ORTHANC"
+            ORTHANC__DICOM_MODALITIES: |
+                {
+                "storescu": ["STORESCU", "127.0.0.1", 2000],
+                "findscu": ["FINDSCU", "127.0.0.1", 2000],
+                "movescu": ["MOVESCU", "127.0.0.1", 2000],
+                "b": ["ORTHANCB", "orthanc-b", 4242]
+                }
+            VERBOSE_ENABLED: "true"
+        volumes:
+            - orthanc-storage:/var/lib/orthanc/db
+    orthanc-b:
+        image: osimis/orthanc
+        ports: ["105:4242", "81:8042"]
+        environment:
+            ORTHANC__REGISTERED_USERS: |
+                {"demo": "demo"}
+            ORTHANC__NAME: "Orthanc B"
+            ORTHANC__DICOM_AET: "ORTHANCB"
+            ORTHANC__DICOM_MODALITIES: |
+                {
+                    "a": ["ORTHANC", "orthanc", 4242]
+                }
+            
+volumes:
+    orthanc-storage:
