@@ -11,6 +11,7 @@ This demo contains:
 - an Orthanc-modality container that simulates a modality. 
 - an Orthanc-middleman container that serves as a 'proxy' between the modalities and the PACS to transcode the images to JP2K and sanitize
   the InstitutionName tag before pushing the images to the PACS.
+  The transcoding is done when the images are received thanks to the `IngestTranscoding` configuration option.
 - an Orthanc-pacs container that simulates a PACS.
 
 

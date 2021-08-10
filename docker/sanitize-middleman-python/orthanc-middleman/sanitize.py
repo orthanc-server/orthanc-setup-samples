@@ -10,8 +10,10 @@ from sanitizer import Sanitizer
 # uncomment to show the Orthanc Module functions/classes/enums
 # InspectOrthancModule()
 
+authorizationToken = orthanc.GenerateRestApiAuthorizationToken()
+
 # the Sanitizer will run in another process and have 4 workers thread
-sanitizer = Sanitizer(4)
+sanitizer = Sanitizer(4, authorizationToken)
 
 
 def OnChange(changeType, level, resource):

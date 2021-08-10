@@ -1,20 +1,17 @@
 from multiprocessing import Pool, Queue, Process
-from functools import partial
-import os
 import json
 import threading
 import requests
-import tempfile
-
 
 
 class Sanitizer:
 
-  def __init__(self, workerCount):
+  def __init__(self, workerCount, authorizationToken):
     self.workerCount = workerCount
     self.workers = []
     self.workersShouldStop = False
     self.instancesToProcess = Queue()
+    self.authorizationToken = authorizationToken
 
 
   def start(self):
@@ -31,7 +28,7 @@ class Sanitizer:
     
     # push one dummy message for each worker to wake them up
     for i in range(0, self.workerCount):
-      instancesToProcess.put(None)
+      self.instancesToProcess.put(None)
 
     for i in range(0, self.workerCount):
       self.workers[i].join()
@@ -53,22 +50,15 @@ class Sanitizer:
     # we are not in the Orthanc main process so we can't use the orthanc python module,
     # we have to use requests to access Orthanc from the external API
     orthancApi = requests.Session()
-    orthancApi.auth = requests.auth.HTTPBasicAuth("python-script", "my-python-password")
+    orthancApi.headers.update({"Authorization": self.authorizationToken})
     
-    instanceTagsRequest = orthancApi.get(url="http://localhost:8042/instances/" + instanceId + "/tags?simplify")
-    if instanceTagsRequest.status_code != 200:
-        print("Could not get instance tags: " + instanceId + ", it won't be retried !")
-        return
-
     try:
       # download a modified version of the instance
       modifyBody = {
         "Replace" : {
-          "InstitutionName": "MY NEW INSTITUTION",
-          "SOPInstanceUID": instanceTagsRequest.json()["SOPInstanceUID"]  # in Orthanc 1.6.1, we actually can't keep this value ! -> will be fixed in 1.7.0
+          "InstitutionName": "MY NEW INSTITUTION"
         },
-        "Keep": [
-        ],
+        "Keep": ["SOPInstanceUID"],
         "Force": True  # because we want to replace/keep the SOPInstanceUID
       }
 
@@ -82,25 +72,17 @@ class Sanitizer:
 
       modifiedDicom = modifyRequest.content
 
-      with tempfile.NamedTemporaryFile(delete=False) as uncompressed:
-        uncompressed.file.write(modifiedDicom)
-        
-        with tempfile.NamedTemporaryFile(delete=False) as compressed:
-          os.system("gdcmconv -U --j2k " + uncompressed.name + " " + compressed.name)
+      sendToPacsRequest = orthancApi.post(url="http://localhost:8042/modalities/pacs/store-straight", data=modifiedDicom)
 
-          with open(compressed.name, "rb") as f:
-            sendToPacsRequest = orthancApi.post(url="http://localhost:8042/modalities/pacs/store-straight",
-                                                data=f.read())
+      if sendToPacsRequest.status_code == 200:
+        print("instance sent to PACS, deleting")
+        deleteRequest = orthancApi.delete(url="http://localhost:8042/instances/" + instanceId)
 
-          if sendToPacsRequest.status_code == 200:
-            print("instance sent to PACS, deleting")
-            deleteRequest = orthancApi.delete(url="http://localhost:8042/instances/" + instanceId)
+        if deleteRequest.status_code == 200:
+          return
+      else:
+        print("instance failed to send to PACS, will retry later")
 
-            if deleteRequest.status_code == 200:
-              return
-          else:
-            print("instance failed to send to PACS, will retry later")
-      
       self.retryInstanceLater(instanceId, 10.0)
 
     except Exception as e:

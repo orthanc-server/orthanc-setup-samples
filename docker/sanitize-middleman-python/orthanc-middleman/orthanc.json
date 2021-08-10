@@ -1,14 +1,14 @@
 {
-  "Name": "Orthanc-middleman",
-	"RegisteredUsers" : {
-    "demo": "demo",
-    "python-script": "my-python-password"
-	},
-  "DicomAet": "MIDDLEMAN",
-  "DicomModalities": {
-      "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS
-      "modality": ["MODALITY", "orthanc-modality", 4242]
-  },
-  "PythonScript" : "/python/sanitize.py",
-  "OverwriteInstances": true
+    "Name": "Orthanc-middleman",
+    "RegisteredUsers": {
+        "demo": "demo"
+    },
+    "DicomAet": "MIDDLEMAN",
+    "DicomModalities": {
+        "pacs": ["PACS", "orthanc-pacs", 4242], // to perform query-retrieve on the PACS
+        "modality": ["MODALITY", "orthanc-modality", 4242]
+    },
+    "PythonScript": "/python/sanitize.py",
+    "OverwriteInstances": true,
+    "IngestTranscoding": "1.2.840.10008.1.2.4.90"
 }
