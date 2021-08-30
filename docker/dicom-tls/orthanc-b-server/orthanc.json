@@ -1,0 +1,44 @@
+{
+    "Name": "Orthanc-b-for-dicom-tls-demo",
+    "DicomAet": "ORTHANCB",
+    
+    "RemoteAccessAllowed" : true,
+    "AuthenticationEnabled" : true,
+    "RegisteredUsers" : {
+        "demo": "demo"
+    },
+    
+    "DicomTlsEnabled": true,
+    "DicomTlsCertificate": "/tls/orthanc-b-server-crt.pem",
+    "DicomTlsPrivateKey": "/tls/orthanc-b-server-key.pem",
+    "DicomTlsTrustedCertificates": "/tls/trusted-crt.pem",
+
+    "DicomModalities": {
+        "orthanc-a" : {
+            "Host": "orthanc-a-server",
+            "Port": 4242,
+            "AET": "ORTHANCA",
+            "UseDicomTls": true
+        },
+        "orthanc-b" : {
+            "Host": "orthanc-b-server",
+            "Port": 4242,
+            "AET": "ORTHANCB",
+            "UseDicomTls": true
+        },
+        "dcmtk": {
+            "Host": "localhost",
+            "Port": 9999,
+            "AET": "DCMTK",
+            "UseDicomTls": true
+        },
+        "dcmtk-no-tls" : {
+            "Host": "localhost",
+            "Port": 9999,
+            "AET": "DCMTKNOTLS",
+            "UseDicomTls": false
+        }
+    }
+}
+
+  

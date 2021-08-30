@@ -1,0 +1,21 @@
+version: "3.3"
+services:
+    orthanc-a-server:
+        build:
+            context: .
+            dockerfile: orthanc-a-server/Dockerfile
+        ports: ["8042:8042", "4242:4242"]
+        volumes:
+        - "orthanc-a-storage:/var/lib/orthanc/db"
+
+    orthanc-b-server:
+        build:
+            context: .
+            dockerfile: orthanc-b-server/Dockerfile
+        ports: ["8043:8042", "4243:4242"]
+        volumes:
+            - "orthanc-b-storage:/var/lib/orthanc/db"
+    
+volumes:
+    orthanc-a-storage:
+    orthanc-b-storage:
