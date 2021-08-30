@@ -15,10 +15,11 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 ## Getting started
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
+- [Various configuration](docker/all-usages) to demonstrate the different ways to configure the Docker images.
 - [Stone Web Viewer](docker/stone-viewer) to demonstrate how to enable the [Stone Web Viewer plugin](https://book.orthanc-server.com/plugins/stone-webviewer.html).
 - [Orthanc + PostgreSQL](docker/postgresql) to demonstrate how to use the Orthanc [PostgreSQL plugin](https://book.orthanc-server.com/plugins/postgresql.html)
-- [Various configuration](docker/all-usages) to demonstrate the different ways to configure the Docker images.
 - [Orthanc + MySQL](docker/mysql) to demonstrate how to use the Orthanc [MySQL plugin](https://book.orthanc-server.com/plugins/mysql.html)
+- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [ODBC plugin](https://book.orthanc-server.com/plugins/odbc.html)
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
 - [Orthanc peering](docker/peering) to demonstrate Orthanc peering.
 - [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
@@ -54,7 +55,6 @@ Note that the osimis.azurecr.io/orthanc-pro images are private.  Access is restr
 - [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
 - [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
 - [Orthanc on Google Cloud](docker/google-cloud-storage) to demonstrate how to use the Orthanc in an Google Cloud environment (using SQL Instance and Google Cloud Storage)
-- [Orthanc + MSSQL](docker/mssql) to demonstrate how to use the Orthanc [MSSQL plugin](https://osimis.atlassian.net/wiki/spaces/OKB/pages/302743840/MSSQL+Index+plugin)
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 
 

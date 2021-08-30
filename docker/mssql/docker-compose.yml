@@ -1,30 +1,56 @@
 version: "2"
 services:
-  orthanc:
-    image: osimis.azurecr.io/orthanc-pro
-    depends_on: [index]
-    ports: ["104:4242", "8042:8042"]
-    volumes: ["storage:/var/lib/orthanc/db:Z"]
+  orthanc-new-mssql:
+    build: new-orthanc
+    depends_on: [new-index]
+    ports: ["8043:8042"]
+    volumes: ["new-storage:/var/lib/orthanc/db"]
     environment:
-      # note: this is a trial license expiring on 2020-12-01, replace with your license code
-      # Prefer using Docker secret instead of environment variable whenever possible
-      ORTHANC__MSSQL__LICENSE_STRING: "1abaamJzhu65d5PAXL0___demo%osimis.io___aaabLFs2e9i7vzdttLR9DEgYzutb25VJkbTn7nUn9AvDVbu3"
-      ORTHANC__MSSQL__CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:index,1433;Database=master;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
-      ORTHANC__MSSQL__MAXIMUM_CONNECTION_RETRIES: 4
-      ORTHANC__MSSQL__CONNECTION_RETRY_INTERVAL: 8
+      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:new-index,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
+      ORTHANC__ODBC__ENABLE_INDEX: "true"
+      ORTHANC__ODBC__ENABLE_STORAGE: "false"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
       VERBOSE_STARTUP: "true"
       VERBOSE_ENABLED: "true"
     restart: unless-stopped
-  index:
-    image: microsoft/mssql-server-linux
-    ports: ["1433:1433"]
-    volumes: ["index:/var/opt/mssql/data:Z"]
+  new-index:
+    build: new-index
+    ports: ["1434:1433"]
+    volumes: ["new-index:/var/opt/mssql"]
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "MyStrOngPa55word!"
-
     restart: unless-stopped
+
+  # Before the ODBC plugin was released, the MSSQL plugin was a commercial plugin to interact with MSSQL server.
+  # It is now being replaced by the ODBC plugin.  However, we keep this documentation for users who have not migrated yet.
+  # 
+  # orthanc-old-mssql:
+  #   image: osimis.azurecr.io/orthanc-pro
+  #   depends_on: [old-index]
+  #   ports: ["104:4242", "8042:8042"]
+  #   volumes: ["old-storage:/var/lib/orthanc/db"]
+  #   environment:
+  #     # note: this is a trial license expiring on 2021-10-30, replace with your license code
+  #     # Prefer using Docker secret instead of environment variable whenever possible
+  #     ORTHANC__MSSQL__LICENSE_STRING: "1amaazsPWSfX6YnLL|0___demo%osimis.io___aaabU5Mjv8VqPBz4SMdSMVdEExy8W2DKGyW6mzFxWufFPW"
+  #     ORTHANC__MSSQL__CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:old-index,1433;Database=master;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
+  #     ORTHANC__MSSQL__MAXIMUM_CONNECTION_RETRIES: 4
+  #     ORTHANC__MSSQL__CONNECTION_RETRY_INTERVAL: 8
+  #     ORTHANC__AUTHENTICATION_ENABLED: "false"
+  #     VERBOSE_STARTUP: "true"
+  #     VERBOSE_ENABLED: "true"
+  #   restart: unless-stopped
+  # old-index:
+  #   image: mcr.microsoft.com/mssql/server:2019-latest
+  #   ports: ["1433:1433"]
+  #   volumes: ["old-index:/var/opt/mssql"]
+  #   environment:
+  #     ACCEPT_EULA: "Y"
+  #     SA_PASSWORD: "MyStrOngPa55word!"
+
 volumes:
-  storage:
-  index:
+  new-storage:
+  new-index:
+  # old-storage:
+  # old-index:
