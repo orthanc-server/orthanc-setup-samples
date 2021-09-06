@@ -17,7 +17,7 @@ Access is restricted to companies who have subscribed a [support contract](https
 ## Cloud Storage
 
 - Create a new storage bucket in the Google Cloud Console (i.e: your-orthanc-test-bucket)
-- create a new JSON [https://cloud.google.com/docs/authentication/getting-started](Service Account) for your application.
+- create a new JSON [Service Account](https://cloud.google.com/docs/authentication/getting-started) for your application.
 - make sure that this service account will have access to your bucket
 - download the JSON file and save it in service-account.json in this project folder
 - Update the environment variables in the docker-compose.yml with the BucketName
