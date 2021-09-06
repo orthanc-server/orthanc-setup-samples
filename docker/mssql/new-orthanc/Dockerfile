@@ -1,4 +1,4 @@
-FROM osimis/orthanc:master
+FROM osimis/orthanc
 
 RUN apt-get update
 RUN apt-get --assume-yes install curl gnupg2
