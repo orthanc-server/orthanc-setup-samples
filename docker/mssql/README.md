@@ -7,8 +7,7 @@ MSSQL database for its index using the [ODBC plugin](https://book.orthanc-server
 
 This demo contains:
 
-- an Orthanc container with the ODBC plugin enabled.  Note that the MSODBC drivers are not installed
-  by default in the `osimis/orthanc` images so you must build your own image with a [Dockerfile](new-orthanc/Dockerfile)
+- an Orthanc container with the ODBC plugin enabled.
 - a MSSQL container that will store the Orthanc Index DB (the dicom files are stored in a Docker volume)
 
 The MSSQL container has been customized to create the Orthanc DB at startup.
