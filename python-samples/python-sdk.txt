@@ -1,3 +1,5 @@
+-Orthanc SDK methods wrapped in python (plugin version 3.4)
+
 Function AutodetectMimeType():
   Documentation: Generated from C function OrthancPluginAutodetectMimeType()
 
