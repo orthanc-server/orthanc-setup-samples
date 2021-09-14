@@ -1,5 +1,3 @@
-Orthanc SDK methods wrapped in python (plugin version 3.2)
-
 Function AutodetectMimeType():
   Documentation: Generated from C function OrthancPluginAutodetectMimeType()
 
@@ -67,6 +65,9 @@ Class ContentType:
   - Enumeration value DICOM_AS_JSON: 2
   - Enumeration value UNKNOWN: 0
 
+Function CreateDicom():
+  Documentation: None
+
 Class CreateDicomFlags:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginCreateDicomFlags
   - Enumeration value DECODE_DATA_URI_SCHEME: 1
@@ -82,6 +83,9 @@ Function CreateFindMatcher():
 Function CreateImage():
   Documentation: Generated from C function OrthancPluginCreateImage()
 
+Function CreateImageFromBuffer():
+  Documentation: None
+
 Function CreateMemoryBuffer():
   Documentation: Generated from C function OrthancPluginCreateMemoryBuffer()
 
@@ -94,6 +98,7 @@ Function DicomBufferToJson():
 Class DicomInstance:
   Documentation: Generated from Orthanc C class: OrthancPluginDicomInstance
   - Method GetInstanceAdvancedJson(): Generated from C function OrthancPluginGetInstanceAdvancedJson()
+  - Method GetInstanceData(): Generated from C function OrthancPluginGetInstanceData()
   - Method GetInstanceDecodedFrame(): Generated from C function OrthancPluginGetInstanceDecodedFrame()
   - Method GetInstanceFramesCount(): Generated from C function OrthancPluginGetInstanceFramesCount()
   - Method GetInstanceJson(): Generated from C function OrthancPluginGetInstanceJson()
@@ -243,11 +248,6 @@ Class ErrorCode:
   - Enumeration value UNSUPPORTED_MEDIA_TYPE: 3000
   - Enumeration value URI_SYNTAX: 12
 
-Class Exception:
-  Documentation: Common base class for all non-exit exceptions.
-  - Method with_traceback(): Exception.with_traceback(tb) --
-set self.__traceback__ to tb and return self.
-
 Function ExtendOrthancExplorer():
   Documentation: Generated from C function OrthancPluginExtendOrthancExplorer()
 
@@ -263,6 +263,8 @@ Class FindMatcher:
 Class FindQuery:
   Documentation: Generated from Orthanc C class: OrthancPluginFindQuery
   - Method GetFindQuerySize(): Generated from C function OrthancPluginGetFindQuerySize()
+  - Method GetFindQueryTagElement(): Generated from C function OrthancPluginGetFindQueryTag()
+  - Method GetFindQueryTagGroup(): Generated from C function OrthancPluginGetFindQueryTag()
   - Method GetFindQueryTagName(): Generated from C function OrthancPluginGetFindQueryTagName()
   - Method GetFindQueryValue(): Generated from C function OrthancPluginGetFindQueryValue()
 
@@ -347,6 +349,7 @@ Class Image:
   Documentation: Generated from Orthanc C class: OrthancPluginImage
   - Method ConvertPixelFormat(): Generated from C function OrthancPluginConvertPixelFormat()
   - Method DrawText(): Generated from C function OrthancPluginDrawText()
+  - Method GetImageBuffer(): Generated from C function OrthancPluginGetImageBuffer()
   - Method GetImageHeight(): Generated from C function OrthancPluginGetImageHeight()
   - Method GetImagePitch(): Generated from C function OrthancPluginGetImagePitch()
   - Method GetImagePixelFormat(): Generated from C function OrthancPluginGetImagePixelFormat()
@@ -393,6 +396,9 @@ Function LogInfo():
 Function LogWarning():
   Documentation: Generated from C function OrthancPluginLogWarning()
 
+Function LookupDictionary():
+  Documentation: None
+
 Function LookupInstance():
   Documentation: Generated from C function OrthancPluginLookupInstance()
 
@@ -412,6 +418,11 @@ Class MetricsType:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginMetricsType
   - Enumeration value DEFAULT: 0
   - Enumeration value TIMER: 1
+
+Class OrthancException:
+  Documentation: Common base class for all non-exit exceptions.
+  - Method with_traceback(): Exception.with_traceback(tb) --
+set self.__traceback__ to tb and return self.
 
 Class Peers:
   Documentation: Generated from Orthanc C class: OrthancPluginPeers
@@ -443,7 +454,13 @@ Function RegisterDictionaryTag():
 Function RegisterErrorCode():
   Documentation: Generated from C function OrthancPluginRegisterErrorCode()
 
+Function RegisterFindCallback():
+  Documentation: None
+
 Function RegisterIncomingHttpRequestFilter():
+  Documentation: None
+
+Function RegisterMoveCallback():
   Documentation: None
 
 Function RegisterOnChangeCallback():
@@ -456,6 +473,12 @@ Function RegisterPrivateDictionaryTag():
   Documentation: Generated from C function OrthancPluginRegisterPrivateDictionaryTag()
 
 Function RegisterRestCallback():
+  Documentation: None
+
+Function RegisterStorageArea():
+  Documentation: None
+
+Function RegisterWorklistCallback():
   Documentation: None
 
 Class ResourceType:
@@ -576,6 +599,7 @@ Class ValueRepresentation:
 
 Class WorklistAnswers:
   Documentation: Generated from Orthanc C class: OrthancPluginWorklistAnswers
+  - Method WorklistAddAnswer(): Generated from C function OrthancPluginWorklistAddAnswer()
   - Method WorklistMarkIncomplete(): Generated from C function OrthancPluginWorklistMarkIncomplete()
 
 Class WorklistQuery:
@@ -588,3 +612,6 @@ Function WriteFile():
 
 Class __loader__:
   Documentation: Meta path import for built-in modules.
+
+All methods are either class or static methods to avoid the need to
+instantiate the class.
