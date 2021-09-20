@@ -1,0 +1,23 @@
+version: "2"
+services:
+  orthanc:
+    image: osimis/orthanc:21.9.1
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - "/tmp/orthanc-logs-docker:/logs"
+
+    environment:
+      ORTHANC__NAME: "Orthanc behind NGINX"
+
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+      
+      LOGFILE: "/logs/log"
+      ORTHANC__DE_IDENTIFY_LOGS: "false"
+
+volumes:
+  orthanc-storage:
