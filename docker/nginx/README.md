@@ -8,6 +8,7 @@ This demo contains:
 
 - a nginx container that provides a web server on port 80.  It exposes Orthanc on the subroute [/orthanc/](http://localhost:/orthanc/).
 - an orthanc container
+- a Postgresql container to store the Orthanc database
 
 # Starting the setup
 
