@@ -16,7 +16,7 @@ services:
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
       
-      LOGFILE: "/logs/log"
+      LOGDIR: "/logs"
       ORTHANC__DE_IDENTIFY_LOGS: "false"
 
 volumes:
