@@ -33,7 +33,8 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [C-Find requests filtering](docker/dicom-cfind-filter-lua) to demonstrate how you can modify C-Find requests in a lua script.
 - [Orthanc transcode middleman (lua)](docker/transcode-middleman) to demonstrate how to use Orthanc to change the TransferSyntax of instances inbetween a modality and a PACS.
 - [Orthanc sanitizer middleman (python)](docker/sanitize-middleman-python) to demonstrate how to use Orthanc to sanitize instances between a modality and a PACS (modify tags + change the TransferSyntax).
-- [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
+- [Running Orthanc behind a nginx reverse proxy](docker/nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
+- [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind nginx that is implementing TLS.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 - [Use DICOM TLS](docker/dicom-tls) to demonstrate how to configure DICOM TLS between 2 Orthanc instances.
 

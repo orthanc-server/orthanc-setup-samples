@@ -1,0 +1,22 @@
+version: "2"
+services:
+  orthanc:
+    image: osimis/orthanc
+    depends_on: [index]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      ORTHANC__NAME: "Orthanc behind NGINX"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+    restart: unless-stopped
+
+  nginx:
+    build: nginx
+    depends_on: [orthanc]
+    restart: unless-stopped
+    ports: ["80:80"]
+
+volumes:
+  orthanc-storage:
