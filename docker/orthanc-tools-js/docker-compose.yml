@@ -20,6 +20,8 @@ services:
             DB_HOST: "postgres-js"
             DB_PORT: 5432
             DB_NAME: postgres
+            DOMAIN_PROTOCOL: "http"
+            DOMAIN_ADDRESS: "localhost:4000"
 
     redis:
         image: redis:alpine
@@ -27,7 +29,7 @@ services:
     postgres-js:
         image: postgres:13.1
         environment:
-            POSTGRES_DB : "orthanctoolsjs"
+            POSTGRES_DB : "postgres"
             POSTGRES_HOST_AUTH_METHOD: "trust"
         volumes:
             - postgres-js:/var/lib/postgresql/data
