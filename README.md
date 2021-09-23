@@ -27,6 +27,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
 - [Orthanc Python plugin](docker/python) to demonstrate the use of the Python plugin.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
+- [Orthanc Tools JS](docker/orthanc-tools-js) to demonstrate the of [OrthancToolsJS](https://github.com/salimkanoun/Orthanc-Tools-JS/) tools developed by Salim Kanoun and his team.
 
 ## for advanced users
 - [Dicom modification of received instances](docker/modify-instances) to demonstrate how to use Orthanc to modify incoming instances.

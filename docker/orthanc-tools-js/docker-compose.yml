@@ -1,0 +1,64 @@
+version: "3"
+
+services:
+    orthanctoolsjs:
+        image: salimkanoun/orthanctoolsjs
+        restart: unless-stopped
+        ports: ["4000:4000"]
+        volumes: ["orthanctoolsjs:/OrthancToolsJs/data"]
+        environment:
+            TZ: "Europe/Paris"
+            ORTHANC_ADDRESS: "http://orthanc"
+            ORTHANC_PORT: "8042"
+            ORTHANC_USERNAME: "demo"
+            ORTHANC_PASSWORD: "demo"
+            REDIS_HOST: "redis"
+            REDIS_PORT: "6379"
+            REDIS_PASSWORD: ""
+            DB_USERNAME: "postgres"
+            DB_PASSWORD: "postgres"
+            DB_HOST: "postgres-js"
+            DB_PORT: 5432
+            DB_NAME: postgres
+
+    redis:
+        image: redis:alpine
+
+    postgres-js:
+        image: postgres:13.1
+        environment:
+            POSTGRES_DB : "orthanctoolsjs"
+            POSTGRES_HOST_AUTH_METHOD: "trust"
+        volumes:
+            - postgres-js:/var/lib/postgresql/data
+        restart: unless-stopped
+
+    orthanc:
+        image: osimis/orthanc
+        restart: unless-stopped
+        ports: ["8042:8042"]
+        volumes: ["orthanc:/var/lib/orthanc/db"]
+        environment:
+            ORTHANC__NAME: "OrthancToolsJS"
+            ORTHANC__DICOM_SERVER_ENABLED: "true"
+            ORTHANC__DICOM_MODALITIES_IN_DATABASE: "true"
+            ORTHANC__DATABASE_SERVER_IDENTIFIER : "Orthanc1"
+            ORTHANC__ORTHANC_PEERS_IN_DATABASE: "true"
+            DICOM_WEB_PLUGIN_ENABLED: "true"
+            OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+            TRANSFERS_PLUGIN_ENABLED: "true"
+            WORKLISTS_PLUGIN_ENABLED: "true"
+            ORTHANC__REGISTERED_USERS: |
+                {"demo": "demo"}
+            ORTHANC__DICOM_WEB__ENABLE: "true"
+            ORTHANC__DICOM_WEB__ROOT: "/dicom-web/"
+            ORTHANC__DICOM_WEB__ENABLEWADO: "true"
+            ORTHANC__DICOM_WEB__WADOROOT: "/wado"
+            ORTHANC__DICOM_WEB__SSL: "true"
+            ORTHANC__DICOM_WEB__STUDIESMETADATA: "MainDicomTags"
+            ORTHANC__DICOM_WEB__SERIESMETADATA: "Full"
+
+volumes:
+  orthanc:
+  postgres-js:
+  orthanctoolsjs:
