@@ -1,0 +1,19 @@
+version: "3"
+services:
+  orthanc-pacs:
+    image: osimis/orthanc:current
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes:
+      - "../../dicomFiles:/dicom-files"
+      - "orthanc-storage:/var/lib/orthanc/db"
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__NAME: "Orthanc with Indexer plugin"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+      ORTHANC__INDEXER__FOLDERS: |
+        ["/dicom-files"]
+volumes:
+  orthanc-storage:
