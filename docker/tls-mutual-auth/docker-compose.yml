@@ -1,8 +1,7 @@
-version: "2"
+version: "3.4"
 services:
   orthanc-a:
-    # TODO: upgrade to an image containing Orthanc 1.7.4
-    image: osimis/orthanc:dev
+    image: osimis/orthanc
     ports: ["8042:8042"]
     volumes: ["./tls:/tls", ]
     environment:
@@ -33,11 +32,11 @@ services:
           }
         }
   orthanc-b:
-    # TODO: upgrade to an image containing Orthanc 1.7.4
-    image: osimis/orthanc:dev
+    image: osimis/orthanc
     ports: ["8043:8042"]
     volumes: ["./tls:/tls"]
     environment:
+      VERBOSE_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
@@ -49,3 +48,9 @@ services:
           "SslTrustedClientCertificates": "/tls/client-crt.pem",
           "SslVerifyPeers": true
         }
+    healthcheck:
+      test: ["CMD-SHELL", "/probes/test-aliveness.py --certfile=/tls/client-crt.pem --keyfile=/tls/client-key.pem"]
+      start_period: 10s
+      retries: 2
+      interval: 10s
+      timeout: 5s
