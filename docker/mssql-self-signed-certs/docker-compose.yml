@@ -1,0 +1,40 @@
+version: "2"
+services:
+  orthanc:
+    build:
+      context: .
+      dockerfile: orthanc/Dockerfile
+    depends_on: [index-mssql]
+    ports: ["8043:8042"]
+    volumes: 
+      - storage:/var/lib/orthanc/db
+
+    environment:
+      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:index-mssql,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+      ORTHANC__ODBC__ENABLE_INDEX: "true"
+      ORTHANC__ODBC__ENABLE_STORAGE: "false"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+    restart: unless-stopped
+  index-mssql:
+    build:  
+      context: .
+      dockerfile: index/Dockerfile
+    ports: ["1434:1433"]
+    volumes: 
+      - index:/var/opt/mssql
+      - ./index/mssql.conf:/var/opt/mssql/mssql.conf
+      - ./tls/mssql.pem:/etc/ssl/certs/mssql.pem
+      - ./tls/mssql.key:/etc/ssl/private/mssql.key
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "MyStrOngPa55word!"
+    restart: unless-stopped
+    # entrypoint: bash
+    # stdin_open: true # docker run -i
+    # tty: true        # docker run -t
+
+volumes:
+  storage:
+  index:
