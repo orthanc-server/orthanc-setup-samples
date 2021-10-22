@@ -29,10 +29,17 @@ reachable via port 104 on the Docker host.
 
 
 
+# useful debug commands
 
-openssl s_client -showcerts -verify 5 -connect dicom-db.database.windows.net:1433
-openssl s_client -connect index-mssql:1433
+note: it is not possible to validate the certificate with openssl s_client
+```
+openssl s_client -showcerts -verify 5-connect index-mssql:1433
+```
 
+note: the sqlcmd never seems to check the server certificate with or without the `-E` option.
+
+```
 /opt/mssql-tools/bin/sqlcmd -S index-mssql,1433 -U sa -P MyStrOngPa55word!
 >1 select name from sys.databases;
 >2 go
+```
