@@ -3,7 +3,7 @@ Foreword:
 
 - We've tested upload both with storescu and pynetdicom.  In all cases, storescu was 20-30% faster therefore, we used storescu for all our tests
 - tests were performed with orthanc mainline and GDCM mainline (nov 11 2021) but a quick test with 21.10.0 leads to the same results.
-
+- measures are not accurate at all, I've performed the measures only once
 
 
 Test with Orthanc storage on a SSD - storescu
@@ -21,7 +21,8 @@ Test with Orthanc storage on a SSD - storescu
 | transcoding with GDCM to JPEG lossless (.70) - DicomThreads = 4    |            28.8 |             27.4 |                  |             27.1 |             41.6 |
 
 Performance is very poor with a single storescu (around 13 images/sec) but there's no impact of muliple concurrent connections:  with 8 concurrent connections,
-we reach around 110 images/sec and even 145 images/sec with 16 concurrent connections.  We still need to understand why !  
+we reach around 110 images/sec and even 145 images/sec with 16 concurrent connections.  It seems that storescu is sort of "idle" for 50ms (see below in the analysis)
+and this explains why Orthanc seems to be idle too hence it accepts multiple storescu without any impact (up to a certain limit of course !)
 
 
 
@@ -36,8 +37,25 @@ Same setup as SSD-storescu but uploading files with a python HTTP client in `htt
 | no ingest transcoding                                              |             6.8 |              7.1 |              8.8 |             18.0 |             38.4 |
 | transcoding with DCMTK to JPEG lossless (.70)                      |             9.6 |              9.6 |             12.0 |             18.7 |             40.7 |
 | transcoding with GDCM to JPEG lossless (.70)                       |             9.9 |              9.9 |             11.7 |             19.9 |             39.2 |
-  
 
+A single HTTP client is able to handle 54 images/sec.  Top performance is reached with 4-8 HTTP clients (165 images/sec)
+
+
+
+Test with Orthanc storage on a SSD - Orthanc as the C-Store SCU
+----------------------------------------------------------------
+
+Same setup as SSD-storescu but sending file over DICOM from another Orthanc:
+
+
+|                                                                    | single movescu  | 2 movescu in //  | 4 movescu in //  | 8 movescu in //  | 16 movescu in // |
+| ------------------------------------------------------------------ | --------------- | ---------------- | ---------------- | ---------------- | ---------------- |
+| no transcoding - DicomThreads @dest = 1 - DicomThreads @src = 4    |             4.1 |              7.6 |             15.0 |             30.4 |                  |
+| no transcoding - DicomThreads @dest = 4 - DicomThreads @src = 4    |             4.3 |              4.8 |              7.3 |             14.5 |                  |
+| no transcoding - DicomThreads @dest =16 - DicomThreads @src = 1    |             3.8 |              7.6 |             15.2 |             32.2 |                  |
+| no transcoding - DicomThreads @dest =16 - DicomThreads @src = 16   |             4.1 |              3.9 |              6.8 |             13.8 |             27.3 |
+
+A single movescu between 2 Orthancs is able to handle 90 images/sec.  Top performance is reached with 4-8 movescu in parallel 4-8 HTTP clients (213 images/sec)
 
 Test with Orthanc storage on a HDD - storescu
 ---------------------------------------------
@@ -78,7 +96,8 @@ orthanc-ssd_1        | Data Set                      : present
 orthanc-ssd_1        | Priority                      : medium
 orthanc-ssd_1        | ======================= END DIMSE MESSAGE =======================
 orthanc-ssd_1        | I1110 11:40:45.084120 main.cpp:352] Incoming Store request from AET STORESCU on IP 192.168.96.1, calling AET ORTHANC
---> 60ms to receive data (compared to 11ms in HTTP !)
+--> 60ms to receive data (compared to 11ms in HTTP !)  Note: it seems it's coming from storescu itself and explains why multiple concurrent storescu 
+    can execute together since they seem to be idle most of the time !
 orthanc-ssd_1        | T1110 11:40:45.141900 OrthancPlugins.cpp:5186] (plugins) Calling service 38 from plugin /usr/share/orthanc/plugins/libOrthancGdcm.so
 orthanc-ssd_1        | I1110 11:40:45.143408 FilesystemStorage.cpp:124] Creating attachment "285b89df-1d0b-4cac-ac0f-9a206640b2c8" of "DICOM" type (size: 1MB)
 orthanc-ssd_1        | I1110 11:40:45.148557 StatelessDatabaseOperations.cpp:3024] Overwriting instance: f626cc11-109c30d0-c200eb48-4e2934e6-04cb56e8

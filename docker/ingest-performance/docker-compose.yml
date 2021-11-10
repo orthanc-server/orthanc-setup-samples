@@ -10,10 +10,11 @@ services:
     environment:
       VERBOSE_STARTUP: "true"
       #TRACE_ENABLED: "true"
+      ORTHANC__DICOM_AET: "ORTHANC-SSD"
       ORTHANC__POSTGRESQL__HOST: "orthanc-index-ssd"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
-      ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
-      ORTHANC__DICOM_THREADS_COUNT: 4
+      # ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
+      ORTHANC__DICOM_THREADS_COUNT: 16
       ORTHANC__DICOM_ALWAYS_ALLOW_STORE: "true"
       ORTHANC__OVERWRITE_INSTANCES: "true"
       ORTHANC__GDCM__RESTRICT_TRANSFER_SYNTAXES: |
@@ -36,6 +37,7 @@ services:
     ports: ["9043:8042", "5043:4242"]
     volumes: ["/mnt/usb-hdd/orthanc-storage:/var/lib/orthanc/db"]
     environment:
+      ORTHANC__DICOM_AET: "ORTHANC-HDD"
       ORTHANC__POSTGRESQL__HOST: "orthanc-index-hdd"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
       ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
@@ -50,7 +52,29 @@ services:
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
+  orthanc-source:
+    image: osimis/orthanc:current
+    restart: unless-stopped
+    ports: ["9044:8042", "5044:4242"]
+    volumes: ["orthanc-storage-source:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      #TRACE_ENABLED: "true"
+      ORTHANC__DICOM_AET: "ORTHANC-SOURCE"
+      ORTHANC__DICOM_THREADS_COUNT: 16
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__DICOM_ALWAYS_ALLOW_STORE: "true"
+      ORTHANC__DICOM_ALWAYS_ALLOW_MOVE: "true"
+      ORTHANC__OVERWRITE_INSTANCES: "true"
+      ORTHANC__DICOM_MODALITIES: |
+        {
+          "ssd": ["ORTHANC-SSD", "orthanc-ssd", 4242],
+          "hdd": ["ORTHANC-HDD", "orthanc-hdd", 4242]
+        }
+
+
 volumes:
   orthanc-storage-ssd:
   orthanc-index-ssd:
   orthanc-index-hdd:
+  orthanc-storage-source:
