@@ -55,7 +55,7 @@ Same setup as SSD-storescu but sending file over DICOM from another Orthanc:
 | no transcoding - DicomThreads @dest =16 - DicomThreads @src = 1    |             3.8 |              7.6 |             15.2 |             32.2 |                  |
 | no transcoding - DicomThreads @dest =16 - DicomThreads @src = 16   |             4.1 |              3.9 |              6.8 |             13.8 |             27.3 |
 
-A single movescu between 2 Orthancs is able to handle 90 images/sec.  Top performance is reached with 4-8 movescu in parallel 4-8 HTTP clients (213 images/sec)
+A single movescu between 2 Orthancs is able to handle 90 images/sec.  Top performance is reached with 4-8 movescu in parallel (213 images/sec)
 
 Test with Orthanc storage on a HDD - storescu
 ---------------------------------------------
