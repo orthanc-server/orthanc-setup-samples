@@ -1,11 +1,13 @@
 
 Foreword: 
+
 - We've tested upload both with storescu and pynetdicom.  In all cases, storescu was 20-30% faster therefore, we used storescu for all our tests
 - tests were performed with orthanc mainline and GDCM mainline (nov 11 2021) but a quick test with 21.10.0 leads to the same results.
 
 
-Test with Orthanc storage on a SSD
-----------------------------------
+
+Test with Orthanc storage on a SSD - storescu
+---------------------------------------------
 
 - source image is a CT with 373 slices in Little Endian Explicit (187MB) on a SSD
 - source is on a SSD, orthanc-storage on SSD
@@ -22,7 +24,11 @@ Performance is very poor with a single storescu (around 13 images/sec) but there
 we reach around 110 images/sec and even 145 images/sec with 16 concurrent connections.  We still need to understand why !  
 
 
-now uploading files with http_upload.py:
+
+Test with Orthanc storage on a SSD - HTTP client
+------------------------------------------------
+
+Same setup as SSD-storescu but uploading files with a python HTTP client in `http_upload.py`:
 
 
 |                                                                    | single client   | 2 clients in //  | 4 clients in //  | 8 clients in //  | 16 clients in // |
@@ -33,8 +39,8 @@ now uploading files with http_upload.py:
   
 
 
-Test with Orthanc storage on a HDD
-----------------------------------
+Test with Orthanc storage on a HDD - storescu
+---------------------------------------------
 
 - source image is a CT with 373 slices in Little Endian Explicit (187MB)
 - source is on a SSD, orthanc-storage on USB2 HDD (very slow !)
