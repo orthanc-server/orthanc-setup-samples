@@ -9,12 +9,12 @@ services:
     volumes: ["orthanc-storage-ssd:/var/lib/orthanc/db"]
     environment:
       VERBOSE_STARTUP: "true"
-      #TRACE_ENABLED: "true"
+      TRACE_ENABLED: "true"
       ORTHANC__DICOM_AET: "ORTHANC-SSD"
       ORTHANC__POSTGRESQL__HOST: "orthanc-index-ssd"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
-      # ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
-      ORTHANC__DICOM_THREADS_COUNT: 16
+      ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
+      ORTHANC__DICOM_THREADS_COUNT: 4
       ORTHANC__DICOM_ALWAYS_ALLOW_STORE: "true"
       ORTHANC__OVERWRITE_INSTANCES: "true"
       ORTHANC__GDCM__RESTRICT_TRANSFER_SYNTAXES: |

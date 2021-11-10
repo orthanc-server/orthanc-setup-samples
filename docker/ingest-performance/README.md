@@ -100,6 +100,7 @@ orthanc-ssd_1        | I1110 11:40:45.084120 main.cpp:352] Incoming Store reques
     can execute together since they seem to be idle most of the time !
 orthanc-ssd_1        | T1110 11:40:45.141900 OrthancPlugins.cpp:5186] (plugins) Calling service 38 from plugin /usr/share/orthanc/plugins/libOrthancGdcm.so
 orthanc-ssd_1        | I1110 11:40:45.143408 FilesystemStorage.cpp:124] Creating attachment "285b89df-1d0b-4cac-ac0f-9a206640b2c8" of "DICOM" type (size: 1MB)
+--> 3-4ms to create the attachment and write it
 orthanc-ssd_1        | I1110 11:40:45.148557 StatelessDatabaseOperations.cpp:3024] Overwriting instance: f626cc11-109c30d0-c200eb48-4e2934e6-04cb56e8
 orthanc-ssd_1        | T1110 11:40:45.149801 ServerIndex.cpp:141] Remaining ancestor "a9c10850-fe5e33cb-edc73fd8-44293d8e-23cec1da" (3)
 orthanc-ssd_1        | T1110 11:40:45.149841 ServerIndex.cpp:174] Change related to resource f626cc11-109c30d0-c200eb48-4e2934e6-04cb56e8 of type Instance: Deleted
@@ -114,8 +115,47 @@ orthanc-ssd_1        | T1110 11:40:45.163888 CommandDispatcher.cpp:757] (dicom) 
 ```
 
 
+Detailed analisys of Orthanc->Orthanc transfers logs:
+-------------------------------------
 
-Detailed analisys of http client logs:
+```
+orthanc-ssd_1        | I1110 15:06:44.345411 ServerContext.cpp:624] New instance stored
+--> no time lost between 2 instances like we observed with storescu
+orthanc-ssd_1        | T1110 15:06:44.346537 CommandDispatcher.cpp:757] (dicom) Received Command:
+orthanc-ssd_1        | ===================== INCOMING DIMSE MESSAGE ====================
+orthanc-ssd_1        | Message Type                  : C-STORE RQ
+orthanc-ssd_1        | Presentation Context ID       : 1
+orthanc-ssd_1        | Message ID                    : 365
+orthanc-ssd_1        | Affected SOP Class UID        : CTImageStorage
+orthanc-ssd_1        | Affected SOP Instance UID     : 1.2.276.0.7230010.3.1.4.313263104.1.1536143748.617777
+orthanc-ssd_1        | Data Set                      : present
+orthanc-ssd_1        | Priority                      : medium
+orthanc-ssd_1        | Move Originator AE Title      : MOVESCU
+orthanc-ssd_1        | Move Originator ID            : 1
+orthanc-ssd_1        | ======================= END DIMSE MESSAGE =======================
+orthanc-ssd_1        | I1110 15:06:44.346579 main.cpp:352] Incoming Store request from AET ORTHANC-SOURCE on IP 192.168.96.4, calling AET ORTHANC-SSD
+--> 9 ms to receive the file and start transcoding it
+--> only 1 ms to transcode !!
+orthanc-ssd_1        | T1110 15:06:44.355704 OrthancPlugins.cpp:5186] (plugins) Calling service 38 from plugin /usr/share/orthanc/plugins/libOrthancGdcm.so
+orthanc-ssd_1        | I1110 15:06:44.356947 FilesystemStorage.cpp:124] Creating attachment "3958ded1-fcb5-4acb-873e-d2cd6cd77d29" of "DICOM" type (size: 1MB)
+--> 3-4ms to create the attachment and write it
+orthanc-ssd_1        | I1110 15:06:44.360243 StatelessDatabaseOperations.cpp:3024] Overwriting instance: 00bd4a1a-c36ba578-efb4b9c1-6a796851-dccac23f
+orthanc-ssd_1        | T1110 15:06:44.361468 ServerIndex.cpp:141] Remaining ancestor "a9c10850-fe5e33cb-edc73fd8-44293d8e-23cec1da" (3)
+orthanc-ssd_1        | T1110 15:06:44.361510 ServerIndex.cpp:174] Change related to resource 00bd4a1a-c36ba578-efb4b9c1-6a796851-dccac23f of type Instance: Deleted
+orthanc-ssd_1        | T1110 15:06:44.362070 ServerIndex.cpp:174] Change related to resource 00bd4a1a-c36ba578-efb4b9c1-6a796851-dccac23f of type Instance: NewInstance
+--> new instance change is slower than others: 2ms (observed everytime)
+orthanc-ssd_1        | T1110 15:06:44.364170 ServerIndex.cpp:174] Change related to resource a9c10850-fe5e33cb-edc73fd8-44293d8e-23cec1da of type Series: NewChildInstance
+orthanc-ssd_1        | T1110 15:06:44.364226 ServerIndex.cpp:174] Change related to resource 48208f7a-e436dfef-9d2a1d04-d3a35ceb-94e16ea6 of type Study: NewChildInstance
+orthanc-ssd_1        | T1110 15:06:44.364234 ServerIndex.cpp:174] Change related to resource 17f271d7-b6afebbe-025749a1-05a6c214-02013c4d of type Patient: NewChildInstance
+orthanc-ssd_1        | I1110 15:06:44.365287 FilesystemStorage.cpp:258] Deleting attachment "bcdc7d42-32e2-4f3a-bade-574ee1d8b737" of type 1
+orthanc-ssd_1        | I1110 15:06:44.365490 ServerContext.cpp:624] New instance stored
+orthanc-ssd_1        | T1110 15:06:44.366652 CommandDispatcher.cpp:757] (dicom) Received Command:
+```
+
+
+
+
+Detailed analisys of HTTP transfers logs:
 -------------------------------------
 
 ```
@@ -127,6 +167,7 @@ orthanc-ssd_1        | I1110 11:48:06.403291 OrthancRestApi.cpp:173] (http) Rece
 --> only 1 ms to transcode !!
 orthanc-ssd_1        | T1110 11:48:06.411850 OrthancPlugins.cpp:5186] (plugins) Calling service 38 from plugin /usr/share/orthanc/plugins/libOrthancGdcm.so
 orthanc-ssd_1        | I1110 11:48:06.412929 FilesystemStorage.cpp:124] Creating attachment "71a42b33-cd54-4c7d-9750-959e6dc52094" of "DICOM" type (size: 1MB)
+--> 3-4ms to create the attachment and write it
 orthanc-ssd_1        | I1110 11:48:06.415969 StatelessDatabaseOperations.cpp:3024] Overwriting instance: 69a4cc9d-262168ad-3c1e8ca1-868ddd3e-02a7901c
 orthanc-ssd_1        | T1110 11:48:06.416939 ServerIndex.cpp:141] Remaining ancestor "a9c10850-fe5e33cb-edc73fd8-44293d8e-23cec1da" (3)
 orthanc-ssd_1        | T1110 11:48:06.416976 ServerIndex.cpp:174] Change related to resource 69a4cc9d-262168ad-3c1e8ca1-868ddd3e-02a7901c of type Instance: Deleted
@@ -149,4 +190,5 @@ orthanc-ssd_1        | I1110 11:48:06.428277 HttpServer.cpp:1238] (http) POST /i
 orthanc-ssd_1        | I1110 11:48:06.430627 OrthancRestApi.cpp:173] (http) Receiving a DICOM file of 526018 bytes through HTTP
 
 ```
+
 
