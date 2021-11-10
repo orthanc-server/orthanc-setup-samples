@@ -9,7 +9,7 @@ services:
     volumes: ["orthanc-storage-ssd:/var/lib/orthanc/db"]
     environment:
       VERBOSE_STARTUP: "true"
-      # TRACE_ENABLED: "true"
+      #TRACE_ENABLED: "true"
       ORTHANC__POSTGRESQL__HOST: "orthanc-index-ssd"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
       ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.70"
