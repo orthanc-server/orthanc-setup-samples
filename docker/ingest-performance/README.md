@@ -79,7 +79,7 @@ sudo mount -t drvfs d: /mnt/usb-hdd
 
 
 
-Detailed analisys of DICOM logs:
+Detailed analisys of DICOM logs (storescu):
 -------------------------------
 
 ```
