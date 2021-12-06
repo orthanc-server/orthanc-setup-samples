@@ -1,0 +1,33 @@
+version: "2"
+services:
+  orthanc-under-tests:
+    build: orthanc-under-tests
+    depends_on:
+      - mysql-server
+    environment:
+      ORTHANC__MYSQL__HOST: mysql-server
+      ORTHANC__MYSQL__USERNAME: test-user
+      ORTHANC__MYSQL__DATABASE: orthanc
+      ORTHANC__MYSQL__PASSWORD: foo
+      ORTHANC__MYSQL__ENABLE_INDEX: "true"
+      ORTHANC__MYSQL__ENABLE_STORAGE: "true"
+      VERBOSE_ENABLED: "false"
+
+  orthanc-tests:
+    build: orthanc-tests
+    depends_on:
+      - orthanc-under-tests
+
+  mysql-server:
+    image: mysql:8.0
+    command:
+      [
+        mysqld,
+        --default-authentication-plugin=mysql_native_password,
+        --log-bin-trust-function-creators=1,
+      ]
+    environment:
+      MYSQL_PASSWORD: foo
+      MYSQL_USER: test-user
+      MYSQL_DATABASE: orthanc
+      MYSQL_ROOT_PASSWORD: foo-root

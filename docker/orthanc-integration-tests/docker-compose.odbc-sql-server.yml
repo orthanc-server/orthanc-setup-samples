@@ -1,0 +1,25 @@
+version: "2"
+services:
+  orthanc-under-tests:
+    build: 
+      context: orthanc-under-tests
+      dockerfile: Dockerfile.mssql
+    depends_on:
+      - sql-server
+    environment:
+      #ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:sql-server,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
+      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "DSN=mssql17;Uid=sa;Pwd=MyStrOngPa55word!"
+      ORTHANC__ODBC__ENABLE_INDEX: "true"
+      ORTHANC__ODBC__ENABLE_STORAGE: "true"
+      VERBOSE_ENABLED: "true"
+
+  orthanc-tests:
+    build: orthanc-tests
+    depends_on:
+      - orthanc-under-tests
+
+  sql-server:
+    build: sql-server
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "MyStrOngPa55word!"

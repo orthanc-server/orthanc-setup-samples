@@ -18,7 +18,23 @@
     "DicomScuTimeout" : 10,
 
     "OrthancPeers" : {
-      "peer" : [ "http://orthanc-tests:5000/", "alice", "orthanctest" ]
+      "peer" : [ "http://orthanc-tests:5000/", "alice", "orthanctest" ],
+      "self": {
+        "Password": "orthanctest", 
+        "Url": "http://127.0.0.1:8042/", 
+        "Username": "alice"
+       }, 
+       "transfers-bidirectional": {
+        "Password": "orthanctest", 
+        "RemoteSelf": "transfers-bidirectional", 
+        "Url": "http://localhost:8042/", 
+        "Username": "alice"
+       }, 
+       "transfers-simple": {
+        "Password": "orthanctest", 
+        "Url": "http://localhost:8042/", 
+        "Username": "alice"
+       }
     },
 
     "DicomAet": "ORTHANC",
@@ -35,5 +51,6 @@
     "JobsHistorySize": 1000,
     "SynchronousCMove": false,
     "MediaArchiveSize": 1,
-    "SaveJobs": false
+    "SaveJobs": false,
+    "CheckRevisions": true
   }

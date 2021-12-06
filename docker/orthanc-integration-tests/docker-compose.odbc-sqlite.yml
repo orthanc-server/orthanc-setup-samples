@@ -1,0 +1,16 @@
+version: "2"
+services:
+  orthanc-under-tests:
+    build: orthanc-under-tests
+    environment:
+      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "DSN=sqlite3index"
+      ORTHANC__ODBC__STORAGE_CONNECTION_STRING: "DSN=sqlite3storage"
+      ORTHANC__ODBC__ENABLE_INDEX: "true"
+      ORTHANC__ODBC__ENABLE_STORAGE: "true"
+      # VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+
+  orthanc-tests:
+    build: orthanc-tests
+    depends_on:
+      - orthanc-under-tests
