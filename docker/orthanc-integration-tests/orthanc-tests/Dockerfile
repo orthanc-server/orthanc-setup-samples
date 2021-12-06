@@ -4,7 +4,7 @@ RUN apt-get update
 RUN	DEBIAN_FRONTEND=noninteractive apt-get --assume-yes install mercurial
 
 WORKDIR /
-RUN hg clone https://hg.orthanc-server.com/orthanc-tests/ -r "Orthanc-1.9.7"
+RUN hg clone https://hg.orthanc-server.com/orthanc-tests/ -r "default"
 
 
 FROM jodogne/orthanc-tests

@@ -7,11 +7,12 @@ services:
     depends_on:
       - sql-server
     environment:
-      #ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 17 for SQL Server};Server=tcp:sql-server,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
       ORTHANC__ODBC__INDEX_CONNECTION_STRING: "DSN=mssql17;Uid=sa;Pwd=MyStrOngPa55word!"
+      ORTHANC__ODBC__STORAGE_CONNECTION_STRING: "DSN=mssql17;Uid=sa;Pwd=MyStrOngPa55word!"
       ORTHANC__ODBC__ENABLE_INDEX: "true"
       ORTHANC__ODBC__ENABLE_STORAGE: "true"
-      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "false"
 
   orthanc-tests:
     build: orthanc-tests

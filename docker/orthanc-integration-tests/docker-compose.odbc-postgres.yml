@@ -5,12 +5,11 @@ services:
     depends_on:
       - odbc-pg-server
     environment:
-      # ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={PostgreSQL};Server=pg;Port=5432;Database=postgres;Uid=postgres;Pwd=postgres;"
       ORTHANC__ODBC__INDEX_CONNECTION_STRING: "DSN=postgres"
       ORTHANC__ODBC__STORAGE_CONNECTION_STRING: "DSN=postgres"
       ORTHANC__ODBC__ENABLE_INDEX: "true"
       ORTHANC__ODBC__ENABLE_STORAGE: "true"
-      VERBOSE_ENABLED: "true"
+      VERBOSE_ENABLED: "false"
       VERBOSE_STARTUP: "true"
 
   orthanc-tests:
