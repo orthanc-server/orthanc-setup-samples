@@ -16,6 +16,7 @@ services:
     restart: unless-stopped
   index:
     image: mysql:8.0
+    ports: ["3306:3306"]
     command:
       [
         mysqld,

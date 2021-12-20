@@ -1,4 +1,4 @@
-FROM osimis/orthanc:buster-211115
+FROM osimis/21.12.0-buster
 
 RUN apt-get update
 RUN apt-get --assume-yes install curl gnupg2

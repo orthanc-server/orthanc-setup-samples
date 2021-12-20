@@ -15,5 +15,15 @@ MOVE-SCU
 
 Move 2 studies from ORTHANC to ORTHANCB
 ```
-movescu -S -aec ORTHANC -aet MOVESCU -aem ORTHANCB -k "0008,0052=STUDY" -k "1.2.3.4\2.4.6.8" 127.0.0.1 104
+movescu -S -aec ORTHANC -aet MOVESCU -aem ORTHANCB -k "0008,0052=STUDY" -k "0020,000d=1.2.3.4\2.4.6.8" 127.0.0.1 104
+```
+
+
+STORE-SCU
+=========
+
+Upload a JPEG-LS folder to Orthanc
+
+```
+storescu -xs  -aec ORTHANC -aet STORESCU 127.0.0.1 4242 *
 ```

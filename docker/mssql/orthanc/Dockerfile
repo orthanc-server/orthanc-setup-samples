@@ -1,5 +1,5 @@
 # as of Nov 2021, msodbcsql is not available on bullseye yet -> you need to use the buster image
-FROM osimis/orthanc:21.10.0-buster
+FROM osimis.azurecr.io/orthanc-pro:buster-211115
 
 RUN apt-get update
 RUN apt-get --assume-yes install curl gnupg2
