@@ -16,7 +16,7 @@ This demo contains:
 
 # Starting the setup
 
-- First, you'll need to generate keys and certificates for all modules.  Go in the `tls` folder and type `generate-tls.sh`
+- First, you'll need to generate keys and certificates for all modules.  Go in the `tls` folder and type `./generate-tls.sh`
 - To start the setup, type: `docker-compose up --build`
 
 # demo
