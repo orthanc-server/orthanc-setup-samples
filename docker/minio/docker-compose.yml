@@ -2,7 +2,8 @@ version: "3.3"
 
 services:
     orthanc:
-        build: orthanc
+        # note: you need a post 22.2.0 tag (first tag with S3 plugin included)
+        image: osimis/orthanc
         ports: [8042:8042]
         environment:
             - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=my-sample-bucket

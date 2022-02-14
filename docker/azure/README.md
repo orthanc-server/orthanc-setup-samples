@@ -1,9 +1,6 @@
 # Purpose
 
 This is a sample setup to demonstrate how to run an Orthanc in Azure and persist the data inside an Azure SQL database and Blob Storage.
-Note that you need to have access to osimis.azurecr.io/orthanc-pro Docker images and an MSSQL license string in order to run this sample.
-Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
-Please also note that on SELinux enabled systems, you need to run Docker 17.03.3-ce or later so that the secrets path is relabelled to avoid a Permission Denied which causes the plugin not to load and Orthanc to stop.
 
 # Prerequisites
 

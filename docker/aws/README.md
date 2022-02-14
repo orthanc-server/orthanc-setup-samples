@@ -1,8 +1,6 @@
 # Purpose
 
 This is a sample setup to demonstrate how to run an Orthanc in AWS and persist the data inside a AWS PostgreSQL RDS database and S3 bucket.
-Note that you need to have access to osimis.azurecr.io/orthanc-pro Docker images in order to run this sample.
-Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
 
 # Prerequisites
 

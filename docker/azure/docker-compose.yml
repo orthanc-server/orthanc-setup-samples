@@ -2,19 +2,16 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis.azurecr.io/orthanc-pro
+        image: osimis/orthanc
         ports: [8042:8042]
         environment:
             - ORTHANC__AZURE_BLOB_STORAGE__CONTAINER_NAME=testcontainer
-
-#            - ORTHANC__MSSQL__LICENSE_STRING=1121212121444544^___your%email___avvvdffre
 
             - ORTHANC__AUTHENTICATION_ENABLED=false
             - ORTHANC__DICOM_SERVER_ENABLED=false
 
         secrets:
           - ORTHANC__AZURE_BLOB_STORAGE__CONNECTION_STRING
-          # - ORTHANC__MSSQL__CONNECTION_STRING
 secrets:
   ORTHANC__AZURE_BLOB_STORAGE__CONNECTION_STRING:
     file: blob-connection-string.txt

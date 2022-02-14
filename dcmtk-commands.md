@@ -9,6 +9,11 @@ Very basic C-Find query at study level to return all studies
 findscu -v -d -k 0008,0052="STUDY" -k 0008,0020="" -k 0020,000D="" -S -aet FINDSCU -aec ORTHANC 127.0.0.1 104
 ```
 
+Worklist Find SCU, searching for all scheduled CT for a given date
+```
+findscu -v -W -k "ScheduledProcedureStepSequence[0].Modality=CT" 127.0.0.1 4242
+```
+
 
 MOVE-SCU
 ========
