@@ -47,6 +47,10 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Orthanc mutual TLS authentication](docker/tls-mutual-auth) to demonstrate how to use client certificates to authentify Orthanc instances between them.
 - [Orthanc mutual TLS authentication - 2](docker/full-tls) to demonstrate how to use client certificates to authentify Orthanc instances between them and to external web-services (note: very advanced users only !).  This sample uses nginx to implement
   server side TLS.
+- [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
+- [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
+- [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
+- [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
@@ -55,11 +59,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 Note that the osimis.azurecr.io/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
 
-- [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
-- [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
-- [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
 - [Orthanc on Google Cloud](docker/google-cloud-storage) to demonstrate how to use the Orthanc in an Google Cloud environment (using SQL Instance and Google Cloud Storage)
-- [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 
 
 # Windows
