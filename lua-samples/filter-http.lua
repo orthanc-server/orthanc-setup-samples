@@ -17,3 +17,15 @@ function IncomingHttpRequestFilter(method, uri, ip, username, httpHeaders)
      return true
   end
 end
+
+
+
+-- disable the anonymize route only
+function IncomingHttpRequestFilter(method, uri, ip, username, httpHeaders)
+
+   if method == 'POST' and string.match(uri, '/anonymize') then -- disable calls to anonymize route
+      return false
+   else -- everything else is allowed
+      return true
+   end
+ end
