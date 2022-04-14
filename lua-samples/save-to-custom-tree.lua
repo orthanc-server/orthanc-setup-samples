@@ -38,7 +38,7 @@ function OnStoredInstance(instanceId, tags, metadata, origin)
 
       os.execute("mkdir -p " .. folder)
       local path = folder .. sep .. sopInstanceId .. ".dcm" 
-      local file = io.open(path, "w")
+      local file = io.open(path, "wb")
       io.output(file)
       io.write(dicom)
       io.close(file)
