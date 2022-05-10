@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc
+    image: osimis/orthanc:22.5.1
     depends_on: [orthanc-auth-service]
     restart: unless-stopped
     ports: ["8042:8042"]
@@ -12,13 +12,17 @@ services:
       # disable basic authentication since we use the auth plugin
       ORTHANC__AUTHENTICATION_ENABLED: "false"
 
+      # you must enable the StoneViewer and the DicomWeb plugins
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
       # the webservice to call to get authorizations
       ORTHANC__AUTHORIZATION__WEB_SERVICE: "http://orthanc-auth-service:8000/"
       # the key of the HTTP header that is used to identify the user
       # Although the token is passed as an url parameters to the viewer,
       # internally, it is transformed into a HTTP header
       ORTHANC__AUTHORIZATION__TOKEN_HTTP_HEADERS: |
-        ["token"]
+        ["token", "Authorization"]
       # a list of resources that are accessible to everyone
       ORTHANC__AUTHORIZATION__UNCHECKED_RESOURCES: |
         [
@@ -32,14 +36,20 @@ services:
           "/app/",
           "/wsi/app/",
           "/osimis-viewer/app/",
-          "/osimis-viewer/languages/"
+          "/osimis-viewer/languages/",
+          "/stone-webviewer/"
         ]
       # don't check authorization at study/series/instances level but only at patient level
       ORTHANC__AUTHORIZATION__UNCHECKED_LEVELS: |
         ["study", "series", "instances"]
+
+      VERBOSE_ENABLED: "true"
+  
   orthanc-auth-service:
     build: node-auth-server
-    # don't expose port outside the docker network (only Orthanc needs to access it)
+    # you should not expose port outside the docker network (only Orthanc needs to access it)
+    ports: ["8000:8000"]
     restart: unless-stopped
+
 volumes:
   orthanc-storage:

@@ -1,9 +1,14 @@
 var http = require('http');
 
 
-function grantAccess(response, authToken, resourceLevel, orthancId) {
+function grantAccess(response, authKey, authToken, resourceLevel, orthancId) {
 
   var granted = false;
+
+  if (authKey == "Authorization" && authToken.startsWith("Bearer "))
+  {
+    authToken = authToken.substr("Bearer ".length);
+  }
 
   if (authToken == 'good-token')  // allow access to everything
   {
@@ -48,7 +53,7 @@ var server = http.createServer(function(request, response) {
 
       var authQuery = JSON.parse(body);
 
-      grantAccess(response, authQuery["token-value"], authQuery["level"], authQuery["orthanc-id"]);
+      grantAccess(response, authQuery["token-key"], authQuery["token-value"], authQuery["level"], authQuery["orthanc-id"]);
     });
     
   } else {
