@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     ports: ["104:4242", "80:8042"]
     volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+    environment:
+      VERBOSE_STARTUP: "true"
 
   orthanc-index:
     image: postgres
@@ -28,7 +30,7 @@ services:
         {"demo": "demo"}
 
   orthanc-index-b:
-    image: postgres
+    image: postgres:14
     restart: unless-stopped
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
