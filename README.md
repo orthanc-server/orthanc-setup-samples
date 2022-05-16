@@ -40,6 +40,8 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind nginx that is implementing TLS.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 - [Use DICOM TLS](docker/dicom-tls) to demonstrate how to configure DICOM TLS between 2 Orthanc instances.
+- [Use Orthanc-Explorer-2](docker/orthanc-explorer-2) to demonstrate how to use Orthanc-Explorer-2 with an `admin` and a standard `user` interface.
+
 
 ## for software integrators
 - [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](https://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc

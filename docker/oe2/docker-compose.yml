@@ -1,0 +1,57 @@
+version: "3"
+services:
+
+  nginx:
+    build: nginx
+    depends_on: [orthanc-for-admin, orthanc-for-users]
+    restart: unless-stopped
+    ports: ["80:80"]
+
+
+  # first setup through configuration file and build step
+  orthanc-for-admin:
+    image: osimis/orthanc:master-unstable
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    depends_on: [orthanc-db]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for admin"
+      ORTHANC__ORTHANC_EXPLORER_2__PUBLIC_ROOT: "/orthanc-admin/ui/"
+      ORTHANC__ORTHANC_EXPLORER_2__ORTHANC_API_PUBLIC_ROOT: "/orthanc-admin/"
+      ORTHANC__REGISTERED_USERS: |
+        {"admin": "admin"}
+
+    env_file:
+      - common-orthanc.env
+
+  orthanc-for-users:
+    build: orthanc
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    depends_on: [orthanc-db]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for users"
+      ORTHANC__ORTHANC_EXPLORER_2__PUBLIC_ROOT: "/orthanc-users/ui/"
+      ORTHANC__ORTHANC_EXPLORER_2__ORTHANC_API_PUBLIC_ROOT: "/orthanc-users/"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_UPLOAD: "false"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DELETE_RESOURCES: "false"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_SETTINGS: "false"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_LINK_TO_LEGACY_UI: "false"
+      ORTHANC__REGISTERED_USERS: |
+        {"user": "user"}
+
+    env_file:
+      - common-orthanc.env
+
+  orthanc-db:
+    image: postgres:14
+    restart: unless-stopped
+    volumes: ["orthanc-db:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+#      POSTGRES_PASSWORD: "postgres"
+
+
+volumes:
+  orthanc-storage:
+  orthanc-db:
