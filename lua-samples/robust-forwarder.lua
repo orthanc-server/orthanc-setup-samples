@@ -2,6 +2,7 @@
 -- It aims is to forward each instance and delete it afterwards.
 -- If it is interrupted, at startup, it will try to resend every instance currently stored in Orthanc.
 -- When a job fails because of a network issue when forwarding, it will retry the job immediately.
+-- it assumes that you have declared a 'service' entry in the DicomModalities config (hence the /modalities/service/store URL)
 
 
 function ForwardInstance(instanceId)
