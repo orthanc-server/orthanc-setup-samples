@@ -3,24 +3,44 @@ services:
   orthanc-a:
     image: osimis/orthanc
     ports: ["80:8042"]
+    volumes:
+      - orthanc-a:/var/lib/orthanc/db
+    restart: unless-stopped
     environment:
-      TRANSFERS_PLUGIN_ENABLED: "true"
       ORTHANC__NAME: "Orthanc A"
       ORTHANC__REGISTERED_USERS: |
         { "demo" : "demo" }
       ORTHANC__ORTHANC_PEERS: |
         {
-            "b": ["http://orthanc-b:8042/", "demo", "demo"]
+            "orthanc-b": ["http://orthanc-b:8042/", "demo", "demo"]
         }
+
+      VERBOSE_ENABLED: "true"
+
+      TRANSFERS_PLUGIN_ENABLED: "true"
+      ORTHANC__TRANSFERS__MAX_HTTP_RETRIES: 5
+
+
   orthanc-b:
     image: osimis/orthanc
     ports: ["81:8042"]
+    volumes:
+      - orthanc-b:/var/lib/orthanc/db
+    restart: unless-stopped
     environment:
-      TRANSFERS_PLUGIN_ENABLED: "true"
       ORTHANC__NAME: "Orthanc B"
       ORTHANC__REGISTERED_USERS: |
         { "demo" : "demo" }
       ORTHANC__ORTHANC_PEERS: |
         {
-          "a": ["http://orthanc-a:8042/", "demo", "demo"]
+          "orthanc-a": ["http://orthanc-a:8042/", "demo", "demo"]
         }
+
+      VERBOSE_ENABLED: "true"
+
+      TRANSFERS_PLUGIN_ENABLED: "true"
+      ORTHANC__TRANSFERS__MAX_HTTP_RETRIES: 5
+
+volumes:
+  orthanc-a:
+  orthanc-b:
