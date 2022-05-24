@@ -4,7 +4,7 @@ services:
     image: osimis/orthanc
     depends_on: [index]
     ports: ["104:4242"]
-    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    volumes: ["storage:/var/lib/orthanc/db"]
     environment:
       ORTHANC__NAME: "Orthanc DICOM"
       ORTHANC__POSTGRESQL__HOST: "index"
@@ -19,13 +19,12 @@ services:
   orthanc-http-a:
     image: osimis/orthanc
     depends_on: [index]
-    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    volumes: ["storage:/var/lib/orthanc/db"]
     environment:
       ORTHANC__NAME: "Orthanc HTTP A"
       ORTHANC__POSTGRESQL__HOST: "index"
       OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
       ORTHANC__SAVE_JOBS: "false"
-      TRACE_ENABLED: "true"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
     restart: unless-stopped
@@ -33,21 +32,22 @@ services:
   orthanc-http-b:
     image: osimis/orthanc
     depends_on: [index]
-    volumes: ["storage:/var/lib/orthanc/db:Z"]
+    volumes: ["storage:/var/lib/orthanc/db"]
     environment:
       ORTHANC__NAME: "Orthanc HTTP B"
       ORTHANC__POSTGRESQL__HOST: "index"
       OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
       ORTHANC__SAVE_JOBS: "false"
-      TRACE_ENABLED: "true"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
     restart: unless-stopped
 
   index:
     image: postgres
-    volumes: ["index:/var/lib/postgresql/data:Z"]
+    volumes: ["index:/var/lib/postgresql/data"]
     restart: unless-stopped
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
 volumes:
   storage:
   index:

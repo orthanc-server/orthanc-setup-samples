@@ -1,15 +1,12 @@
 # Purpose
 
 This is a sample setup to demonstrate how to configure multiple Orthancs with a
-single PostgreSQL database. This should allow to improve performances.
+single PostgreSQL database.
 
 This sample also demonstrates how to configure an HTTP load balancer in front of
-multiple Orthanc instances.  Note that this load balancing is applied to
-to GET requests only right now (until [issue 83](https://bitbucket.org/sjodogne/orthanc/issues/83/serverindex-shall-implement-retries-for-db) is fixed).
+multiple Orthanc instances.
 
-Also note that when multiple Orthancs are connected to the same DB, it's important
-that none of them tries to save it Job Engine status in the DB to avoid
-conflicts.  This is done by settings `"SaveJobs":false` in the configuration file.
+Check [this page](https://book.orthanc-server.com/faq/scalability.htm#concurrent-accesses-to-the-db-in-orthanc-1-9-2) on the Orthanc book for more information about this.
 
 # Description
 
@@ -23,8 +20,10 @@ This demo contains:
 - a nginx container that performs load balancing and exposes all orthanc
   on the same domain.
 - a PostgreSQL container that will store the Orthanc Index DB (the dicom
-  files are stored in a Docker volume)
+  files are stored in a shared Docker volume)
 
+
+All 3 orthanc instances are sharing the same data since they are using the same DB and storage.
 # Starting the setup
 
 To start the setup, type: `docker-compose up --build`
@@ -36,5 +35,5 @@ To start the setup, type: `docker-compose up --build`
 - Orthanc HTTP B is accessible at [http://localhost/orthanc-b/app/explorer.html](http://localhost/orthanc-b/app/explorer.html)
 - Load balanced Orthancs are accessible at [http://localhost/orthanc-lb/app/explorer.html](http://localhost/orthanc-lb/app/explorer.html)
 - if you open the Load balanced Orthancs and refresh the page, you should see that it alternatively reach Orthanc A & B.
-- upload a study to the load balanced Orthanc [http://localhost/orthanc-lb/app/explorer.html#upload](http://localhost/orthanc-lb/app/explorer.html#upload).  The HTTP requests will be forwarded to orthanc HTTP A but will be stored in the shared DB.
+- upload a study to the load balanced Orthanc [http://localhost/orthanc-lb/app/explorer.html#upload](http://localhost/orthanc-lb/app/explorer.html#upload).
 - check the study appears both on Orthanc A, Orthanc B and the load balanced Orthancs
