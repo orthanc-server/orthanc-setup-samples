@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  nginx:
+    build: nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 81:81
+    depends_on:
+      - orthanc
+
+  orthanc:
+    image: osimis/orthanc:master-unstable
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for OHIF"
+
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_OHIF_VIEWER: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__OHIF_VIEWER_PUBLIC_ROOT: "http://localhost:81/Viewer/"
+
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+
+      VERBOSE_STARTUP: "true"
+
+    volumes:
+      - orthanc-storage:/var/lib/orthanc/db/
+ 
+volumes:
+  orthanc-storage:
