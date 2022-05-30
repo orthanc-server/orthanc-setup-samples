@@ -1,4 +1,4 @@
--Orthanc SDK methods wrapped in python (plugin version 3.4)
+-Orthanc SDK methods wrapped in python (plugin version 4.0)
 
 Function AutodetectMimeType():
   Documentation: Generated from C function OrthancPluginAutodetectMimeType()
@@ -65,6 +65,7 @@ Class ContentType:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginContentType
   - Enumeration value DICOM: 1
   - Enumeration value DICOM_AS_JSON: 2
+  - Enumeration value DICOM_UNTIL_PIXEL_DATA: 3
   - Enumeration value UNKNOWN: 0
 
 Function CreateDicom():
@@ -127,6 +128,8 @@ Class DicomToJsonFlags:
   - Enumeration value INCLUDE_PRIVATE_TAGS: 2
   - Enumeration value INCLUDE_UNKNOWN_TAGS: 4
   - Enumeration value NONE: 0
+  - Enumeration value SKIP_GROUP_LENGTHS: 128
+  - Enumeration value STOP_AFTER_PIXEL_DATA: 64
 
 Class DicomToJsonFormat:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginDicomToJsonFormat
@@ -154,6 +157,7 @@ Class ErrorCode:
   - Enumeration value BAD_JOB_ORDERING: 2028
   - Enumeration value BAD_JSON: 28
   - Enumeration value BAD_PARAMETER_TYPE: 5
+  - Enumeration value BAD_RANGE: 41
   - Enumeration value BAD_REQUEST: 8
   - Enumeration value BAD_SEQUENCE_OF_CALLS: 6
   - Enumeration value CANCELED_JOB: 37
@@ -173,6 +177,7 @@ Class ErrorCode:
   - Enumeration value CREATE_DICOM_USE_DATA_URI_SCHEME: 2023
   - Enumeration value DATABASE: 11
   - Enumeration value DATABASE_BACKEND_ALREADY_REGISTERED: 2037
+  - Enumeration value DATABASE_CANNOT_SERIALIZE: 42
   - Enumeration value DATABASE_NOT_INITIALIZED: 2038
   - Enumeration value DATABASE_PLUGIN: 31
   - Enumeration value DATABASE_UNAVAILABLE: 36
@@ -218,6 +223,7 @@ Class ErrorCode:
   - Enumeration value PLUGIN: 1
   - Enumeration value READ_ONLY: 22
   - Enumeration value REGULAR_FILE_EXPECTED: 2006
+  - Enumeration value REVISION: 43
   - Enumeration value SHARED_LIBRARY: 25
   - Enumeration value SQLITE_ALREADY_OPENED: 1001
   - Enumeration value SQLITE_BIND_OUT_OF_RANGE: 1011
@@ -450,6 +456,12 @@ Class PixelFormat:
 Function ReadFile():
   Documentation: Generated from C function OrthancPluginReadFile()
 
+Class ReceivedInstanceAction:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginReceivedInstanceAction
+  - Enumeration value DISCARD: 3
+  - Enumeration value KEEP_AS_IS: 1
+  - Enumeration value MODIFY: 2
+
 Function RegisterDictionaryTag():
   Documentation: Generated from C function OrthancPluginRegisterDictionaryTag()
 
@@ -457,6 +469,9 @@ Function RegisterErrorCode():
   Documentation: Generated from C function OrthancPluginRegisterErrorCode()
 
 Function RegisterFindCallback():
+  Documentation: None
+
+Function RegisterIncomingCStoreInstanceFilter():
   Documentation: None
 
 Function RegisterIncomingHttpRequestFilter():
@@ -473,6 +488,9 @@ Function RegisterOnStoredInstanceCallback():
 
 Function RegisterPrivateDictionaryTag():
   Documentation: Generated from C function OrthancPluginRegisterPrivateDictionaryTag()
+
+Function RegisterReceivedInstanceCallback():
+  Documentation: None
 
 Function RegisterRestCallback():
   Documentation: None
