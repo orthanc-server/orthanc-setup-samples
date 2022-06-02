@@ -13,7 +13,7 @@ This demo contains:
 The MSSQL container has been customized to create the Orthanc DB at startup.
 
 The Orthanc container has been customized to include the MSODBC drivers that are not installed in the default image.
-(check the [Dockerfile](new-orthanc/Dockerfile))
+(check the [Dockerfile](orthanc/Dockerfile))
 
 # Starting the setup
 
