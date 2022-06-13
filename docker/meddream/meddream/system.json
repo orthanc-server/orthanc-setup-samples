@@ -1,0 +1,76 @@
+{
+	"disableMultiFrameVideoAutoLoad": false,
+	"threeDimensionServiceIntegration": {
+		"serverIP": null,
+		"port": null,
+		"protocol": null,
+		"pathPrefix": null,
+		"pathPrefixReplaceTo": null
+	},
+	"features": {
+		"patientHistory": false,
+		"keyObjectAndPresentationStateQuickSave": true,
+		"keyObjects": true,
+		"presentationState": true,
+		"searchSettings": true,
+		"viewerSettings": true,
+		"reportSettings": true,
+		"hangingProtocolsSettings": true,
+		"export": true,
+		"archive": true,
+		"search": true,
+		"reports": false,
+		"liveShare": false,
+		"openTabsTrackingMethod": "NONE",
+		"batchImageRequests": true,
+		"prepareInstances": false,
+		"thumbnailsPerSeries": "FIRST",
+		"summaryThumbnailsFor": [
+			"CT",
+			"MR",
+			"PT",
+			"NM"
+		],
+		"preloadSeries": "OFF",
+		"boundingBoxAnnotations": true,
+		"viewToClipboard": "IMAGE",
+		"pngPSToClipboard": "NONE",
+		"showCalculatedFps": true,
+		"viewToDICOM": false
+	},
+	"blackListedSopClasses": [],
+	"forwardPacs": [
+		{
+			"storeScpIp": "127.0.0.1",
+			"storeScpPort": "104",
+			"storeScpAet": "PACS",
+			"description": "An example destination for Forward"
+		}
+	],
+	"languages": [
+		"en"
+	],
+	"dicomLibraryConfiguration": {
+		"dicomLibrarySender": "someone@mail.com",
+		"dicomLibrarySubject": "My special study",
+		"languages": null,
+		"language": null
+	},
+	"asynchronousStudyLoading": false,
+	"formatIntegrationLinkInViewer": false,
+	"requestsConfig": {
+		"maximumMetadataStreams": 5,
+		"maximumPixelStreams": 15,
+		"maximumMultiFrameStreams": 4,
+		"batchSizeMb": 5,
+		"multiFrameBatchSizeMb": 2
+	},
+	"workersConfig": {
+		"maxWorkers": "50%",
+		"maxSegmentationWorkers": "50%"
+	},
+	"cacheSupervisorConfig": {
+		"enabled": false,
+		"runFrequencyInSec": 10
+	}
+}
