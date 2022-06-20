@@ -18,7 +18,7 @@ function OnJobFailure(jobId)
   if job["Type"] == "OrthancPeerStore" then
     -- display debug info on the failing instance
     local instanceId = job["Content"]["ParentResources"][1]
-    local instance = ParseJson(RestApiGet("/instances/" .. instanceId ..))
+    local instance = ParseJson(RestApiGet("/instances/" .. instanceId))
     PrintRecursive(instance)
 
     -- if you want to perform a retry, uncomment the line below ...
