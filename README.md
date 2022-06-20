@@ -43,6 +43,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind nginx that is implementing TLS.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 - [Use DICOM TLS](docker/dicom-tls) to demonstrate how to configure DICOM TLS between 2 Orthanc instances.
+- [Download and update configuration dymically using Lua](docker/lua-download-config-and-restart) to demonstrate how to check and update configuration dymically using a lua script.
 
 
 ## for software integrators
@@ -58,12 +59,6 @@ won't work with previous images.  Go back in the git history of this repo to get
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
-
-## for osimis.azurecr.io/orthanc-pro image users
-
-Note that the osimis.azurecr.io/orthanc-pro images are private.  Access is restricted to companies who have subscribed a [support contract](https://www.osimis.io/en/services.html).
-
-- [Orthanc on Google Cloud](docker/google-cloud-storage) to demonstrate how to use the Orthanc in an Google Cloud environment (using SQL Instance and Google Cloud Storage)
 
 
 # Windows

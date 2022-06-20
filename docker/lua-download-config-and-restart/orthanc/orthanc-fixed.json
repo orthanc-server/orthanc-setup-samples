@@ -1,0 +1,7 @@
+{
+    "SystemId": 1,
+    "LuaScripts": ["/scripts/download-config.lua"],
+    "LuaHeartBeatPeriod": 30,
+    "AuthenticationEnabled": false,
+    "RemoteAccessAllowed": true
+}

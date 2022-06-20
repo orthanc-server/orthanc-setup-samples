@@ -1,0 +1,21 @@
+version: "3.3"
+
+services:
+  orthanc:
+    build: orthanc
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    depends_on:
+      - config-webservice
+    volumes:
+      - ./orthanc/:/etc/orthanc/
+      - orthanc-storage:/var/lib/orthanc/db
+
+  config-webservice:
+    build: webservice
+    restart: unless-stopped
+    ports: ["8000:8000"]
+
+volumes:
+  orthanc-storage:
+
