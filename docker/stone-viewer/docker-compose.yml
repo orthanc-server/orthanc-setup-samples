@@ -1,7 +1,6 @@
 version: "2"
 services:
   orthanc:
-    # use at least osimis/orthanc:20.12.1
     image: osimis/orthanc
     ports: ["8042:8042"]
     environment:
@@ -11,6 +10,35 @@ services:
       # you must enable the StoneViewer and the DicomWeb plugins
       STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
+
+      ORTHANC__DICOM_WEB__SERIES_METADATA: "MainDicomTags"
+      ORTHANC__DICOM_WEB__STUDIES_METADATA: "MainDicomTags"
+
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS: |
+        {
+          "Instance" : [
+              "Rows",
+              "Columns",
+              "ImageType",
+              "SOPClassUID",
+              "ContentDate",
+              "ContentTime",
+              "FrameOfReferenceUID",
+              "PixelSpacing",
+              "SpecificCharacterSet",
+              "BitsAllocated",
+              "BitsStored"
+          ],
+          "Series" : [
+              "TimezoneOffsetFromUTC",
+              "PerformedProcedureStepStartDate",
+              "PerformedProcedureStepStartTime"
+          ],
+          "Study": [
+              "TimezoneOffsetFromUTC"
+          ],
+          "Patient": []
+          }
 
       # StoneViewer configurations
       ORTHANC__STONE_WEB_VIEWER__DATE_FORMAT: "DD/MM/YYYY"
