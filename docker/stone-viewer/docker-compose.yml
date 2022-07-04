@@ -32,7 +32,8 @@ services:
           "Series" : [
               "TimezoneOffsetFromUTC",
               "PerformedProcedureStepStartDate",
-              "PerformedProcedureStepStartTime"
+              "PerformedProcedureStepStartTime",
+              "RequestAttributesSequence"
           ],
           "Study": [
               "TimezoneOffsetFromUTC"
