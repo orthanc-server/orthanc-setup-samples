@@ -27,7 +27,15 @@ services:
               "PixelSpacing",
               "SpecificCharacterSet",
               "BitsAllocated",
-              "BitsStored"
+              "BitsStored",
+
+              "RescaleSlope",
+              "RescaleIntercept",
+              "SliceThickness",
+              "WindowCenter",
+              "WindowWidth",
+              "PhotometricInterpretation",
+              "PixelRepresentation"
           ],
           "Series" : [
               "TimezoneOffsetFromUTC",
