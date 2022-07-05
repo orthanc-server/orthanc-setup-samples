@@ -1,0 +1,34 @@
+version: "3"
+
+services:
+    orthanc:
+        image: osimis/orthanc
+        ports:
+            - 8042:8042
+        restart: unless-stopped
+        environment:
+            ORTHANC__NAME: "Orthanc for health-check tests"
+            ORTHANC__REGISTERED_USERS: |
+                {
+                    "demo": "demo",
+                    "healthcheck": "GASKEajSaz5f6j"
+                }
+            ORTHANC__EXECUTE_LUA_ENABLED: "true"
+
+        # the code below is specific to health-check
+        labels:
+            - "autoheal=true"    
+        healthcheck:
+            test: ["CMD-SHELL", "/probes/test-aliveness.py --user=healthcheck --pwd=GASKEajSaz5f6j"]
+            start_period: 10s
+            retries: 2
+            interval: 3s
+            timeout: 2s
+
+    autoheal:
+        image: willfarrell/autoheal:1.2.0
+        tty: true
+        container_name: autoheal
+        restart: always
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
