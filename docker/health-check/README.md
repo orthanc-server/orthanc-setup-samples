@@ -19,7 +19,7 @@ To start the setup, type: `docker-compose up`
 # demo
 
 - Connect to the orthanc UI to check it is alive on [http://localhost:8042](http://localhost:8042) (login/pwd: demo/demo).
-- Trigger Lua code that will block orthanc for 2 minutes by sending this command: `curl http://demo:demo@localhost:8042/tools/execute-script -d "os.execute("sleep 120")"`
+- Trigger Lua code that will block orthanc for 2 minutes by sending this command: `curl http://demo:demo@localhost:8042/tools/execute-script -d 'os.execute("sleep 120")'`
 - Connect to the orthanc UI right after that, it shall be unresponsive.
 - Given the health-check policy, after 2 retries at 3 seconds interval with a 2 seconds timeout (total = 10 seconds), Orthanc should 
   restart and the UI shall become responsive again.

@@ -26,5 +26,5 @@ To start the setup, type: `docker-compose up --build`
 
 # demo
 
-- Orthanc UI with full admin access is accessible at [http://localhost/orthanc-admin/ui/app](http://localhost/orthanc-admin/ui/app).  Login/pwd = `admin/admin`
-- Orthanc UI with reduced user access is accessible at [http://localhost/orthanc-users/ui/app](http://localhost/orthanc-users/ui/app).  Login/pwd = `user/user`
+- Orthanc UI with full admin access is accessible at [http://localhost/orthanc-admin/ui/app/](http://localhost/orthanc-admin/ui/app/).  Login/pwd = `admin/admin`
+- Orthanc UI with reduced user access is accessible at [http://localhost/orthanc-users/ui/app/](http://localhost/orthanc-users/ui/app/).  Login/pwd = `user/user`

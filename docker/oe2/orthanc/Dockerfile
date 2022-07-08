@@ -1,4 +1,4 @@
-FROM osimis/orthanc:master-unstable
+FROM osimis/orthanc:22.6.4
 
 COPY filter-http.lua /scripts/
 

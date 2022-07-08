@@ -10,14 +10,13 @@ services:
 
   # first setup through configuration file and build step
   orthanc-for-admin:
-    image: osimis/orthanc:master-unstable
+    image: osimis/orthanc:22.6.4
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
     environment:
       ORTHANC__NAME: "Orthanc for admin"
-      ORTHANC__ORTHANC_EXPLORER_2__PUBLIC_ROOT: "/orthanc-admin/ui/"
-      ORTHANC__ORTHANC_EXPLORER_2__ORTHANC_API_PUBLIC_ROOT: "/orthanc-admin/"
+      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
       ORTHANC__REGISTERED_USERS: |
         {"admin": "admin"}
 
@@ -31,8 +30,7 @@ services:
     restart: unless-stopped
     environment:
       ORTHANC__NAME: "Orthanc for users"
-      ORTHANC__ORTHANC_EXPLORER_2__PUBLIC_ROOT: "/orthanc-users/ui/"
-      ORTHANC__ORTHANC_EXPLORER_2__ORTHANC_API_PUBLIC_ROOT: "/orthanc-users/"
+      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_UPLOAD: "false"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DELETE_RESOURCES: "false"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_SETTINGS: "false"
