@@ -1,0 +1,95 @@
+version: "3"
+services:
+
+  nginx:
+    image: nginx:1.11-alpine
+    depends_on: [orthanc-for-admin] #, orthanc-for-users]
+    restart: unless-stopped
+    ports: ["80:80"]
+    volumes: ["./nginx.conf:/etc/nginx/conf.d/default.conf"]
+
+  # this orthanc "admin" interface has access to the whole data set
+  orthanc-for-admin:
+    image: osimis/orthanc:22.7.0
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - "./orthanc/orthanc.jsonc:/etc/orthanc/orthanc.json"
+      - "./orthanc/pg.jsonc:/etc/orthanc/pg.json"
+      - "./orthanc/oe2.jsonc:/etc/orthanc/oe2.json"
+    depends_on: [orthanc-db]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for admin"
+      ORTHANC__REGISTERED_USERS: |
+        {
+          "admin": "admin",
+          "auth-service-user": "auth-service-pwd"
+        }
+
+  # in this orthanc "user" interface, users may access only the studies they are authorized to access
+  orthanc-for-users:
+    build: orthanc
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - "./orthanc/orthanc.jsonc:/etc/orthanc/orthanc.json"
+      - "./orthanc/pg.jsonc:/etc/orthanc/pg.json"
+      - "./orthanc/oe2.jsonc:/etc/orthanc/oe2.json"
+      - "./orthanc/auth.jsonc:/etc/orthanc/auth.json"
+      - "./orthanc/plugin.py:/scripts/plugin.py"
+    depends_on: [orthanc-db, auth-service]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for users"
+      ORTHANC__PYTHON_SCRIPT: "/scripts/plugin.py"
+      ORTHANC__REGISTERED_USERS: |
+        {"1": "1", "2": "2"}
+      # FILTER_MODE: "modify-query"
+      FILTER_MODE: "filter-results"
+
+  # in this orthanc "for clients", clients may have a limited access to the Rest API (and no access to the User interface)
+  orthanc-for-clients:
+    build: orthanc
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - "./orthanc/orthanc.jsonc:/etc/orthanc/orthanc.json"
+      - "./orthanc/pg.jsonc:/etc/orthanc/pg.json"
+      # - "./orthanc/oe2.jsonc:/etc/orthanc/oe2.json"
+      - "./orthanc/auth.jsonc:/etc/orthanc/auth.json"
+      - "./orthanc/plugin.py:/scripts/plugin.py"
+    depends_on: [orthanc-db, auth-service]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Orthanc for clients"
+      ORTHANC__PYTHON_SCRIPT: "/scripts/plugin.py"
+      # no registered users, the auth-plugin will check auth based on api-key in HTTP headers
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      # FILTER_MODE: "modify-query"
+      FILTER_MODE: "filter-results"
+      VERBOSE_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+
+  # the shared orthanc db
+  orthanc-db:
+    image: postgres:14
+    restart: unless-stopped
+    volumes: ["orthanc-db:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  # this web-service implements authorization checks (it is called by the authorization plugin)
+  auth-service:
+    build: auth-service
+    restart: unless-stopped
+
+
+  # this container populates Orthanc with test data
+  orthanc-populator:
+    build: populator
+    depends_on: [orthanc-for-admin]
+
+
+volumes:
+  orthanc-storage:
+  orthanc-db:

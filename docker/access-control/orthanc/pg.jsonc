@@ -1,0 +1,6 @@
+{
+    "PostgreSQL" : {
+        "Host": "orthanc-db",
+        "IndexConnectionsCount": 10
+    }
+}

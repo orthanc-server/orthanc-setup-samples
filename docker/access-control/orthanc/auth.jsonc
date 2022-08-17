@@ -1,0 +1,23 @@
+{
+    "Authorization": {
+        "WebService": "http://auth-service:8000/auth/validate",
+        // define 2 headers, one for basic auth and one for api-keys
+        "TokenHttpHeaders": [
+            "Authorization",
+            "api-key"
+        ],
+        "UncheckedResources": [
+            "/system"
+        ],
+        "UncheckedFolders": [
+            "/ui/app/"
+        ],
+
+        // auth checks are performed at study level
+        "UncheckedLevels": [
+            "patients",
+            "series",
+            "instances"
+        ]
+    }
+}
