@@ -19,7 +19,7 @@ def OnRestToolsFind(output, uri, **request):
         is_full = query["Full"] if "Full" in query else False
         level = query["Level"]
 
-        if level != "Series":
+        if level != "Study":
             raise NotImplementedError()
 
         # in 'modify-query' mode, we modify the tools/find query to add the InstitutionName such that Orthanc performs a first filter
