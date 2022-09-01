@@ -3,14 +3,14 @@ services:
 
   nginx:
     build: nginx
-    depends_on: [orthanc-for-admin, orthanc-for-users]
+    depends_on: [orthanc-for-admin, orthanc-for-users, pacs]
     restart: unless-stopped
     ports: ["80:80"]
 
 
   # first setup through configuration file and build step
   orthanc-for-admin:
-    image: osimis/orthanc:22.6.4
+    build: orthanc
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
@@ -32,6 +32,7 @@ services:
       ORTHANC__NAME: "Orthanc for users"
       ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_UPLOAD: "false"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DICOM_MODALITIES: "false"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DELETE_RESOURCES: "false"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_SETTINGS: "false"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_LINK_TO_LEGACY_UI: "false"
@@ -47,9 +48,33 @@ services:
     volumes: ["orthanc-db:/var/lib/postgresql/data"]
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
-#      POSTGRES_PASSWORD: "postgres"
+
+
+  pacs:
+    image: osimis/orthanc:22.8.0
+    volumes: ["pacs-storage:/var/lib/orthanc/db"]
+    depends_on: [pacs-db]
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: "Pacs"
+      ORTHANC__DICOM_AET: "PACS"
+      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL__HOST: "pacs-db"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      ORTHANC__DICOM_MODALITIES: |
+        {"orthanc": ["ORTHANC", "orthanc-for-admin", 4242]}
+
+  pacs-db:
+    image: postgres:14
+    restart: unless-stopped
+    volumes: ["pacs-db:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
 
 
 volumes:
   orthanc-storage:
   orthanc-db:
+  pacs-storage:
+  pacs-db:
