@@ -48,6 +48,7 @@ def validate_authorization(validation_request: AuthValidationRequest, auth_heade
     elif validation_request.level == "study":
 
         if validation_request.token_key.lower() == "authorization":
+            # the password has already been checked by Orthanc
             user = base64.b64decode(validation_request.token_value.replace("Basic ", "")).decode('utf-8').split(':')[0]
             user_institution = get_user_institution_name(user)
         elif validation_request.token_key.lower() == "api-key":

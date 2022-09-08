@@ -20,10 +20,10 @@ This demo contains:
   - a python plugin overwriting the `tools/find` route to return only the resources the user has access to
 - an `authorization-service` that Orthanc will request to grant access to its resources.  This autorization service would most likely be
   part of your web-app but should only be accessible to Orthanc (not from the external world).
-- another `orthanc-for-admin` container connected to the same DB & storage with no object access control.  This Orthanc instance is used
+- another `orthanc-for-admin` container connected to the same DB & storage with no access control configured.  This Orthanc instance is used
   by administrator with full access and by scripts with full access too.
 - another `orthanc-for-clients` container which is almost identical to `orthanc-for-users` although it does not provide any user interface
-  and authenticate users through an `api-key` header (not basic auth)
+  and authenticate users through an `api-key` header (not basic auth).  This Orthanc would typically be accessible from Dicom Web clients like Osirix.
 - a PostgreSQL container to handle the Orthanc index DB.
 - a Nginx container to act as a reverse proxy in-front of all Orthanc instances
 - a third independant Orthanc instance acting as a populator to ingest test data into this setup
@@ -38,7 +38,8 @@ To start the setup, type: `docker-compose up --build`.  Note that the `orthanc-p
 
 - open the Admin interface at [http://localhost/orthanc-admin/ui/app/](http://localhost/orthanc-admin/ui/app/) (login/pwd: `admin`/`admin`)
 - check the admin user has access to all studies (no authorization plugin or filter is configured on this Orthanc instance)
-- this Orthanc instance is also used by the `authorization-service` (it has its own login/pwd too)
+- this Orthanc instance is also used by the `authorization-service` to extract the `InstitutionName` tag from the study to perform
+  access control cheks. (The auth-service has its own login/pwd too)
 - you may also validate that standard users do not have access to this Orthanc instance (e.g login/pwd: `1`/`1`)
 
 ## User 1: access restricted to patients from his institution INST-1
@@ -51,7 +52,7 @@ To start the setup, type: `docker-compose up --build`.  Note that the `orthanc-p
 - In an incognito browser, open the User interface at [http://localhost/orthanc-users/ui/app/](http://localhost/orthanc-users/ui/app/) (login/pwd: `2`/`2`)
 - You should only see the patients from INST-1: `2-C` and `2-D`
 
-## API keys
+## API keys and tools-find
 
 - User 1 has an `api-key` defined as `key-1`.  You may also issue some HTTP requests for this user to validate authorizations:
   ```
