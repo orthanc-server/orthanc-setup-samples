@@ -40,6 +40,8 @@ def validate_authorization(validation_request: AuthValidationRequest, auth_heade
             "/plugins",
             "/ui/api/configuration",
             "/dicom-web/servers",
+
+            # for orthanc-for-clients
             "/tools/find",        # tools/find is allowed but we filter the results in the python plugin
             "/dicom-web/studies",  # QIDO-RS endpoint
         ]
