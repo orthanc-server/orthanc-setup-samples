@@ -1,6 +1,6 @@
 # Purpose
 
-This is a sample setup to demonstrate the usage of the Orthanc authorization plugin together with the DicomWeb plugin.
+This is a sample setup to demonstrate the usage of the Orthanc authorization plugin together with Orthanc Explorer 2 and the DicomWeb plugin.
 Furthermore, an extra python plugin is added to filter QIDO-RS and tools/find results based on the users accessing the server
 in order to list only the studies whom they have access to.
 
