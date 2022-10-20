@@ -2,7 +2,7 @@ version: "2"
 services:
   orthanc-a:
     image: osimis/orthanc
-    ports: ["80:8042"]
+    ports: ["8042:8042"]
     volumes:
       - orthanc-a:/var/lib/orthanc/db
     restart: unless-stopped
@@ -23,7 +23,7 @@ services:
 
   orthanc-b:
     image: osimis/orthanc
-    ports: ["81:8042"]
+    ports: ["8043:8042"]
     volumes:
       - orthanc-b:/var/lib/orthanc/db
     restart: unless-stopped
@@ -36,7 +36,7 @@ services:
           "orthanc-a": ["http://orthanc-a:8042/", "demo", "demo"]
         }
 
-      VERBOSE_ENABLED: "true"
+      TRACE_ENABLED: "true"
 
       TRANSFERS_PLUGIN_ENABLED: "true"
       ORTHANC__TRANSFERS__MAX_HTTP_RETRIES: 5

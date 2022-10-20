@@ -16,7 +16,7 @@ To stop, use `docker-compose down`.
 
 # demo
 
-- Connect to the `orthanc-a` on [http://localhost:80](http://localhost:80).
+- Connect to the `orthanc-a` on [http://localhost:8042](http://localhost:8042) (demo/demo).
 - Upload a study to this instance of Orthanc.
 - Select the patient and then the study in the explorer
 - Click on the yellow button entitled 'Transfers accelerator'
@@ -24,5 +24,5 @@ To stop, use `docker-compose down`.
 
 Right now, the study should be transferred to the second Orthanc:
 
-- Open the second orthanc (bar) on [http://localhost:81](http://localhost:81).
+- Open the second orthanc `orthanc-b` on [http://localhost:8043](http://localhost:8043) (demo/demo).
 - Check that the study is stored there.
