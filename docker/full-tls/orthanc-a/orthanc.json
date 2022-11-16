@@ -13,8 +13,8 @@
     "Servers" : {
       "orthanc-b" : {
         "Url" : "https://orthanc-b-server/orthanc/dicom-web/",  // this is the url of the HTTPS endpoint (provided by nginx-b in front of Orthanc-b)
-        "CertificateFile" : "/etc/share/orthanc/tls/cert.pem",
-        "CertificateKeyFile" : "/etc/share/orthanc/tls/privkey.pem",
+        "CertificateFile" : "/etc/share/orthanc/tls/orthanc-a-client-crt.pem",
+        "CertificateKeyFile" : "/etc/share/orthanc/tls/orthanc-a-client-key.pem",
         "CertificateKeyPassword" : "password",
         "Username": "demo",
         "Password": "demo"
@@ -29,8 +29,8 @@
   "OrthancPeers" : {
     "orthanc-b" : {
       "Url" : "https://orthanc-b-server/orthanc/",  // this is the url of the HTTPS endpoint (provided by nginx-b in front of Orthanc-b)
-      "CertificateFile" : "/etc/share/orthanc/tls/cert.pem",
-      "CertificateKeyFile" : "/etc/share/orthanc/tls/privkey.pem",
+      "CertificateFile" : "/etc/share/orthanc/tls/orthanc-a-client-crt.pem",
+      "CertificateKeyFile" : "/etc/share/orthanc/tls/orthanc-a-client-key.pem",
       "CertificateKeyPassword" : "password",
       "Username": "demo",
       "Password": "demo"

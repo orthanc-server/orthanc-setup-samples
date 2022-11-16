@@ -1,8 +1,8 @@
 var fs = require('fs'); 
 var https = require('https'); 
 var options = { 
-    key: fs.readFileSync('/usr/tls/privkey.pem'), 
-    cert: fs.readFileSync('/usr/tls/cert.pem'), 
+    key: fs.readFileSync('/usr/tls/external-web-service-key.pem'), 
+    cert: fs.readFileSync('/usr/tls/external-web-service-crt.pem'), 
     ca: fs.readFileSync('/usr/tls/ca-crt.pem'), 
     requestCert: true, 
     rejectUnauthorized: true

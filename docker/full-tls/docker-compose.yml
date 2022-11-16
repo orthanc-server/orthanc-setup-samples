@@ -5,41 +5,35 @@ services:
     depends_on: [orthanc-a]
     restart: unless-stopped
     ports: ["443:443"]
-    volumes: ["orthanc-a-server-tls:/etc/nginx/tls:Z"]
+    volumes: ["./tls:/etc/nginx/tls"]
   orthanc-a:
     build: orthanc-a
     restart: unless-stopped
     volumes:
-      - "orthanc-a-storage:/var/lib/orthanc/db:Z"
-      - "orthanc-a-tls:/etc/share/orthanc/tls:Z"
+      - "orthanc-a-storage:/var/lib/orthanc/db"
+      - "./tls:/etc/share/orthanc/tls"
   orthanc-b-server:
     build: nginx-b
     depends_on: [orthanc-b]
     restart: unless-stopped
     ports: ["843:443"]
-    volumes: ["orthanc-b-server-tls:/etc/nginx/tls:Z"]
+    volumes: ["./tls:/etc/nginx/tls"]
   orthanc-b:
     build: orthanc-b
     restart: unless-stopped
     volumes:
-      - "orthanc-b-storage:/var/lib/orthanc/db:Z"
-      - "orthanc-b-tls:/etc/share/orthanc/tls:Z"
+      - "orthanc-b-storage:/var/lib/orthanc/db"
+      - "./tls:/etc/share/orthanc/tls"
   orthanc-b-forward-proxy:
     build: forward-proxy
     restart: unless-stopped
     volumes:
-      - "orthanc-b-forward-proxy-tls:/usr/tls:Z"
+      - "./tls:/usr/tls"
   external-web-service:
     build: external-web-service
     restart: unless-stopped
     volumes:
-      - "external-web-service-tls:/usr/tls:Z"
+      - "./tls:/usr/tls"
 volumes:
-  orthanc-a-server-tls:
-  orthanc-a-tls:
   orthanc-a-storage:
-  orthanc-b-server-tls:
-  orthanc-b-tls:
   orthanc-b-storage:
-  external-web-service-tls:
-  orthanc-b-forward-proxy-tls:

@@ -23,8 +23,8 @@ var server = http.createServer(function(request, response) {
           port: 8000, 
           path: '/', 
           method: 'POST', 
-          key: fs.readFileSync('/usr/tls/privkey.pem'), 
-          cert: fs.readFileSync('/usr/tls/cert.pem'), 
+          key: fs.readFileSync('/usr/tls/orthanc-b-client-key.pem'), 
+          cert: fs.readFileSync('/usr/tls/orthanc-b-client-crt.pem'), 
           ca: fs.readFileSync('/usr/tls/ca-crt.pem') }; 
 
       var req = https.request(options, function(res) { 

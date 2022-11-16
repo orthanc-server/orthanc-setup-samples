@@ -22,7 +22,6 @@ it will send a message to the external-web-service from a Lua script.
 # Starting the setup
 
 - First, you'll need to generate keys and certificates for all modules.  Go in the `tls` folder and type `generate-tls.sh`
-- Then, you'll have to copy all keys and certificates to docker volumes that will be used by containers.  In the `tls`folder, type `copy-tls-to-docker-volumes.sh`.
 - To start the setup, type: `docker-compose up --build`
 
 # demo
