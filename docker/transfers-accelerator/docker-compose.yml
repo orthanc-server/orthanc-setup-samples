@@ -12,7 +12,12 @@ services:
         { "demo" : "demo" }
       ORTHANC__ORTHANC_PEERS: |
         {
-            "orthanc-b": ["http://orthanc-b:8042/", "demo", "demo"]
+            "orthanc-b": {
+              "Url": "http://orthanc-b:8042/", 
+              "Username": "demo",
+              "Password": "demo",
+              "RemoteSelf": "orthanc-a"
+            }
         }
 
       VERBOSE_ENABLED: "true"
@@ -36,7 +41,7 @@ services:
           "orthanc-a": ["http://orthanc-a:8042/", "demo", "demo"]
         }
 
-      TRACE_ENABLED: "true"
+      VERBOSE_ENABLED: "true"
 
       TRANSFERS_PLUGIN_ENABLED: "true"
       ORTHANC__TRANSFERS__MAX_HTTP_RETRIES: 5
