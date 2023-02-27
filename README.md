@@ -32,6 +32,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Use Orthanc-Explorer-2](docker/orthanc-explorer-2) to demonstrate how to use Orthanc-Explorer-2 with an `admin` and a standard `user` interface.
 - [OHIF Viewer](docker/ohif) to demonstrate how to configure [OHIF Viewer](https://github.com/OHIF/Viewers) with Orthanc.
 - [MedDream Viewer](docker/meddream) to demonstrate how to configure [MedDream Viewer](https://www.softneta.com/products/meddream-dicom-viewer/) with Orthanc.
+- [Dcm4Chee](docker/dcm4chee5) to demonstrate how to interface Orthanc with Dcm4Chee 5, both using the DICOM protocol and the DICOMweb protocol.
 
 ## for advanced users
 - [Dicom modification of received instances](docker/modify-instances) to demonstrate how to use Orthanc to modify incoming instances.
