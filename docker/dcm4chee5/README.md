@@ -35,9 +35,7 @@ has to be set to `false`.
   (including for query/retrieve), you have to register Orthanc as a
   modality in Dcm4Chee [using the dedicated configuration
   interface](https://localhost:8443/dcm4chee-arc/ui2/device/aelist),
-  as follows:
-
-    ![DICOM configuration](dcm4chee-add-dicom.png | width=256)
+  as shown in this [screenshot](./dcm4chee-add-dicom.png).
 
 # Using the DICOM protocol
 
