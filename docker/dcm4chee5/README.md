@@ -7,7 +7,7 @@ Dcm4Chee (version 5).
 
 Docker Compose will start two main containers (`orthanc` for Orthanc,
 and `arc` for Dcm4Chee). The network interfaces of those two main
-containers are linked together. Note that two ancilliary containers
+containers are linked together. Note that two ancillary containers
 internal to Dcm4Chee will also be started (namely `ldap` and `db`).
 
 The Dcm4Chee setup directly derives from the "Run minimum set of
