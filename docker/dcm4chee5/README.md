@@ -37,7 +37,7 @@ has to be set to `false`.
   interface](https://localhost:8443/dcm4chee-arc/ui2/device/aelist),
   as follows:
 
-    ![DICOM configuration](dcm4chee-add-dicom.png)
+    ![DICOM configuration](dcm4chee-add-dicom.png | width=256)
 
 # Using the DICOM protocol
 
