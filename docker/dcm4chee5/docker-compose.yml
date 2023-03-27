@@ -1,0 +1,62 @@
+version: "3"
+
+services:
+  ldap:
+    image: dcm4che/slapd-dcm4chee:2.6.3-29.1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    env_file: docker-compose.env
+    volumes:
+      - /tmp/dcm4chee-arc/ldap:/var/lib/openldap/openldap-data
+      - /tmp/dcm4chee-arc/slapd.d:/etc/openldap/slapd.d
+  db:
+    image: dcm4che/postgres-dcm4chee:14.5-29
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    env_file: docker-compose.env
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /tmp/dcm4chee-arc/db:/var/lib/postgresql/data
+  arc:
+    image: dcm4che/dcm4chee-arc-psql:5.29.1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    ports:
+      - 8443:8443    # HTTP server
+      - 11112:11112  # DICOM server
+    env_file: docker-compose.env
+    environment:
+      WILDFLY_CHOWN: /opt/wildfly/standalone /storage
+      WILDFLY_WAIT_FOR: ldap:389 db:5432
+    depends_on:
+      - ldap
+      - db
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /tmp/dcm4chee-arc/wildfly:/opt/wildfly/standalone
+      - /tmp/dcm4chee-arc/storage:/storage
+    security_opt:
+      - seccomp:unconfined
+
+  orthanc:
+    image: jodogne/orthanc-plugins:1.10.1
+    command: --verbose /run/secrets/  # Path to the configuration files (stored as secrets)
+    ports:
+      - 4242:4242   # DICOM server
+      - 8042:8042   # HTTP server
+    volumes:
+      - /tmp/orthanc-storage:/var/lib/orthanc/db
+    secrets:
+      - orthanc.json
+
+secrets:
+  orthanc.json:
+    file: orthanc.json

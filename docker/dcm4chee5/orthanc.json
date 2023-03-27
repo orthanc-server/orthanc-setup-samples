@@ -1,0 +1,27 @@
+{
+  "Name" : "Orthanc inside Docker",
+  "StorageDirectory" : "/var/lib/orthanc/db",
+  "Plugins" : [ 
+    "/usr/share/orthanc/plugins",
+    "/usr/local/share/orthanc/plugins"
+  ],
+  "AuthenticationEnabled" : false,
+  "RemoteAccessAllowed" : true,
+  "HttpPort" : 8042,
+  "DicomAet" : "ORTHANC",
+  "DicomPort" : 4242,
+  "DicomModalities" : {
+    "dcm4chee" : [ "DCM4CHEE", "arc", 11112 ]
+  },
+  "HttpsVerifyPeers" : false,
+  "DicomWeb" : {
+    "Servers" : {
+      "dcm4chee" : {
+        "Url" : "https://arc:8443/dcm4chee-arc/aets/DCM4CHEE/rs/",
+        //"Username" : "username",
+        //"Password" : "password",
+        "HasDelete" : false
+      }
+    }
+  }
+}
