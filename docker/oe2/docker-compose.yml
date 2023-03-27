@@ -19,6 +19,7 @@ services:
       ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
       ORTHANC__REGISTERED_USERS: |
         {"admin": "admin"}
+      ORTHANC__OVERWRITE_INSTANCES: "true"
 
     env_file:
       - common-orthanc.env
@@ -38,6 +39,7 @@ services:
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_LINK_TO_LEGACY_UI: "false"
       ORTHANC__REGISTERED_USERS: |
         {"user": "user"}
+      ORTHANC__OVERWRITE_INSTANCES: "true"
 
     env_file:
       - common-orthanc.env
@@ -51,7 +53,7 @@ services:
 
 
   pacs:
-    image: osimis/orthanc:22.8.0
+    image: osimis/orthanc:23.3.0
     volumes: ["pacs-storage:/var/lib/orthanc/db"]
     depends_on: [pacs-db]
     restart: unless-stopped

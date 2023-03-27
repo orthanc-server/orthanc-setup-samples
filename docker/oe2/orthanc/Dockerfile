@@ -1,4 +1,4 @@
-FROM osimis/orthanc:22.8.0
+FROM osimis/orthanc:23.3.0
 
 COPY filter-http.lua /scripts/
 
