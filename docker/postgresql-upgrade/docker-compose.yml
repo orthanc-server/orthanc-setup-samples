@@ -1,0 +1,37 @@
+version: "3"
+services:
+  orthanc:
+    image: osimis/orthanc
+    # depends_on: [orthanc-index-10]
+    depends_on: [orthanc-index-15]
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      ORTHANC__NAME: "postgres-upgrade"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      # ORTHANC__POSTGRESQL__HOST: "orthanc-index-10"
+      ORTHANC__POSTGRESQL__HOST: "orthanc-index-15"
+      OE2_ENABLED: "true"
+
+  orthanc-index-10:
+    image: postgres:10-alpine
+    restart: unless-stopped
+    volumes: ["orthanc-index-10:/var/lib/postgresql/data", "backup-db:/backup"]
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+
+  orthanc-index-15:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes: ["orthanc-index-15:/var/lib/postgresql/data", "backup-db:/backup"]
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+
+
+volumes:
+  orthanc-storage:
+  orthanc-index-10:
+  orthanc-index-15:
+  backup-db:
