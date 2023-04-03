@@ -9,7 +9,7 @@ This demo contains:
 - an Orthanc container with the [authorization plugin](https://book.orthanc-server.com/plugins/authorization.html) enabled.
 - a small authorization micro service that Orthanc will request to authorize/forbids access to its resources.  This autorization service would most likely be part of your web-app but should only be accessible to Orthanc (not from the external world).
 
-Note: this demo currently does not work with the StoneViewer !
+Note:  Since this sample was written, we have introduced a more advanced user management in the [orthanc-auth-service](https://github.com/orthanc-team/orthanc-auth-service).
 
 # Starting the setup
 
