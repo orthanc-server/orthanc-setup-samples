@@ -14,6 +14,7 @@ services:
 
       STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__DICOM_WEB__PUBLIC_ROOT: "/orthanc/dicom-web/"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
     restart: unless-stopped
