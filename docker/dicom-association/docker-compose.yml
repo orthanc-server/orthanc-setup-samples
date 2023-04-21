@@ -17,7 +17,7 @@ services:
   orthanc-b:
     image: osimis/orthanc
     ports: ["105:4242", "81:8042"]
-    volumes: ["storage-a:/var/lib/orthanc/db/"]
+    volumes: ["storage-b:/var/lib/orthanc/db/"]
     environment:
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
