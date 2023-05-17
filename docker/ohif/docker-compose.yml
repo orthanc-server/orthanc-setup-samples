@@ -5,23 +5,28 @@ services:
     restart: unless-stopped
     ports:
       - 80:80
-      - 81:81
+    depends_on:
+      - orthanc
+      - ohif
+
+  ohif:
+    build: ohif
+    restart: unless-stopped
     depends_on:
       - orthanc
 
   orthanc:
-    image: osimis/orthanc:master-unstable
+    image: osimis/orthanc:23.5.0
     restart: unless-stopped
     environment:
       ORTHANC__NAME: "Orthanc for OHIF"
 
       DICOM_WEB_PLUGIN_ENABLED: "true"
 
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_OHIF_VIEWER: "true"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__OHIF_VIEWER_PUBLIC_ROOT: "http://localhost:81/Viewer/"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_OHIF_VIEWER_3: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__OHIF_VIEWER_3_PUBLIC_ROOT: "http://localhost/ohif/"
 
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
 
       VERBOSE_STARTUP: "true"
 

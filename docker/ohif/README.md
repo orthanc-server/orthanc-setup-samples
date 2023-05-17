@@ -25,12 +25,9 @@ To start the setup, type: `docker-compose up --build`
 
 # demo
 
-- Orthanc UI is accessible at [http://localhost/ui/app/](http://localhost/ui/app/) (`demo:demo`)
+- Orthanc UI is accessible at [http://localhost/ui/app/](http://localhost/ui/app/) (no login/pwd)
 - upload a study in Orthanc
 - click on the `OHIF viewer` button to open the viewer
 
 
-# Notes
-
-- OHIF code contains a `.mjs` file that is not recognized by nginx -> we need to provie a custom `mime.types` file.
 
