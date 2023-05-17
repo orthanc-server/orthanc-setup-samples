@@ -5,12 +5,6 @@ and integrate it in the [Orthanc Explorer 2](https://book.orthanc-server.com/plu
 
 # Description
 
-It seems it's not straightforward to have OHIF running at a subroute without recompiling it when setting the PUBLIC_URL env var.
-Therefore, this setup exposes the OHIF viewer on a different server than Orthanc.  In a production environment, you can 
-certainly run Orthanc UI on https://orthanc.my.site/ and the viewer on https://viewer.my.site/ such that it is served at `/` (and the viewer at `/Viewer`).
-
-However, to avoid CORS issues, orthanc API is exposed to OHIF as an `/orthanc` subroute on the `viewer` server.
-
 This demo contains:
 
 - an Orthanc container.
