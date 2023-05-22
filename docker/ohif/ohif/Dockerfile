@@ -5,8 +5,8 @@ FROM node:16.15.0-slim as builder
 RUN apt-get update && apt-get install -y git
 
 WORKDIR /sources
-# v3-stable branch on 2023.05.11
-RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout 84cb709b44074c7553fabd28bbcd2da4c1bd60d6
+# v3-stable branch on 2023.05.21
+RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout c0fd4416edb90fbe1b0e76e41613c62691e1f476
 
 WORKDIR /sources/Viewers
 
