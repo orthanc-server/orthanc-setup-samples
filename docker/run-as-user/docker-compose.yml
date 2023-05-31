@@ -1,0 +1,35 @@
+version: "3.3"
+services:
+
+
+  orthanc:
+    image: osimis/orthanc:run-as-user-unstable
+    ports: ["8042:8042"]
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+    user: orthanc
+    depends_on:
+      init-volume-permissions:
+        condition: service_completed_successfully
+    environment:
+      ORTHANC__NAME: "orthanc-run-as-user"
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      ORTHANC__REGISTERED_USERS: |
+        {"demo": "demo"}
+      FORCE_HOST_ID: "12345678"
+
+  # this service initializes the volume permissions to orthanc:orthanc user declared in the osimis/orthanc image
+  # it must be run only the first time you start the system or when you change the user running orthanc.  Afterwards, it can be removed.
+  # This container must run as root !
+  init-volume-permissions:
+    image: alpine
+    group_add: 
+      - '999'
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+    user: root
+    command: chown -R 999:999 /var/lib/orthanc/db
+
+volumes:
+  orthanc-storage:
