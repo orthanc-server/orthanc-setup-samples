@@ -1,5 +1,5 @@
 The Orthanc Setup Samples are licensed under the MIT License.
 
-(c) Copyright 2016-2022, Osimis, and the Orthanc community.
+(c) Copyright 2016-2023, Osimis, and the Orthanc community.
 
 https://opensource.org/licenses/MIT
