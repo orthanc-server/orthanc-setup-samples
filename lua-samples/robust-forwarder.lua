@@ -10,8 +10,9 @@ function ForwardInstance(instanceId)
   payload["Resources"] = {}
   table.insert(payload["Resources"], instanceId)
   payload["Asynchronous"] = true
+  payload["Priority"] = 1
 
-  local job = ParseJson(RestApiPost("/modalities/service/store", DumpJson(payload, true)))
+  local job = ParseJson(RestApiPost("/modalities/service/store", DumpJson(payload, false)))
   print("created job " .. job["ID"] .. " to transfer instance " .. instanceId)
 
 end
