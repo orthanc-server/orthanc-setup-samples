@@ -10,7 +10,7 @@ This demo contains:
 - an Orthanc container.
 - an nginx container that:
   - exposes the Orthanc UI on http://localhost/orthanc/ui/app/
-  - serves the OHIF viewer on http://localhost/ohif
+  - serves the OHIF viewer
   - exposes the Orthanc API for the viewer on http://localhost/orthanc
   
 # Starting the setup

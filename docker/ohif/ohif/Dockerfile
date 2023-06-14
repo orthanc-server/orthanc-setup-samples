@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y git
 
 WORKDIR /sources
 # v3-stable branch on 2023.05.21
-RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout c0fd4416edb90fbe1b0e76e41613c62691e1f476
+RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.6.0
 
 WORKDIR /sources/Viewers
 
@@ -18,6 +18,7 @@ ENV QUICK_BUILD true
 
 RUN yarn install 
 RUN QUICK_BUILD=true PUBLIC_URL=/ohif/ yarn run build
+RUN ls -al /sources/Viewers/platform/app/dist/
 
 ######################################################
 
@@ -29,5 +30,5 @@ RUN mkdir /scripts
 COPY ohif-static.conf /etc/nginx/enabled-sites/
 ADD ohif-nginx-http.conf /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /sources/Viewers/platform/viewer/dist /usr/share/nginx/html/
+COPY --from=builder /sources/Viewers/platform/app/dist /usr/share/nginx/html/
 COPY default-app-config.js /usr/share/nginx/html/app-config.js
