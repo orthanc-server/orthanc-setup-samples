@@ -5,7 +5,6 @@ FROM node:16.15.0-slim as builder
 RUN apt-get update && apt-get install -y git
 
 WORKDIR /sources
-# v3-stable branch on 2023.05.21
 RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.6.0
 
 WORKDIR /sources/Viewers
@@ -18,7 +17,6 @@ ENV QUICK_BUILD true
 
 RUN yarn install 
 RUN QUICK_BUILD=true PUBLIC_URL=/ohif/ yarn run build
-RUN ls -al /sources/Viewers/platform/app/dist/
 
 ######################################################
 
