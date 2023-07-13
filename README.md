@@ -42,6 +42,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Use DICOM TLS](docker/dicom-tls) to demonstrate how to configure DICOM TLS between 2 Orthanc instances.
 - [Download and update configuration dymically using Lua](docker/lua-download-config-and-restart) to demonstrate how to check and update configuration dymically using a lua script.
 - [Health-check](docker/health-check) to monitor Orthanc and restart it if it becomes unresponsive.
+- [Export studies to S3](docker/copy-to-S3) to export zipped studies into and S3 bucket.
 
 
 ## for software integrators

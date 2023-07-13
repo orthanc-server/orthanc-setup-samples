@@ -1,0 +1,73 @@
+version: "3.3"
+
+services:
+    # this is the Orthanc acting as a Gateway between the PACS and S3
+    orthanc-gw:
+        build: orthanc-gw
+        ports: [8042:8042]
+        volumes:
+            - orthanc-storage:/var/lib/orthanc/db
+        environment:
+            VERBOSE_ENABLED: "true"
+            VERBOSE_STARTUP: "true"
+            ORTHANC_JSON: |
+                {
+                    "Name": "Orthanc Gateway",
+                    "DicomAET": "ORTHANCGW",
+                    "DicomModalities": {
+                        "pacs": ["PACS", "pacs", 4242]
+                    },
+                    "RegisteredUsers": {
+                        "demo": "demo"
+                    },
+                    "StableAge": 3
+                }
+            # note: in a prod setup, the S3 access_key and secret_key should be passed as secrets
+            AWS_ACCESS_KEY_ID: "minio"
+            AWS_SECRET_ACCESS_KEY: "miniopwd"
+            S3_BUCKET: "test-bucket"
+            # this is not required when using real AWS S3
+            S3_ENDPOINT: "http://minio:9000"
+            
+            S3_PATH_TEMPLATE: "{StudyDate}/{PatientID}-{PatientName}.zip" 
+            S3_DELETE_AFTER_EXPORT: "true"
+
+
+    # this is simulating the S3 buckets
+    minio:
+        command: server /data --console-address ":9001"
+        image: minio/minio:RELEASE.2023-07-11T21-29-34Z
+        ports: [9000:9000, 9001:9001]
+        volumes:
+            - minio-storage:/data
+        environment:
+            MINIO_REGION: "eu-west-1"
+            MINIO_ROOT_USER: "minio"
+            MINIO_ROOT_PASSWORD: "miniopwd"
+
+
+    # this is an orthanc simulating the PACS or workstation
+    pacs:
+        image: osimis/orthanc:23.7.0
+        ports: [8043:8042]
+        volumes:
+            - pacs-storage:/var/lib/orthanc/db
+        environment:
+            VERBOSE_ENABLED: "true"
+            VERBOSE_STARTUP: "true"
+            ORTHANC_JSON: |
+                {
+                    "Name": "PACS",
+                    "DicomAET": "PACS",
+                    "DicomModalities": {
+                        "gw-to-s3": ["ORTHANCGW", "orthanc-gw", 4242]
+                    },
+                    "AuthenticationEnabled": false
+                }
+
+
+volumes:
+    minio-storage:
+    orthanc-storage:
+    pacs-storage:
+
