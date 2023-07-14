@@ -9,39 +9,23 @@ services:
     volumes: ["orthanc-storage-a:/var/lib/orthanc/db"]
     environment:
       VERBOSE_STARTUP: "true"
-
-  orthanc-index:
-    image: postgres
-    restart: unless-stopped
-    ports: ["5432:5432"]
-    volumes: ["orthanc-index-a:/var/lib/postgresql/data"]
-    environment:
-      POSTGRES_PASSWORD: "postgres"
-
-  # second setup through environment variables
-  orthanc-b:
-    image: osimis/orthanc:22.12.2
-    restart: unless-stopped
-    depends_on: [orthanc-index-b]
-    ports: ["8043:8042"]
-    volumes: ["orthanc-storage-b:/var/lib/orthanc/db"]
-    environment:
       ORTHANC__POSTGRESQL: |
         {
           "Host": "orthanc-index-b"
         }
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
-
-  orthanc-index-b:
-    image: postgres:14
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      
+  orthanc-index:
+    image: postgres:15
     restart: unless-stopped
-    volumes: ["orthanc-index-b:/var/lib/postgresql/data"]
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index-a:/var/lib/postgresql/data"]
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
+
 
 volumes:
   orthanc-storage-a:
   orthanc-index-a:
-  orthanc-storage-b:
-  orthanc-index-b:

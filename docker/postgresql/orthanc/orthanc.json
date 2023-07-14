@@ -20,5 +20,44 @@
     "Database": "postgres", // default database name in PostgreSQL container (no need to create it)
     "Username": "postgres", // default user name in PostgreSQL container (no need to create it)
     "Password": "postgres"
+  },
+
+  "ExtraMainDicomTags": {
+    "Instance" : [
+        "Rows",
+        "Columns",
+        "ImageType",
+        "SOPClassUID",
+        "ContentDate",
+        "ContentTime",
+        "FrameOfReferenceUID",
+        "PixelSpacing",
+        "SpecificCharacterSet",
+        "BitsAllocated",
+        "BitsStored",
+
+        "RescaleSlope",
+        "RescaleIntercept",
+        "SliceThickness",
+        "WindowCenter",
+        "WindowWidth",
+        "PhotometricInterpretation",
+        "PixelRepresentation"
+    ],
+    "Series" : [
+        "TimezoneOffsetFromUTC",
+        "PerformedProcedureStepStartDate",
+        "PerformedProcedureStepStartTime",
+        "SpecificCharacterSet",
+        "RequestAttributesSequence"
+    ],
+    "Study": [
+        "TimezoneOffsetFromUTC",
+        "SpecificCharacterSet",
+        "PatientComments",
+        "IssuerOfPatientID",
+        "PatientBirthTime"
+    ],
+    "Patient": []
   }
 }
