@@ -11,7 +11,7 @@ class S3Configuration:
      aws_access_key_id: str
      aws_secret_access_key: str
      bucket: str
-     endpoint: str
+     endpoint: str = None
 
 
 class S3StudyExporter:
