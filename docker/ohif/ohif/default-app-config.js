@@ -37,9 +37,9 @@ window.config = {
       configuration: {
         name: 'orthanc',
 
-        wadoUriRoot: '/orthanc/dicom-web',
-        qidoRoot: '/orthanc/dicom-web',
-        wadoRoot: '/orthanc/dicom-web',
+        wadoUriRoot: '/orthanc-container/dicom-web',
+        qidoRoot: '/orthanc-container/dicom-web',
+        wadoRoot: '/orthanc-container/dicom-web',
 
         qidoSupportsIncludeField: false,
         supportsReject: false,

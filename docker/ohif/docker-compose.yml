@@ -6,78 +6,82 @@ services:
     ports:
       - 80:80
     depends_on:
-      - orthanc
+      - orthanc-container
+      - orthanc-plugin
       - ohif
 
   ohif:
     build: ohif
     restart: unless-stopped
     depends_on:
-      - orthanc
+      - orthanc-container
 
-  orthanc:
-    image: osimis/orthanc:23.5.0
+  orthanc-container:
+    image: osimis/orthanc:23.7.0
     restart: unless-stopped
+    volumes:
+      - orthanc-storage:/var/lib/orthanc/db/
     environment:
-      ORTHANC__NAME: "Orthanc for OHIF"
+      ORTHANC__NAME: "OHIF in container"
 
       DICOM_WEB_PLUGIN_ENABLED: "true"
-      ORTHANC__DICOM_WEB__PUBLIC_ROOT: "/orthanc/dicom-web/"
-      # ORTHANC__DICOM_WEB__SERIES_METADATA: "MainDicomTags"
+      ORTHANC__DICOM_WEB__PUBLIC_ROOT: "/orthanc-container/dicom-web/"
 
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_OHIF_VIEWER_3: "true"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__OHIF_VIEWER_3_PUBLIC_ROOT: "http://localhost/ohif/"
 
       ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
 
-      # ORTHANC__EXTRA_MAIN_DICOM_TAGS: |
-      #   {
-      #   "Instance" : [
-      #       "Rows",
-      #       "Columns",
-      #       "ImageType",
-      #       "SOPClassUID",
-      #       "ContentDate",
-      #       "ContentTime",
-      #       "FrameOfReferenceUID",
-      #       "PixelSpacing",
-      #       "SpecificCharacterSet",
-      #       "BitsAllocated",
-      #       "BitsStored",
-      #       "RescaleSlope",
-      #       "RescaleIntercept",
-      #       "SliceThickness",
-      #       "WindowCenter",
-      #       "WindowWidth",
-      #       "PhotometricInterpretation",
-      #       "PixelRepresentation",
-      #       "RadiopharmaceuticalInformationSequence",
-      #       "PatientWeight",
-      #       "CorrectedImage",
-      #       "Units",
-      #       "DecayCorrection",
-      #       "AcquisitionDate",
-      #       "AcquisitionTime",
-      #       "FrameReferenceTime",
-      #       "ActualFrameDuration",
-      #       "PatientSize"
-      #   ],
-      #   "Series" : [
-      #       "TimezoneOffsetFromUTC",
-      #       "PerformedProcedureStepStartDate",
-      #       "PerformedProcedureStepStartTime",
-      #       "RequestAttributesSequence"
-      #   ],
-      #   "Study": [
-      #       "TimezoneOffsetFromUTC",
-      #       "Modality"
-      #   ],
-      #   "Patient": []
-      #   }
       VERBOSE_STARTUP: "true"
 
+
+  orthanc-plugin:
+    image: osimis/orthanc:23.7.0
+    restart: unless-stopped
+    ports:
+      - 8053:8042
     volumes:
       - orthanc-storage:/var/lib/orthanc/db/
- 
+    environment:
+      ORTHANC__NAME: "OHIF in plugin"
+
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__DICOM_WEB__PUBLIC_ROOT: "/orthanc-plugin/dicom-web/"
+
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_OHIF_VIEWER_3: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__OHIF_VIEWER_3_PUBLIC_ROOT: "http://localhost/orthanc-plugin/ohif/"
+
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+
+      OHIF_PLUGIN_ENABLED: "true"
+      ORTHANC__OHIF: |
+        {
+          "RouterBasename": "/orthanc-plugin/ohif/",
+          "DataSource" : "dicom-web"
+        } 
+
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
+
+      VERBOSE_STARTUP: "true"
+
+
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
 volumes:
   orthanc-storage:
+  orthanc-index:
