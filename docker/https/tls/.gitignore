@@ -1,0 +1,7 @@
+ca-crt.pem
+ca-key.pem
+ca-crt.srl
+orthanc-private-key.pem
+orthanc-csr.pem
+orthanc-crt.pem
+orthanc-https.pem

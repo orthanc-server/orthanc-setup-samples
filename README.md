@@ -30,6 +30,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [MedDream Viewer](docker/meddream) to demonstrate how to configure [MedDream Viewer](https://www.softneta.com/products/meddream-dicom-viewer/) with Orthanc.
 - [Dcm4Chee](docker/dcm4chee5) to demonstrate how to interface Orthanc with Dcm4Chee 5, both using the DICOM protocol and the DICOMweb protocol.
 
+
 ## for advanced users
 - [Dicom modification of received instances](docker/modify-instances) to demonstrate how to use Orthanc to modify incoming instances.
 - [C-Find requests filtering](docker/dicom-cfind-filter-lua) to demonstrate how you can modify C-Find requests in a lua script.
@@ -37,6 +38,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Orthanc sanitizer middleman (python)](docker/sanitize-middleman-python) to demonstrate how to use Orthanc to sanitize instances between a modality and a PACS (modify tags + change the TransferSyntax).
 - [Configure logging](docker/logs) to demonstrate how to configure logs into a folder that is mapped to the host.
 - [Running Orthanc behind a nginx reverse proxy](docker/nginx) to demonstrate how to implement an Orthanc behind a reverse proxy.
+- [Implementing HTTPS within orthanc](docker/https) to demonstrate how to implement HTTPS withing Orthanc.
 - [Implementing HTTPS with nginx](docker/tls-with-nginx) to demonstrate how to implement an Orthanc behind nginx that is implementing TLS.
 - [Use multiple Orthanc on the same DB](docker/multiple-orthancs-on-same-db) to demonstrate how to connect multiple Orthanc on the same PostgreSQL database and perform HTTP load balancing.
 - [Use DICOM TLS](docker/dicom-tls) to demonstrate how to configure DICOM TLS between 2 Orthanc instances.

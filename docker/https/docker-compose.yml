@@ -1,0 +1,28 @@
+version: "2"
+services:
+  orthanc:
+    image: osimis/orthanc:23.7.1
+    restart: unless-stopped
+    ports: ["443:443"]
+    volumes:
+      - orthanc-storage:/var/lib/orthanc/db/
+      - ./tls:/tls
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name" : "Orthanc for HTTPS tests",
+          "AuthenticationEnabled": false,
+          "OHIF": {
+            "DataSource": "dicom-web"
+          },
+          "RemoteAccessAllowed": true,
+          "SslEnabled": true,
+          "SslCertificate": "/tls/orthanc-https.pem",
+          "HttpPort": 443
+        }
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+volumes:
+  orthanc-storage:
