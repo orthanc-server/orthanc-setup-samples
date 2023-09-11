@@ -60,6 +60,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 - [Postgresql version upgrade](docker/postgresql-upgrade) to demontrate how to upgrade from one Postgresql version to another
 - [Run orthanc as non-root user](docker/run-as-user) to demontrate how to run the osimis/orthanc image as a non root user
+- [Job service](docker/job-service) to demonstrate how to run a side web-serivce to centralize the jobs of multiple Orthanc instances running behind a load balancer
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)

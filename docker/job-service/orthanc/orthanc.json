@@ -1,0 +1,14 @@
+{
+    "SaveJobs": false,
+
+    "RegisteredUsers": {
+        "demo": "demo"
+    },
+    
+    "PostgreSQL": {
+        "Password": "pg-password",
+        "Host": "db"
+    },
+
+    "PythonScript": "/python-plugin.py"
+}

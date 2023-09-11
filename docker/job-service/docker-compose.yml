@@ -1,0 +1,64 @@
+version: "2"
+services:
+  nginx-load-balancer:
+    image: nginx:1.25.2-alpine-slim
+    depends_on: [orthanc-a] # , orthanc-b, orthanc-c]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    restart: unless-stopped
+    ports: ["80:80"]
+
+  orthanc-a:
+    build: orthanc
+    depends_on: [db, job-service]
+    restart: unless-stopped
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+      - ./orthanc/orthanc.json:/etc/orthanc/orthanc.json
+      - ./orthanc/python-plugin.py:/python-plugin.py
+    environment:
+      ORTHANC__NAME: "Orthanc A"
+      # JOB_SERVICE_URL: "http://192.168.0.10:8000"
+
+  orthanc-b:
+    build: orthanc
+    depends_on: [db, job-service]
+    restart: unless-stopped
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+      - ./orthanc/orthanc.json:/etc/orthanc/orthanc.json
+      - ./orthanc/python-plugin.py:/python-plugin.py
+    environment:
+      ORTHANC__NAME: "Orthanc B"
+      # JOB_SERVICE_URL: "http://192.168.0.10:8000"
+
+  orthanc-c:
+    build: orthanc
+    depends_on: [db, job-service]
+    restart: unless-stopped
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+      - ./orthanc/orthanc.json:/etc/orthanc/orthanc.json
+      - ./orthanc/python-plugin.py:/python-plugin.py
+    environment:
+      ORTHANC__NAME: "Orthanc C"
+      # JOB_SERVICE_URL: "http://192.168.0.10:8000"
+
+  db:
+    image: postgres:15-alpine
+    volumes: 
+      - orthanc-db:/var/lib/postgresql/data
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  job-service:
+    build: job-service
+    restart: unless-stopped
+    ports: ["8000:8000"]
+
+
+volumes:
+  orthanc-storage:
+  orthanc-db:
