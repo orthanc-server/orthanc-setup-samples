@@ -165,8 +165,6 @@ class JobRegistry:
         stmt = "DELETE FROM orthanc_jobs WHERE orthanc_ip=:ip"
         cursor.execute(stmt, {'ip': orthanc_ip})
 
-        stmt = "INSERT INTO orthanc_jobs VALUES(id=:id, orthanc_ip=:orthanc_ip, job_status=:job_status, orthanc_status=:orthanc_status, content=:content)"
-
         for job in jobs:
             self._insert_job(cursor=cursor, orthanc_ip=orthanc_ip, job=job)
 
