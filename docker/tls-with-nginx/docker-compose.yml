@@ -6,7 +6,7 @@ services:
     depends_on: [orthanc-a, orthanc-b]
     restart: unless-stopped
     ports: ["443:443"]
-    volumes: ["nginx-tls:/etc/nginx/tls:Z"]
+    volumes: ["./tls:/etc/nginx/tls"]
   orthanc-a:
     build: orthanc-a
     restart: unless-stopped
@@ -15,10 +15,29 @@ services:
     image: osimis/orthanc
     restart: unless-stopped
     environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      ORTHANC__JSON: |
+        {
+          "Name" : "Orthanc B",
+          "AuthenticationEnabled": false,
+          "DicomWeb": {
+            "PublicRoot": "/orthanc-b/dicom-web/"
+          },
+          "OHIF": {
+            "DataSource": "dicom-web",
+            "RouterBasename": "/orthanc-b/ohif/"
+          }
+        }
+
       ORTHANC__NAME: "Orhtanc B"
       ORTHANC__DICOM_AET: "ORTHANC-B"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
+      ORTHANC__DICOM_WEB__PUBLIC_ROOT: "/orthanc-b/dicom-web/"
+      ORTHANC__OHIF__DATA_SOURCE: "dicom-web"
+      ORTHANC__OHIF__ROUTER_BASENAME: "/orthanc-b/ohif"
+
   orthanc-c:
     image: osimis/orthanc
     restart: unless-stopped

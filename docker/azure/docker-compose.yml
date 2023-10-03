@@ -2,13 +2,25 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc
+        image: osimis/orthanc:23.9.0-full
+        volumes: ["orthanc-db:/var/lib/orthanc/db"]
         ports: [8042:8042]
         environment:
-            - ORTHANC__AZURE_BLOB_STORAGE__CONTAINER_NAME=testcontainer
+            DICOM_WEB_PLUGIN_ENABLED: "true"
 
-            - ORTHANC__AUTHENTICATION_ENABLED=false
-            - ORTHANC__DICOM_SERVER_ENABLED=false
+            ORTHANC__AZURE_BLOB_STORAGE__CONTAINER_NAME: "testcontainer"
+
+            ORTHANC__AUTHENTICATION_ENABLED: "false"
+            ORTHANC__DICOM_SERVER_ENABLED: "false"
+            ORTHANC__DICOM_WEB__METADATA_WORKER_THREADS_COUNT : "4"
+
+            STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+            OHIF_PLUGIN_ENABLED: "true"
+            ORTHANC__OHIF: |
+              {
+                "DataSource" : "dicom-web"
+              } 
+
 
         secrets:
           - ORTHANC__AZURE_BLOB_STORAGE__CONNECTION_STRING
@@ -17,3 +29,5 @@ secrets:
     file: blob-connection-string.txt
   # ORTHANC__MSSQL__CONNECTION_STRING:
   #   file: mssql-connection-string.txt
+volumes:
+  orthanc-db:

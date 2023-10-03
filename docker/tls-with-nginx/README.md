@@ -23,7 +23,6 @@ This demo contains:
 # Starting the setup
 
 - First, you'll need to generate keys and certificates for all modules.  Go in the `tls` folder and type `generate-tls.sh`
-- Then, you'll have to copy all keys and certificates to docker volumes that will be used by the nginx container.  In the `tls`folder, type `copy-tls-to-docker-volumes.sh`.
 - To start the setup, type: `docker-compose up --build`
 
 # demo
