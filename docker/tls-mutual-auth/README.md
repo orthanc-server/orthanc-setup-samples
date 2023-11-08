@@ -16,8 +16,8 @@ This demo contains:
 
 # demo
 
-- Orthanc A is accessible at [http://localhost:8042/orthanc/app/explorer.html](http://localhost:8042/orthanc/app/explorer.html)
-- Orthanc B is accessible at [https://localhost:8043/orthanc/app/explorer.html](https://localhost:8043/orthanc/app/explorer.html) although you won't have access to it since your browser HTTP client is not using a client certificate to connect to this site. 
+- Orthanc A is accessible at [http://localhost:8042/ui/app/](http://localhost:8042/ui/app/)
+- Orthanc B is accessible at [https://localhost:8043/ui/app/](https://localhost:8043/ui/app/) although you won't have access to it since your browser HTTP client is not using a client certificate to connect to this site. 
 - you may check the connectivity at [http://localhost:8042/connectivity-checks/app/index.html](http://localhost:8042/connectivity-checks/app/index.html)
 - upload a study to Orthanc A
 - once the study has been uploaded, send it to the `orthanc-b` remote modality to use Orthanc peering.
