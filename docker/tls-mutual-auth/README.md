@@ -23,4 +23,4 @@ This demo contains:
 - once the study has been uploaded, send it to the `orthanc-b` remote modality to use Orthanc peering.
 - once the study has been uploaded, send it to the `orthanc-b` remote dicom-web server to use Dicom-web.
 - check the docker-compose logs.
-- note that you can access the orthanc-b API with curl `curl --insecure --cert ./tls/client-crt.pem --key ./tls/client-key.pem -v https://localhost:8043/system`
+- note that you can access the orthanc-b API with curl `curl --insecure --cert ./tls/orthanc-b-client-crt.pem --key ./tls/orthanc-b-client-key.pem -v https://localhost:8043/system`

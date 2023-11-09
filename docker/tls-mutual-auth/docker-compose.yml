@@ -15,8 +15,8 @@ services:
           "OrthancPeers" : {
             "orthanc-b" : {
               "Url" : "https://orthanc-b:8042",
-              "CertificateFile" : "/tls/client-crt.pem",
-              "CertificateKeyFile" : "/tls/client-key.pem",
+              "CertificateFile" : "/tls/orthanc-a-client-crt.pem",
+              "CertificateKeyFile" : "/tls/orthanc-a-client-key.pem",
               "CertificateKeyPassword": "password"
             }
           },
@@ -24,8 +24,8 @@ services:
             "Servers": {
               "orthanc-b" : {
                 "Url" : "https://orthanc-b:8042/dicom-web",
-                "CertificateFile" : "/tls/client-crt.pem",
-                "CertificateKeyFile" : "/tls/client-key.pem",
+                "CertificateFile" : "/tls/orthanc-a-client-crt.pem",
+                "CertificateKeyFile" : "/tls/orthanc-a-client-key.pem",
                 "CertificateKeyPassword": "password"
               }
             }
@@ -44,12 +44,12 @@ services:
           "AuthenticationEnabled": false,
 
           "SslEnabled": true,
-          "SslCertificate": "/tls/server-crt+key.pem",
-          "SslTrustedClientCertificates": "/tls/client-crt.pem",
+          "SslCertificate": "/tls/orthanc-b-server-key+crt.pem",
+          "SslTrustedClientCertificates": "/tls/ca-crt.pem",
           "SslVerifyPeers": true
         }
     healthcheck:
-      test: ["CMD-SHELL", "/probes/test-aliveness.py --certfile=/tls/client-crt.pem --keyfile=/tls/client-key.pem"]
+      test: ["CMD-SHELL", "/probes/test-aliveness.py --certfile=/tls/orthanc-b-client-crt.pem --keyfile=/tls/orthanc-b-client-key.pem"]
       start_period: 10s
       retries: 2
       interval: 10s
