@@ -16,3 +16,4 @@ orthanc-a-client-crt.pem
 orthanc-b-client-key.pem
 orthanc-b-client-csr.pem
 orthanc-b-client-crt.pem
+orthanc-b-server-key+crt.pem
