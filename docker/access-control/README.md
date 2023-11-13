@@ -1,7 +1,9 @@
 # Purpose
 
-This is a sample setup to demonstrate the usage of the Orthanc authorization plugin together with Orthanc Explorer 2 and the DicomWeb plugin.
-Furthermore, an extra python plugin is added to filter QIDO-RS and tools/find results based on the users accessing the server
+This is a sample setup to demonstrate the usage of the Orthanc authorization plugin together with the DicomWeb plugin or the Rest API.
+For a sample on how to integrate the Orthanc authorization plugin with Orthanc Explorer 2 and users, check [this sample](https://github.com/orthanc-team/orthanc-auth-service/tree/main/minimal-setup/keycloak).
+
+An extra python plugin is added to filter QIDO-RS and tools/find results based on the users accessing the server
 in order to list only the studies whom they have access to.
 
 Note that all access control in the sample is performed based on the `InstitutionName` DICOM Tag.  Each user is supposed to belong
@@ -15,15 +17,15 @@ In general, access control must be implemented in a custom web-service running n
 
 This demo contains:
 
-- an `orthanc-for-users` container with:
+- An `orthanc-for-admin` container connected to the same DB & storage with no access control configured.  This Orthanc instance is used
+  by administrator with full access and by scripts with full access too.
+- an `orthanc-for-clients` container with:
   - the [authorization plugin](https://book.orthanc-server.com/plugins/authorization.html) enabled.
   - a python plugin overwriting the `tools/find` route to return only the resources the user has access to
+  - the OE2 user interface is not functional on this Orthanc since the auth-service is not implementing user profiles.
+  Users are authenticated through an `api-key` header (not basic auth).  This Orthanc would typically be accessible from Dicom Web clients like Osirix.
 - an `authorization-service` that Orthanc will request to grant access to its resources.  This autorization service would most likely be
   part of your web-app but should only be accessible to Orthanc (not from the external world).
-- another `orthanc-for-admin` container connected to the same DB & storage with no access control configured.  This Orthanc instance is used
-  by administrator with full access and by scripts with full access too.
-- another `orthanc-for-clients` container which is almost identical to `orthanc-for-users` although it does not provide any user interface
-  and authenticate users through an `api-key` header (not basic auth).  This Orthanc would typically be accessible from Dicom Web clients like Osirix.
 - a PostgreSQL container to handle the Orthanc index DB.
 - a Nginx container to act as a reverse proxy in-front of all Orthanc instances
 - a third independant Orthanc instance acting as a populator to ingest test data into this setup
@@ -44,34 +46,37 @@ To start the setup, type: `docker-compose up --build`.  Note that the `orthanc-p
 
 ## User 1: access restricted to patients from his institution INST-1
 
-- In an incognito browser, open the User interface at [http://localhost/orthanc-users/ui/app/](http://localhost/orthanc-users/ui/app/) (login/pwd: `1`/`1`)
-- You should only see the patients from INST-1: `1-A` and `1-B`
+User 1 has an `api-key` defined as `key-1`.
 
-## User 2: access restricted to patients from his institution INST-2
+- User 1 can not list all studies:
+  ```
+  curl -v -H "api-key: key-1" http://localhost/orthanc-clients/studies
+  ```
+  This command shall return a 403 status code
 
-- In an incognito browser, open the User interface at [http://localhost/orthanc-users/ui/app/](http://localhost/orthanc-users/ui/app/) (login/pwd: `2`/`2`)
-- You should only see the patients from INST-1: `2-C` and `2-D`
+- User 1 can access a study from INST-1:
+  ```
+  curl -H "api-key: key-1" http://localhost/orthanc-clients/studies/5206b0c2-42b14e52-eeb62c57-47ce6089-bf79000a
+  ```
 
-## API keys and tools-find
+- User 1 can not access a study from INST-2:
+  ```
+  curl -v -H "api-key: key-1" http://localhost/orthanc-clients/studies/1fb6dd06-12004200-35b3c17f-4086c884-763e8f40
+  ```
+  This command shall return a 403 status code
 
-- User 1 has an `api-key` defined as `key-1`.  You may also issue some HTTP requests for this user to validate authorizations:
+- If User 1 wants to list all studies it has access to, it may issue a /tools/find:
   ```
   curl -H "api-key: key-1" http://localhost/orthanc-clients/tools/find -d '{"Level": "Study", "Query": {"PatientID": "*"}, "Expand": true }'
   ```
-  This command shall return 3 studies.
-
-- User 2 has an `api-key` defined as `key-2`:
-  ```
-  curl -H "api-key: key-2" http://localhost/orthanc-clients/tools/find -d '{"Level": "Study", "Query": {"PatientID": "*"}, "Expand": true }'
-  ```
-  This command shall return 2 studies.
+  This command shall return only the 3 studies from INST-1.
 
 
 ## API keys and dicom-web
 
 - User 1 lists all studies it has access to through DicomWeb
   ```
-  curl -H "api-key: key-1" http://localhost/orthanc-clients/dicom-web/studies?PatientID=*
+  curl -v -H "api-key: key-1" http://localhost/orthanc-clients/dicom-web/studies?PatientID=*
   ```
   This command shall return 3 studies
 

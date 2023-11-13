@@ -4,3 +4,4 @@
 docker/couchdb/
 docker/python-bug/
 *~
+**/__pycache__/*
