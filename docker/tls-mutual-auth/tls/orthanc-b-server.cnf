@@ -12,7 +12,7 @@ ST                     = -
 L                      = Liège
 O                      = Osimis
 OU                     = ops
-CN                     = orthanc-b-server
+CN                     = orthanc-b
 emailAddress           = certs@example.com
 
 [ req_attributes ]

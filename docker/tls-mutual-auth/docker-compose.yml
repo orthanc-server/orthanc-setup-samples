@@ -11,7 +11,8 @@ services:
         {
           "Name": "orthanc-a",
           "AuthenticationEnabled": false,
-          "HttpsVerifyPeers": false,    // since we use self-signed certificates on server side
+          "HttpsVerifyPeers": true,
+          "HttpsCACertificates": "/tls/ca-crt.pem",
           "OrthancPeers" : {
             "orthanc-b" : {
               "Url" : "https://orthanc-b:8042",
