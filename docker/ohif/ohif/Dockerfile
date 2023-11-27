@@ -1,11 +1,11 @@
 ######################################################
 
-FROM node:16.15.0-slim as builder
+FROM node:18.16.1-slim as builder
 
 RUN apt-get update && apt-get install -y git
 
 WORKDIR /sources
-RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.7.0-beta.30
+RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.7.0
 
 WORKDIR /sources/Viewers
 
