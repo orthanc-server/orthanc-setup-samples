@@ -9,7 +9,13 @@
     "Servers": {
       "b": [
         "http://orthanc-b:8042/dicom-web/", "demo", "demo"
-      ]
+      ],
+      "external-ws" : {
+        "Url": "https://my.dicom-server.com/",
+        "HttpHeaders": {
+          "api-key": "my-api-key"
+        }
+      }
     }
   }
 }
