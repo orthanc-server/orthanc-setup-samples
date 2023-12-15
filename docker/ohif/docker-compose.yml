@@ -12,12 +12,15 @@ services:
 
   ohif:
     build: ohif
+    # optional if you want to customize the OHIF configuration:
+    volumes:
+      - ./ohif/default-app-config.js:/usr/share/nginx/html/app-config.js
     restart: unless-stopped
     depends_on:
       - orthanc-container
 
   orthanc-container:
-    image: osimis/orthanc
+    image: osimis/orthanc:23.11.1
     restart: unless-stopped
     volumes:
       - orthanc-storage:/var/lib/orthanc/db/
@@ -40,7 +43,7 @@ services:
 
 
   orthanc-plugin:
-    image: osimis/orthanc
+    image: osimis/orthanc:23.11.1
     restart: unless-stopped
     ports:
       - 8053:8042
