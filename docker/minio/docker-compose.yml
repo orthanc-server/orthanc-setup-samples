@@ -2,8 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        # note: you need a post 22.2.0 tag (first tag with S3 plugin included)
-        image: osimis/orthanc
+        image: osimis/orthanc:mainline-2023.11.22
         ports: [8042:8042]
         environment:
             - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=my-sample-bucket
@@ -12,6 +11,7 @@ services:
             - ORTHANC__AWS_S3_STORAGE__SECRET_KEY=miniopwd
             - ORTHANC__AWS_S3_STORAGE__ENDPOINT=http://minio:9000
             - ORTHANC__AWS_S3_STORAGE__VIRTUAL_ADDRESSING=false
+            - ORTHANC__AWS_S3_STORAGE__HYBRID_MODE=WriteToObjectStorage
             - ORTHANC__AUTHENTICATION_ENABLED=false
             - ORTHANC__DICOM_SERVER_ENABLED=false
             - VERBOSE_ENABLED=true
