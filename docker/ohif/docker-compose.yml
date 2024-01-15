@@ -43,7 +43,7 @@ services:
 
 
   orthanc-plugin:
-    image: osimis/orthanc:23.11.1
+    image: osimis/orthanc:24.1.2
     restart: unless-stopped
     ports:
       - 8053:8042
