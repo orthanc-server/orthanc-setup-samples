@@ -1,14 +1,7 @@
 {
 	"disableMultiFrameVideoAutoLoad": false,
-	"threeDimensionServiceIntegration": {
-		"serverIP": null,
-		"port": null,
-		"protocol": null,
-		"pathPrefix": null,
-		"pathPrefixReplaceTo": null
-	},
 	"features": {
-		"patientHistory": false,
+		"patientHistory": true,
 		"keyObjectAndPresentationStateQuickSave": true,
 		"keyObjects": true,
 		"presentationState": true,
@@ -20,7 +13,9 @@
 		"archive": true,
 		"search": true,
 		"reports": false,
+		"remoteReports": false,
 		"liveShare": false,
+		"hangingProtocols": true,
 		"openTabsTrackingMethod": "NONE",
 		"batchImageRequests": true,
 		"prepareInstances": false,
@@ -36,7 +31,11 @@
 		"viewToClipboard": "IMAGE",
 		"pngPSToClipboard": "NONE",
 		"showCalculatedFps": true,
-		"viewToDICOM": false
+		"viewToDICOM": false,
+		"mistMpr3D": true,
+		"clearCache": false,
+		"measurementsPropagation": true,
+		"digitalSubtraction": false
 	},
 	"blackListedSopClasses": [],
 	"forwardPacs": [
@@ -56,8 +55,8 @@
 		"languages": null,
 		"language": null
 	},
-	"asynchronousStudyLoading": false,
 	"formatIntegrationLinkInViewer": false,
+	"textureInterpolationType": 1,
 	"requestsConfig": {
 		"maximumMetadataStreams": 5,
 		"maximumPixelStreams": 15,
@@ -72,5 +71,39 @@
 	"cacheSupervisorConfig": {
 		"enabled": false,
 		"runFrequencyInSec": 10
-	}
+	},
+	"scrollingConfig": {
+		"modality": [
+			"CT",
+			"MR",
+			"PT",
+			"OPT",
+			"NM",
+			"MG",
+			"OCT"
+		],
+		"sopClass": []
+	},
+	"fusionConfig": {
+		"modality": [
+			"CT",
+			"MR",
+			"PT"
+		],
+		"sopClass": []
+	},
+	"notificationsConfig": {
+		"autoCloseAfterSec": 10
+	},
+	"personNameConfiguration": {
+		"formatIn": null,
+		"formatOut": null
+	},
+	"searchHistoryByPatientId": true,
+	"segmentationConfig": {
+		"smartPaintPreloadOptions": "wait-for-toolbar",
+		"messagingLevel": "minimal"
+	},
+	"dontAutoOpenTheseAnnotations": [],
+	"windowPosition": []
 }
