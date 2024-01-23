@@ -9,6 +9,8 @@ functionality and UI.
 
 **Disclaimer**: this sample is provided 'as is' without any guarantee.  Don't use it in production unless you perfectly understand every part of it.
 
+**Note**:  Since this sample was written, we have introduced a more advanced user management in the [orthanc-auth-service](https://github.com/orthanc-team/orthanc-auth-service).
+
 # Description
 
 This demo contains:
@@ -21,7 +23,6 @@ This demo contains:
 - 3 Orthanc containers, one configured for `admin` and one configured for `users` and one configured as an external pacs
 - a Postgresql container to store the Orthanc database
 
-Note:  Since this sample was written, we have introduced a more advanced user management in the [orthanc-auth-service](https://github.com/orthanc-team/orthanc-auth-service).
 
 # Starting the setup
 
