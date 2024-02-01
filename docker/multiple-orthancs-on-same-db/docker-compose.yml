@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc-dicom:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index]
     ports: ["104:4242"]
     volumes: ["storage:/var/lib/orthanc/db"]
@@ -17,7 +17,7 @@ services:
     ports: ["80:80"]
 
   orthanc-http-a:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index]
     volumes: ["storage:/var/lib/orthanc/db"]
     environment:
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   orthanc-http-b:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index]
     volumes: ["storage:/var/lib/orthanc/db"]
     environment:

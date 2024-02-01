@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [orthanc-auth-service]
     restart: unless-stopped
     ports: ["8042:8042"]

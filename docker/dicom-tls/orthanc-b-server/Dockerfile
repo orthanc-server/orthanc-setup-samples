@@ -1,5 +1,5 @@
 # note: we need a recent version with DCMTK 3.6.5+ (e.g: 21.8.2+)
-FROM osimis/orthanc
+FROM orthancteam/orthanc
 
 RUN mkdir /tls
 

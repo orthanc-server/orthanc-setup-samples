@@ -1,4 +1,4 @@
-FROM osimis/orthanc:23.7.0
+FROM orthancteam/orthanc
 
 ENV PYTHONUNBUFFERED=1
 RUN pip install orthanc-api-client==0.13.5

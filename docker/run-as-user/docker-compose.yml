@@ -3,7 +3,7 @@ services:
 
 
   orthanc:
-    image: osimis/orthanc:run-as-user-unstable
+    image: orthancteam/orthanc
     ports: ["8042:8042"]
     volumes: 
       - orthanc-storage:/var/lib/orthanc/db
@@ -19,7 +19,7 @@ services:
         {"demo": "demo"}
       FORCE_HOST_ID: "12345678"
 
-  # this service initializes the volume permissions to orthanc:orthanc user declared in the osimis/orthanc image
+  # this service initializes the volume permissions to orthanc:orthanc user declared in the orthancteam/orthanc image
   # it must be run only the first time you start the system or when you change the user running orthanc.  Afterwards, it can be removed.
   # This container must run as root !
   init-volume-permissions:

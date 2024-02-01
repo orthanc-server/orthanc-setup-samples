@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc-a:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["8042:8042"]
     environment:
       ORTHANC__DICOM_AET: "ORTHANC-A"
@@ -9,7 +9,7 @@ services:
       - dicom-modalities.env
       - default-orthanc-config.env
   orthanc-b:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["8043:8042"]
     environment:
       ORTHANC__DICOM_AET: "ORTHANC-B"
@@ -17,7 +17,7 @@ services:
       - dicom-modalities.env
       - default-orthanc-config.env
   orthanc-c:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["8044:8042"]
     environment:
       ORTHANC__DICOM_AET: "ORTHANC-C"

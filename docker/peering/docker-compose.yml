@@ -7,7 +7,7 @@ services:
 
   # orthanc-b is configured via a environment variables
   orthanc-b:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["8043:8042"]
     environment:
       ORTHANC__NAME: "orthanc-b"

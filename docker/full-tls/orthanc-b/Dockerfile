@@ -1,4 +1,4 @@
-FROM osimis/orthanc
+FROM orthancteam/orthanc
 
 COPY orthanc.json /etc/orthanc/
 COPY notify-external-web-service.lua /etc/share/orthanc/scripts/notify-external-web-service.lua

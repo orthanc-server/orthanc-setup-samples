@@ -36,7 +36,7 @@ services:
         restart: unless-stopped
 
     orthanc:
-        image: osimis/orthanc
+        image: orthancteam/orthanc
         restart: unless-stopped
         ports: ["8042:8042"]
         volumes: ["orthanc:/var/lib/orthanc/db"]

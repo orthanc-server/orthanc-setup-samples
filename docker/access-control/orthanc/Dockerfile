@@ -1,3 +1,3 @@
-FROM osimis/orthanc:23.11.0
+FROM orthancteam/orthanc
 
 RUN pip3 install requests

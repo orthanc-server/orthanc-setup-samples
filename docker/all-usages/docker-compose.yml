@@ -3,7 +3,7 @@ services:
 
 
   orthanc-all-env-vars:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8000:8042"]
     environment:
@@ -25,7 +25,7 @@ services:
 
 
   orthanc-file-in-env-var:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8200:8042"]
     environment:
@@ -46,7 +46,7 @@ services:
         }
 
   orthanc-file-in-env-var-and-password-in-secret:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8201:8042"]
     environment:
@@ -69,7 +69,7 @@ services:
 
 
   orthanc-file-in-secrets:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8202:8042"]
     environment:
@@ -82,7 +82,7 @@ services:
 
 
   orthanc-with-indirect-secret:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8002:8042"]
     environment:
@@ -102,7 +102,7 @@ services:
 
 
   orthanc-with-direct-secret:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8003:8042"]
     environment:
@@ -124,7 +124,7 @@ services:
   # do not use these legacy settings, they are here to demonstrate the backward compatibility
 
   orthanc-all-env-vars-legacy:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8100:8042"]
     environment:
@@ -146,7 +146,7 @@ services:
 
 
   orthanc-with-indirect-secret-legacy:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8102:8042"]
     environment:
@@ -165,7 +165,7 @@ services:
 
 
   orthanc-with-direct-secret-legacy:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [index-db]
     ports: ["8103:8042"]
     environment:

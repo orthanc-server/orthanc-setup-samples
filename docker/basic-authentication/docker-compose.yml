@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["80:8042"]
     environment:
       ORTHANC__REGISTERED_USERS: |

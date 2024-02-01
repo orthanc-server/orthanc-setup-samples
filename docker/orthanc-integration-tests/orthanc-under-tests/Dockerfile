@@ -1,4 +1,4 @@
-FROM osimis/orthanc:21.11.0
+FROM orthancteam/orthanc
 
 # install gdcm and dcmtk that are used in a Lua scripts
 RUN apt-get --assume-yes update

@@ -2,7 +2,7 @@ version: "2"
 services:
 
   orthanc-fast-ssd:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["8043:8042"]
     volumes:
       - "/fast-ssd/orthanc-storage:/var/lib/orthanc/db/files"
@@ -19,7 +19,7 @@ services:
   # uncomment either the s3 or the azure service depending on your cloud provider
 
   # orthanc-s3:
-  #   image: osimis/orthanc
+  #   image: orthancteam/orthanc
   #   ports: [8044:8042]
   #   volumes:
   #     - "/fast-ssd/s3-db:/var/lib/orthanc/db/sql"
@@ -36,7 +36,7 @@ services:
   #       }
 
   orthanc-azure:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: [8044:8042]
     volumes:
       - "/fast-ssd/azure-db:/var/lib/orthanc/db/sql"

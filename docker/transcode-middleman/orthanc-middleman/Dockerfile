@@ -1,4 +1,4 @@
-FROM osimis/orthanc
+FROM orthancteam/orthanc
 
 RUN apt-get update \
 && DEBIAN_FRONTEND=noninteractive apt-get -y install \

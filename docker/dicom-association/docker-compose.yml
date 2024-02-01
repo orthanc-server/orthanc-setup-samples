@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc-a:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["104:4242", "80:8042"]
     volumes: ["storage-a:/var/lib/orthanc/db/"]
     environment:
@@ -15,7 +15,7 @@ services:
         }
 
   orthanc-b:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     ports: ["105:4242", "81:8042"]
     volumes: ["storage-b:/var/lib/orthanc/db/"]
     environment:

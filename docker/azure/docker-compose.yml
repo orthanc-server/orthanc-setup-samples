@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc:23.9.0-full
+        image: orthancteam/orthanc:24.2.0-full
         volumes: ["orthanc-db:/var/lib/orthanc/db"]
         ports: [8042:8042]
         environment:

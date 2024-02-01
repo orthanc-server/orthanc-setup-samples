@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     depends_on: [db]
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     environment:

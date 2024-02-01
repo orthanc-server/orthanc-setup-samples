@@ -1,4 +1,4 @@
-FROM osimis/orthanc
+FROM orthancteam/orthanc
 
 # disable http bundle since we're specifying http parameters in the orthanc.json configuration file
 ENV HTTP_BUNDLE_DEFAULTS=false

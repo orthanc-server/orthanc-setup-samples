@@ -2,7 +2,7 @@ version: "3.3"
 
 services:
     orthanc:
-        image: osimis/orthanc:mainline-2023.11.22
+        image: orthancteam/orthanc
         ports: [8042:8042]
         environment:
             - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=my-sample-bucket

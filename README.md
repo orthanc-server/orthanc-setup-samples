@@ -6,8 +6,6 @@ We also provide sample lua scripts.
 
 These sample setups require Docker to run.  They have been tested only on Linux systems.  To test one of these setups, clone this repository and check the readme file in each sample folder.
 
-Note that, from tag 20.4.2, the osimis/orthanc images that are used here have changed a lot.  All these demo setups have been updated to work with these images.  They
-won't work with previous images.  Go back in the git history of this repo to get setups for older images.
 
 ## Getting started
 - [Basic Orthanc](docker/basic) to demonstrate a very basic Orthanc setup.
@@ -59,7 +57,7 @@ won't work with previous images.  Go back in the git history of this repo to get
 - [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 - [Postgresql version upgrade](docker/postgresql-upgrade) to demontrate how to upgrade from one Postgresql version to another
-- [Run orthanc as non-root user](docker/run-as-user) to demontrate how to run the osimis/orthanc image as a non root user
+- [Run orthanc as non-root user](docker/run-as-user) to demontrate how to run the orthancteam/orthanc image as a non root user
 - [Job service](docker/job-service) to demonstrate how to run a side web-serivce to centralize the jobs of multiple Orthanc instances running behind a load balancer
 
 ## for orthanc developers

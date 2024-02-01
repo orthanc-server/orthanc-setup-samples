@@ -1,7 +1,7 @@
 version: "3"
 services:
   orthanc-pacs:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     restart: unless-stopped
     ports: ["8042:8042"]
     volumes:

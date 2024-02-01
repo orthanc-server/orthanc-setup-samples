@@ -1,3 +1,3 @@
-FROM osimis/orthanc:23.5.1
+FROM orthancteam/orthanc
 
 COPY orthanc.json /etc/orthanc/

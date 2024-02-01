@@ -1,7 +1,7 @@
 version: "3.3"
 services:
     orthanc:
-        image: osimis/orthanc
+        image: orthancteam/orthanc
         ports: ["104:4242", "80:8042"]
         environment:
             ORTHANC__REGISTERED_USERS: |
@@ -19,7 +19,7 @@ services:
         volumes:
             - orthanc-storage:/var/lib/orthanc/db
     orthanc-b:
-        image: osimis/orthanc
+        image: orthancteam/orthanc
         ports: ["105:4242", "81:8042"]
         environment:
             ORTHANC__REGISTERED_USERS: |

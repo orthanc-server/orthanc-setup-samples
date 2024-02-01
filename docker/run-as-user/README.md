@@ -1,6 +1,6 @@
 # Purpose
 
-This is a sample setup to demonstrate how to run the `osimis/orthanc` image as a non root user.
+This is a sample setup to demonstrate how to run the `orthancteam/orthanc` image as a non root user.
 
 # Description
 

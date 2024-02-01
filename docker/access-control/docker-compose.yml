@@ -10,7 +10,7 @@ services:
 
   # this orthanc "admin" interface has access to the whole data set
   orthanc-for-admin:
-    image: osimis/orthanc:23.11.0
+    image: orthancteam/orthanc
     volumes: 
       - "orthanc-storage:/var/lib/orthanc/db"
       - "./orthanc/orthanc.jsonc:/etc/orthanc/orthanc.json"

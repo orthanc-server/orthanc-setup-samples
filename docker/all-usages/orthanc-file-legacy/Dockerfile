@@ -1,4 +1,4 @@
-FROM osimis/orthanc
+FROM orthancteam/orthanc
 
 ENV WEVB_ENABLED=true
 

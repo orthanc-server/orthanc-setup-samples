@@ -2,7 +2,7 @@ version: "3"
 services:
   
   orthanc:
-    image: osimis/orthanc:24.1.2
+    image: orthancteam/orthanc
     restart: unless-stopped
     ports: ["8042:8042"]
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]

@@ -1,4 +1,4 @@
-FROM osimis/orthanc:23.7.1
+FROM orthancteam/orthanc
 
 COPY meddream.py /scripts/meddream.py
 

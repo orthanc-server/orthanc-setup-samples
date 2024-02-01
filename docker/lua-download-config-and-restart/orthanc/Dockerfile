@@ -1,4 +1,4 @@
-FROM osimis/orthanc:master-unstable
+FROM orthancteam/orthanc
 
 COPY download-config.lua /scripts/
 

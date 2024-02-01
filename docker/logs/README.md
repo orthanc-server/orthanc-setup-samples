@@ -21,4 +21,4 @@ This demo contains:
 - Note: Since logging output is configured towards a folder, Orthanc will not output anything to stderr and therefore no output will be captured by Docker.
 - logs are available on your host machine in `/tmp/orthanc-logs-docker/`
 - if using `LOGDIR` you'll notice that a new log is created at each startup.
-- Note: the `LOGDIR` and `LOGFILE` environment variables have been introduced in v 21.9.1 of the `osimis/orthanc` images.  Make sure to use a more recent version.
+- Note: the `LOGDIR` and `LOGFILE` environment variables have been introduced in v 21.9.1 of the `orthancteam/orthanc` images.  Make sure to use a more recent version.

@@ -12,7 +12,7 @@ services:
     restart: unless-stopped
     volumes: ["orthanc-a-tls:/etc/orthanc/tls:Z"]
   orthanc-b:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     restart: unless-stopped
     environment:
       DICOM_WEB_PLUGIN_ENABLED: "true"
@@ -39,7 +39,7 @@ services:
       ORTHANC__OHIF__ROUTER_BASENAME: "/orthanc-b/ohif"
 
   orthanc-c:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     restart: unless-stopped
     environment:
       ORTHANC__NAME: "Orhtanc C"

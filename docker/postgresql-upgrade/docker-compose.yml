@@ -1,7 +1,7 @@
 version: "3"
 services:
   orthanc:
-    image: osimis/orthanc
+    image: orthancteam/orthanc
     # depends_on: [orthanc-index-10]
     depends_on: [orthanc-index-15]
     restart: unless-stopped

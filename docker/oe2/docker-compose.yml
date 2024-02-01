@@ -53,7 +53,7 @@ services:
 
 
   pacs:
-    image: osimis/orthanc:23.3.0
+    image: orthancteam/orthanc
     volumes: ["pacs-storage:/var/lib/orthanc/db"]
     depends_on: [pacs-db]
     restart: unless-stopped

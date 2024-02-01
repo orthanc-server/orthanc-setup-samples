@@ -48,7 +48,7 @@ services:
 
     # this is an orthanc simulating the PACS or workstation
     pacs:
-        image: osimis/orthanc:23.7.0
+        image: orthancteam/orthanc
         ports: [8043:8042]
         volumes:
             - pacs-storage:/var/lib/orthanc/db
