@@ -1,5 +1,12 @@
-FROM orthancteam/orthanc
+FROM orthancteam/orthanc-pre-release:bookworm
 
-RUN pip3 install pydicom
+# this is example is using a virtual env that is not mandatory when using Docker containers
+# but recommended since python 3.11 and Debian bookworm based images
+RUN apt-get update && apt install -y python3-venv
+RUN python3 -m venv /.venv
+
+RUN /.venv/bin/pip install pydicom
+ENV PYTHONPATH=/.venv/lib64/python3.11/site-packages/
+
 RUN mkdir /python
 COPY * /python/

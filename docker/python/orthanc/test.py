@@ -1,7 +1,12 @@
 import io
 import orthanc
-import pydicom
+import sys
 import pprint
+
+# uncomment to show the python path
+#pprint.pprint(sys.path)
+
+import pydicom
 from doc import InspectOrthancModule
 
 
