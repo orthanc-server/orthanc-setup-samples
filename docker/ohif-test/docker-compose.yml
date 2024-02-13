@@ -22,7 +22,7 @@ services:
       - ./ohif-v2.js:/usr/share/nginx/html/app-config.js:ro
 
   ohif_v3:
-    image: ohif/app
+    image: ohif/app:v3.8.0-beta.53
     ports:
       - 3003:80
     volumes:
