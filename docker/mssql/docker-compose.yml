@@ -1,22 +1,32 @@
 version: "2"
 services:
   orthanc-new-mssql:
-    image: orthancteam/orthanc
-    depends_on: [new-index]
+    image: orthancteam/orthanc:24.2.1-full
+    depends_on:
+      db: 
+        condition: service_healthy
     ports: ["8042:8042"]
     volumes: ["storage:/var/lib/orthanc/db"]
     environment:
-      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 18 for SQL Server};Server=tcp:new-index,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
+      ORTHANC__ODBC__INDEX_CONNECTION_STRING: "Driver={ODBC Driver 18 for SQL Server};Server=tcp:db,1433;Database=orthanctest;Uid=sa;Pwd=MyStrOngPa55word!;Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=30;"
       ORTHANC__ODBC__ENABLE_INDEX: "true"
       ORTHANC__ODBC__ENABLE_STORAGE: "false"
       ORTHANC__AUTHENTICATION_ENABLED: "false"
       VERBOSE_STARTUP: "true"
       VERBOSE_ENABLED: "true"
+      ORTHANC__SAVE_JOBS: "true"
     restart: unless-stopped
-  new-index:
+
+  db:
     build: index
     ports: ["1434:1433"]
     volumes: ["index:/var/opt/mssql"]
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$SA_PASSWORD" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "MyStrOngPa55word!"
