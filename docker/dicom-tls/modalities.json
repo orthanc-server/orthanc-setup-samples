@@ -1,0 +1,34 @@
+{
+    "DicomModalities": {
+        "pacs-with-tls" : {
+            "Host": "pacs-with-tls",
+            "Port": 4242,
+            "AET": "PACS_WITH_TLS",
+            "UseDicomTls": true
+        },
+        "orthanc-with-tls" : {
+            "Host": "orthanc-with-tls",
+            "Port": 4242,
+            "AET": "ORTHANC_WITH_TLS",
+            "UseDicomTls": true
+        },
+        "orthanc-no-tls": {
+            "Host": "orthanc-no-tls",
+            "Port": 4242,
+            "AET": "ORTHANC_NO_TLS",
+            "UseDicomTls": false
+        },
+        "modality-no-tls": {
+            "Host": "modality-no-tls",
+            "Port": 4242,
+            "AET": "MODALITY_NO_TLS",
+            "UseDicomTls": false
+        },
+        "modality-with-tls": {
+            "Host": "modality-with-tls",
+            "Port": 4242,
+            "AET": "MODAL_WITH_TLS",
+            "UseDicomTls": true
+        }
+    }
+}

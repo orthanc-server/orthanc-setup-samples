@@ -1,21 +1,135 @@
 version: "3.3"
 services:
-    orthanc-a-server:
-        build:
-            context: .
-            dockerfile: orthanc-a-server/Dockerfile
-        ports: ["8042:8042", "4242:4242"]
-        volumes:
-        - "orthanc-a-storage:/var/lib/orthanc/db"
+    pacs-with-tls:
+        image: orthancteam/orthanc:24.2.3
+        ports: ["8052:8042", "4252:4242"]
+        environment:
+            VERBOSE_STARTUP: "true"
+            VERBOSE_ENABLED: "true"
+            ORTHANC_JSON: |
+              {
+                "Name": "PACS WITH TLS",
+                "DicomAet": "PACS_WITH_TLS",
 
-    orthanc-b-server:
-        build:
-            context: .
-            dockerfile: orthanc-b-server/Dockerfile
-        ports: ["8043:8042", "4243:4242"]
+                "AuthenticationEnabled" : false,
+                
+                "DicomTlsEnabled": true,
+                "DicomTlsCertificate": "/tls/pacs-with-tls-crt.pem",
+                "DicomTlsPrivateKey": "/tls/pacs-with-tls-key.pem",
+                "DicomTlsTrustedCertificates": "/tls/trusted-pacs-orthanc-crt.pem",
+
+                "DicomTlsRemoteCertificateRequired": false
+              }
         volumes:
-            - "orthanc-b-storage:/var/lib/orthanc/db"
-    
+        - "./tls:/tls"
+        - "./modalities.json:/etc/orthanc/modalities.json"
+        - "pacs-storage:/var/lib/orthanc/db"
+
+    orthanc-with-tls:
+        image: orthancteam/orthanc:24.2.3
+        ports: ["8053:8042"]
+        environment:
+            VERBOSE_STARTUP: "true"
+            VERBOSE_ENABLED: "true"
+            ORTHANC_JSON: |
+              {
+                "Name": "ORTHANC WITH TLS",
+                "DicomAet": "ORTHANC_WITH_TLS",
+
+                "AuthenticationEnabled" : false,
+                
+                "DicomTlsEnabled": true,
+                "DicomTlsCertificate": "/tls/orthanc-with-tls-crt.pem",
+                "DicomTlsPrivateKey": "/tls/orthanc-with-tls-key.pem",
+                "DicomTlsTrustedCertificates": "/tls/trusted-all-crt.pem",
+
+                "PostgreSQL" : {
+                    "Host": "orthanc-index"
+                }
+              }
+        volumes:
+        - "./tls:/tls"
+        - "./modalities.json:/etc/orthanc/modalities.json"
+        - "orthanc-storage:/var/lib/orthanc/db"
+
+    orthanc-no-tls:
+        image: orthancteam/orthanc:24.2.3
+        ports: ["8054:8042"]
+        environment:
+            VERBOSE_STARTUP: "true"
+            VERBOSE_ENABLED: "true"
+            ORTHANC_JSON: |
+              {
+                "Name": "ORTHANC NO TLS",
+                "DicomAet": "ORTHANC_NO_TLS",
+
+                "AuthenticationEnabled" : false,
+                
+                "DicomTlsEnabled": false,
+
+                "PostgreSQL" : {
+                    "Host": "orthanc-index"
+                }
+              }
+        volumes:
+        - "./modalities.json:/etc/orthanc/modalities.json"
+        - "orthanc-storage:/var/lib/orthanc/db"
+
+    orthanc-index:
+        image: postgres:15
+        restart: unless-stopped
+        ports: ["5432:5432"]
+        volumes: ["orthanc-index:/var/lib/postgresql/data"]
+        environment:
+            # POSTGRES_HOST_AUTH_METHOD: "trust"
+            POSTGRES_PASSWORD: "postgres"
+
+    modality-with-tls:
+        image: orthancteam/orthanc:24.2.3
+        ports: ["8055:8042"]
+        environment:
+            VERBOSE_STARTUP: "true"
+            VERBOSE_ENABLED: "true"
+            ORTHANC_JSON: |
+              {
+                "Name": "MODALITY WITH TLS",
+                "DicomAet": "MODAL_WITH_TLS",
+
+                "AuthenticationEnabled" : false,
+                
+                "DicomTlsEnabled": true,
+                "DicomTlsCertificate": "/tls/modality-with-tls-crt.pem",
+                "DicomTlsPrivateKey": "/tls/modality-with-tls-key.pem",
+                "DicomTlsTrustedCertificates": "/tls/trusted-all-crt.pem"
+              }
+        volumes:
+        - "./tls:/tls"
+        - "./modalities.json:/etc/orthanc/modalities.json"
+        - "modality-with-tls-storage:/var/lib/orthanc/db"
+
+    modality-no-tls:
+        image: orthancteam/orthanc:24.2.3
+        ports: ["8056:8042"]
+        environment:
+            VERBOSE_STARTUP: "true"
+            VERBOSE_ENABLED: "true"
+            ORTHANC_JSON: |
+              {
+                "Name": "MODALITY NO TLS",
+                "DicomAet": "MODALITY_NO_TLS",
+
+                "AuthenticationEnabled" : false,
+                
+                "DicomTlsEnabled": false
+              }
+        volumes:
+        - "./modalities.json:/etc/orthanc/modalities.json"
+        - "modality-no-tls-storage:/var/lib/orthanc/db"
+
+
 volumes:
-    orthanc-a-storage:
-    orthanc-b-storage:
+    pacs-storage:
+    modality-no-tls-storage:
+    modality-with-tls-storage:
+    orthanc-storage:
+    orthanc-index:

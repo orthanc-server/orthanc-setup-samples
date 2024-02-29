@@ -1,5 +1,1 @@
-orthanc-a-server-key.pem
-orthanc-a-server-crt.pem
-orthanc-b-server-key.pem
-orthanc-b-server-crt.pem
-trusted-crt.pem
+*.pem
