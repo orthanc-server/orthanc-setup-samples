@@ -1,0 +1,28 @@
+version: "3"
+services:
+
+  orthanc:
+    image: orthancteam/orthanc-pre-release:master-unstable
+    ports: ["8042:8042"]
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - ./custom.css:/custom.css
+      - ./orthanc.team.png:/orthanc.team.png
+    restart: unless-stopped
+    environment:
+      ORTHANC_JSON: |
+        {
+          "AuthenticationEnabled": false,
+          "Name": "Custom OE2",
+
+          "OrthancExplorer2": {
+            "IsDefaultOrthancUI": true,
+            "Theme": "dark",
+            "CustomLogoPath": "/orthanc.team.png",
+            "CustomCssPath": "/custom.css"
+          }
+        }
+
+
+volumes:
+  orthanc-storage:

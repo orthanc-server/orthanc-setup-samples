@@ -1,0 +1,21 @@
+/* Customized CSS.  
+This CSS is loaded after all other CSS files have been loaded 
+therefore, it overrides all other definitions */
+
+:root {
+    --study-table-filter-bg-color: rgb(8, 99, 49);
+    --study-hover-color: rgba(60, 255, 109, 0.705);
+    --series-hover-color: var(--study-hover-color);
+    --instance-hover-color: var(--instance-hover-color);
+
+    --label-bg-color: rgb(240, 197, 80);
+
+    --nav-side-bg-color: #07633c;
+}
+
+ 
+/* override bootstrap color buttons */
+.btn-primary {
+    --bs-btn-color: white;
+    --bs-btn-bg: rgb(0, 255, 0);
+}
