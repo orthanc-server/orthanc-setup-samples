@@ -3,7 +3,7 @@ import requests
 
 
 o = OrthancApiClient('http://orthanc-for-admin:8042', user='admin', pwd='admin')
-# o = OrthancApiClient('http://192.168.0.8:8042', user='admin', pwd='admin')
+#o = OrthancApiClient('http://192.168.0.10:8042', user='admin', pwd='admin')
 
 if not o.wait_started(timeout=20):
     print("could not connect to Orthanc")
@@ -17,7 +17,7 @@ original_study_id = o.instances.get_parent_study_id(orthanc_id=original_instance
 
 # perform cleanup in case we run this script multiple times
 studies = o.studies.find(query={
-    "InstitutionName": "INST-1\INST-2"
+    "InstitutionName": "INST-1\\INST-2"
 })
 
 for study in studies:
@@ -25,12 +25,13 @@ for study in studies:
 
 # create modified versions of this instance to simulate 5 studies, 4 patients and 2 institutions
 
-o.studies.modify_instance_by_instance(
+o.studies.modify(
     orthanc_id=original_study_id,
     replace_tags={
         "PatientName": "PN-A",
         "PatientID": "1-A",
         "PatientBirthDate": "19900101",
+        "PatientSex": "U",
         "InstitutionName": "INST-1",
         "StudyInstanceUID": "1.1",
         "StudyID": "1",
@@ -42,12 +43,13 @@ o.studies.modify_instance_by_instance(
     delete_original=False
 )
 
-o.studies.modify_instance_by_instance(
+o.studies.modify(
     orthanc_id=original_study_id,
     replace_tags={
         "PatientName": "PN-A",
         "PatientID": "1-A",
         "PatientBirthDate": "19900101",
+        "PatientSex": "U",
         "InstitutionName": "INST-1",
         "StudyInstanceUID": "1.2",
         "StudyID": "2",
@@ -59,7 +61,7 @@ o.studies.modify_instance_by_instance(
     delete_original=False
 )
 
-o.studies.modify_instance_by_instance(
+o.studies.modify(
     orthanc_id=original_study_id,
     replace_tags={
         "PatientName": "PN-B",
@@ -76,7 +78,7 @@ o.studies.modify_instance_by_instance(
     delete_original=False
 )
 
-o.studies.modify_instance_by_instance(
+o.studies.modify(
     orthanc_id=original_study_id,
     replace_tags={
         "PatientName": "PN-C",
@@ -93,7 +95,7 @@ o.studies.modify_instance_by_instance(
     delete_original=False
 )
 
-o.studies.modify_instance_by_instance(
+o.studies.modify(
     orthanc_id=original_study_id,
     replace_tags={
         "PatientName": "PN-D",

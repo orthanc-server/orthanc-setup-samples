@@ -1,6 +1,6 @@
-FROM python:3.9
+FROM python:3.12
 
-RUN pip install orthanc-api-client==0.5.8
+RUN pip install --break-system-packages orthanc-api-client==0.15.0
 
 COPY populate.py /
 
