@@ -1,7 +1,7 @@
 version: "2"
 services:
   orthanc-new-mssql:
-    image: orthancteam/orthanc:24.2.1-full
+    image: orthancteam/orthanc:24.3.3-full
     depends_on:
       db: 
         condition: service_healthy
@@ -14,7 +14,6 @@ services:
       ORTHANC__AUTHENTICATION_ENABLED: "false"
       VERBOSE_STARTUP: "true"
       VERBOSE_ENABLED: "true"
-      ORTHANC__SAVE_JOBS: "true"
     restart: unless-stopped
 
   db:
