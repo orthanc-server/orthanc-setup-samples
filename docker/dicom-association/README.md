@@ -28,7 +28,7 @@ To start the setup, type: `docker-compose up`
 
 - first upload a file in Orthanc A through the Rest API using this curl command or via the interface:
   `curl -v -X POST http://demo:demo@localhost:80/instances --data-binary @anonymized1-MR-1-instance/MR000000.dcm`  
-- log in the Orthanc A user interface [http://localhost/](http://localhost/); login/pwd = demo/demo.
+- log in the Orthanc A user interface [http://localhost/ui/app/](http://localhost/ui/app/); login/pwd = demo/demo.
 - browse to the study and, click "Send to remote modality", select "b"
-- log in the Orthanc B user interface [http://localhost:81/](http://localhost:81/); login/pwd = demo/demo.
+- log in the Orthanc B user interface [http://localhost:81/ui/app/](http://localhost:81/ui/app/); login/pwd = demo/demo.
 - check that the study has been received
