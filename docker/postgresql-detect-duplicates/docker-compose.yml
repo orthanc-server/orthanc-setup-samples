@@ -1,0 +1,42 @@
+version: "3"
+services:
+  # first setup through configuration file and build step
+  orthanc:
+    image: orthancteam/orthanc:24.2.0
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4242:4242", "8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
+      
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  python:
+    build: python
+    depends_on:
+      - orthanc
+    environment:
+      ORTHANC_URL: "http://orthanc:8042"
+      ORTHANC_USER: "orthanc"
+      ORTHANC_PWD: "orthanc"
+      PG_HOST: "orthanc-index"
+      PG_USER: "postgres"
+      PG_PWD: "postgres"
+      PYTHONUNBUFFERED: 1
+
+volumes:
+  orthanc-storage:
+  orthanc-index:
