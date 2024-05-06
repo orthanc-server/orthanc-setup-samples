@@ -1,0 +1,18 @@
+version: "3.3"
+services:
+
+  orthanc:
+    build: orthanc
+    ports: ["8042:8042"]
+    environment:
+      ORTHANC__NAME: "orthanc-python"
+
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      ORTHANC__PYTHON_SCRIPT: "/python/convert-mp4-to-cine.py"
+
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
