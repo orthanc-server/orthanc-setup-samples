@@ -44,19 +44,40 @@ def get_main_dicom_tags(internal_id) -> typing.Dict[str, str]:
 
 def check_patient(public_id, internal_ids):
     reference_tags = get_main_dicom_tags(internal_id=internal_ids[0])
+    studies = []
     for internal_id in internal_ids:
         tags = get_main_dicom_tags(internal_id=internal_id)
         if tags != reference_tags:
-            print(f"Patient {public_id}-{internal_id} has inconsistent MainDicomTags: ")
+            print(f"Patient {public_id}/{internal_id} has inconsistent MainDicomTags: ")
 
         sql_query = f"select internalid, publicid, resourcetype from resources where parentid = {internal_id};"
         cur.execute(sql_query)
         rows = cur.fetchall()
 
-        print(f"Patient {public_id}-{internal_id} has {len(rows)} child studies")
+        if len(rows) == 1:
+            print(f"Patient {public_id}/{internal_id} has 1 child study {rows[0][1]}/{rows[0][0]}")
+        else:
+            print(f"STOP !!!!! Patient {public_id}/{internal_id} has multiple child studies {len(rows)}")
+        studies.append((rows[0][1], rows[0][0]))
 
     orthanc_patient = orthanc.patients.get(orthanc_id=public_id)
-    print(f"Patient {public_id}-{internal_id} retrieved from Orthanc: {orthanc_patient.dicom_id}")
+    print(f"Patient {public_id}/{internal_id} retrieved from Orthanc: {orthanc_patient.dicom_id}")
+
+    reference_study_tags = get_main_dicom_tags(internal_id=studies[0][1])
+    for (study_public_id, study_internal_id) in studies:
+        tags = get_main_dicom_tags(internal_id=study_internal_id)
+        if tags != reference_study_tags:
+            print(f"Study {study_public_id}/{study_internal_id} has inconsistent MainDicomTags")
+
+        sql_query = f"select internalid, publicid, resourcetype from resources where parentid = {study_internal_id};"
+        cur.execute(sql_query)
+        rows = cur.fetchall()
+        print(f"Study {study_public_id}/{study_internal_id} has {len(rows)} child series")
+
+        orthanc_study = orthanc.studies.get(orthanc_id=study_public_id)
+        print(f"Study {study_public_id}/{study_internal_id} retrieved from Orthanc: {orthanc_study.dicom_id}")
+
+
 
 # find duplicate patients
 
