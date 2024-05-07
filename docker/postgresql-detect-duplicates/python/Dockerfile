@@ -1,4 +1,4 @@
-# docker build -t orthancteam/detect-duplicates:v1 .
+# docker build -t orthancteam/detect-duplicates .
 
 FROM python:3.12
 

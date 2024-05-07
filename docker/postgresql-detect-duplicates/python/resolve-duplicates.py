@@ -80,7 +80,7 @@ else:
         internal_id = row[0]
         public_id = row[1]
         
-        if not row[0] in patients:
+        if not public_id in patients:
             patients[public_id] = []
         patients[public_id].append(internal_id)
 
