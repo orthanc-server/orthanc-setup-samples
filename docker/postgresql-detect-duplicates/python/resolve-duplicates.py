@@ -82,6 +82,7 @@ def check_study(study_uid, studies):  # studies = [(study_public_id, study_inter
 def check_patient(public_id, internal_ids):
     reference_internal_id = internal_ids[0]
     duplicates_to_delete = internal_ids[1:]
+    str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
 
     orthanc_patient = orthanc.patients.get(orthanc_id=public_id)
     print(f"Patient {public_id}/{reference_internal_id} retrieved from Orthanc: {orthanc_patient.dicom_id}")
@@ -97,11 +98,11 @@ def check_patient(public_id, internal_ids):
             print_diff_tags(reference_tags, reference_internal_id, tags, internal_id)
 
     if all_patient_duplicates_are_identical:
-        print(f"All patient duplicates are identical, it is safe to merge {', '.join(duplicates_to_delete)} into {reference_internal_id}")
+        print(f"All patient duplicates are identical, it is safe to merge {str_duplicates_to_delete} into {reference_internal_id}")
         # replace the studies' parent by the reference one
-        print(f"TODO update set parentid = {reference_internal_id} from resources where parentid in ({', '.join(duplicates_to_delete)})")
+        print(f"TODO update set parentid = {reference_internal_id} from resources where parentid in ({str_duplicates_to_delete})")
         # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
-        print(f"TODO delete from Resources where internalid in ({', '.join(duplicates_to_delete)})")
+        print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
 
 
     sql_query = f"select internalid, publicid, resourcetype from resources where parentid = {reference_internal_id};"
