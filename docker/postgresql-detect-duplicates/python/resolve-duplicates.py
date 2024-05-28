@@ -50,39 +50,159 @@ def print_diff_tags(reference_tags, reference_tags_id, tags, tags_id):
             print(f"Diff: {k} missing from tags {tags_id}")
         elif reference_tags[k] != tags[k]:
             print(f"Diff: {k} values differ: {reference_tags[k]}/{tags[k]} --- {reference_tags_id}/{tags_id}")
-            
+
+def check_instance(instance_uid, instances):  # instances = [(instance_public_id, instance_internal_id), ...]
+
+    reference_instance_internal_id = instances[0][1]
+    reference_instance_public_id = instances[0][0]
+    reference_instance_tags = get_main_dicom_tags(internal_id=reference_instance_internal_id)
+    duplicates_to_delete = [x[1] for x in instances[1:]]
+    str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
+    # series_internal_ids = [x[1] for x in series]
+    # str_series_internal_ids = ', '.join([str(x) for x in series_internal_ids])
+
+    all_instances_duplicates_are_identical = True
+    for (instance_public_id, instance_internal_id) in instances:
+        tags = get_main_dicom_tags(internal_id=instance_internal_id)
+        if tags != reference_instance_tags:
+            all_instances_duplicates_are_identical = False
+            print(f"..Instance {instance_public_id}/{instance_internal_id} has inconsistent MainDicomTags")
+            print_diff_tags(reference_instance_tags, reference_instance_internal_id, tags, instance_internal_id)
+
+
+    if all_instances_duplicates_are_identical:
+        if len(duplicates_to_delete) > 0:
+            print(f"All instances duplicates are identical, it is safe to delete redundant instances {str_duplicates_to_delete}")
+            # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
+            print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+        else:
+            print(f"This instance does not have duplicates anymore")
+    else:
+        print(f"Can not merge instances")
+        exit(-1)
+
+
+def check_series(series_uid, series):  # series = [(series_public_id, series_internal_id), ...]
+
+    reference_series_internal_id = series[0][1]
+    reference_series_public_id = series[0][0]
+    reference_series_tags = get_main_dicom_tags(internal_id=reference_series_internal_id)
+    duplicates_to_delete = [x[1] for x in series[1:]]
+    str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
+    series_internal_ids = [x[1] for x in series]
+    str_series_internal_ids = ', '.join([str(x) for x in series_internal_ids])
+
+    orthanc_series = orthanc.series.get(orthanc_id=reference_series_public_id)
+    print(f"..Series {reference_series_public_id}/{reference_series_internal_id} retrieved from Orthanc: {orthanc_series.dicom_id}")
+
+    all_series_duplicates_are_identical = True
+    for (series_public_id, series_internal_id) in series:
+        tags = get_main_dicom_tags(internal_id=series_internal_id)
+        if tags != reference_series_tags:
+            all_series_duplicates_are_identical = False
+            print(f"..Series {series_public_id}/{series_internal_id} has inconsistent MainDicomTags")
+            print_diff_tags(reference_series_tags, reference_series_internal_id, tags, series_internal_id)
+
+    if all_series_duplicates_are_identical:
+        if len(duplicates_to_delete) > 0:
+            print(f"All series duplicates are identical, it is safe to merge {str_duplicates_to_delete} into {reference_series_internal_id}")
+            # replace the instances' parent by the reference one
+            print(f"TODO update set parentid = {reference_series_internal_id} from resources where parentid in ({str_duplicates_to_delete})")
+            # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
+            print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+        else:
+            print(f"This series does not have duplicates anymore")
+    else:
+        print(f"Can not merge studies")
+        exit(-1)
+
+    sql_query = f"select internalid, publicid, resourcetype from resources where parentid in ({str_series_internal_ids});"
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    print(f"..Series {reference_series_public_id}/{reference_series_internal_id} has {len(rows)} child instances")
+
+    instances_by_uid = {}
+    for row in rows:
+        instance_internal_id = row[0]
+        instance_public_id = row[1]
+
+        instance_tags = get_main_dicom_tags(internal_id=instance_internal_id)
+        instance_uid = instance_tags["0008,0018"]
+        if instance_uid not in instances_by_uid:
+            instances_by_uid[instance_uid] = []
+        instances_by_uid[instance_uid].append((instance_public_id, instance_internal_id))
+
+    for (instance_uid, instances) in instances_by_uid.items():
+        print(f"..Analyzing {len(instances)} child instances of Series {reference_series_public_id}/{reference_series_internal_id} with the same SOPInstanceUID {instance_uid}")
+        check_instance(instance_uid, instances)
+
+
 
 def check_study(study_uid, studies):  # studies = [(study_public_id, study_internal_id), ...]
 
     reference_study_internal_id = studies[0][1]
+    reference_study_public_id = studies[0][0]
     reference_study_tags = get_main_dicom_tags(internal_id=reference_study_internal_id)
-    
-    for (study_public_id, study_internal_id) in studies:
-        orthanc_study = orthanc.studies.get(orthanc_id=study_public_id)
-        print(f".Study {study_public_id}/{study_internal_id} retrieved from Orthanc: {orthanc_study.dicom_id}")
+    duplicates_to_delete = [x[1] for x in studies[1:]]
+    str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
+    study_internal_ids = [x[1] for x in studies]
+    str_study_internal_ids = ', '.join([str(x) for x in study_internal_ids])
 
+
+    orthanc_study = orthanc.studies.get(orthanc_id=reference_study_public_id)
+    print(f".Study {reference_study_public_id}/{reference_study_internal_id} retrieved from Orthanc: {orthanc_study.dicom_id}")
+
+    all_studies_duplicates_are_identical = True
+    for (study_public_id, study_internal_id) in studies:
         tags = get_main_dicom_tags(internal_id=study_internal_id)
         if tags != reference_study_tags:
+            all_studies_duplicates_are_identical = False
             print(f".Study {study_public_id}/{study_internal_id} has inconsistent MainDicomTags")
-            print_diff_tags(reference_study_tags, studies[0][1], tags, study_internal_id)
+            print_diff_tags(reference_study_tags, reference_study_internal_id, tags, study_internal_id)
 
-        sql_query = f"select internalid, publicid, resourcetype from resources where parentid = {study_internal_id};"
-        cur.execute(sql_query)
-        rows = cur.fetchall()
-        print(f".Study {study_public_id}/{study_internal_id} has {len(rows)} child series")
+    if all_studies_duplicates_are_identical:
+        if len(duplicates_to_delete) > 0:
+            print(f"All studies duplicates are identical, it is safe to merge {str_duplicates_to_delete} into {reference_study_internal_id}")
+            # replace the series' parent by the reference one
+            print(f"TODO update set parentid = {reference_study_internal_id} from resources where parentid in ({str_duplicates_to_delete})")
+            # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
+            print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+        else:
+            print(f"This study does not have duplicates anymore")
+    else:
+        print(f"Can not merge studies")
+        exit(-1)
 
-        for row in rows:
-            series_internal_id = row[0]
-            series_public_id = row[1]
-            orthanc_series = orthanc.series.get(orthanc_id=series_public_id)
-            print(f"..Child series {series_public_id}/{series_internal_id} has {len(orthanc_series.instances)} instances, SeriesInstanceUID {orthanc_series.dicom_id}")
+
+    sql_query = f"select internalid, publicid, resourcetype from resources where parentid in ({str_study_internal_ids});"
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    print(f".Study {reference_study_public_id}/{reference_study_internal_id} has {len(rows)} child series")
+
+    series_by_uid = {}
+    for row in rows:
+        series_internal_id = row[0]
+        series_public_id = row[1]
+        # orthanc_series = orthanc.series.get(orthanc_id=series_public_id)
+        # print(f"..Child series {series_public_id}/{series_internal_id} has {len(orthanc_series.instances)} instances, SeriesInstanceUID {orthanc_series.dicom_id}")
+
+        series_tags = get_main_dicom_tags(internal_id=series_internal_id)
+        series_uid = series_tags["0020,000e"]
+        if series_uid not in series_by_uid:
+            series_by_uid[series_uid] = []
+        series_by_uid[series_uid].append((series_public_id, series_internal_id))
+
+    for (series_uid, series) in series_by_uid.items():
+        print(f".Analyzing {len(series)} child series of Study {reference_study_public_id}/{reference_study_internal_id} with the same SeriesInstanceUID {series_uid}")
+        check_series(series_uid, series)
 
 
 
-def check_patient(public_id, internal_ids):
-    reference_internal_id = internal_ids[0]
-    duplicates_to_delete = internal_ids[1:]
+def check_patient(public_id, patient_internal_ids):
+    reference_internal_id = patient_internal_ids[0]
+    duplicates_to_delete = patient_internal_ids[1:]
     str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
+    str_patient_internal_ids = ', '.join([str(x) for x in patient_internal_ids])
 
     orthanc_patient = orthanc.patients.get(orthanc_id=public_id)
     print(f"Patient {public_id}/{reference_internal_id} retrieved from Orthanc: {orthanc_patient.dicom_id}")
@@ -90,7 +210,7 @@ def check_patient(public_id, internal_ids):
     reference_tags = get_main_dicom_tags(internal_id=reference_internal_id)
 
     all_patient_duplicates_are_identical = True
-    for internal_id in internal_ids:
+    for internal_id in patient_internal_ids:
         tags = get_main_dicom_tags(internal_id=internal_id)
         if tags != reference_tags:
             print(f"Patient {public_id}/{internal_id} has inconsistent MainDicomTags: ")
@@ -98,14 +218,19 @@ def check_patient(public_id, internal_ids):
             print_diff_tags(reference_tags, reference_internal_id, tags, internal_id)
 
     if all_patient_duplicates_are_identical:
-        print(f"All patient duplicates are identical, it is safe to merge {str_duplicates_to_delete} into {reference_internal_id}")
-        # replace the studies' parent by the reference one
-        print(f"TODO update set parentid = {reference_internal_id} from resources where parentid in ({str_duplicates_to_delete})")
-        # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
-        print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+        if len(duplicates_to_delete) > 0:
+            print(f"All patient duplicates are identical, it is safe to merge {str_duplicates_to_delete} into {reference_internal_id}")
+            # replace the studies' parent by the reference one
+            print(f"TODO update set parentid = {reference_internal_id} from resources where parentid in ({str_duplicates_to_delete})")
+            # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
+            print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+        else:
+            print(f"This patient does not have duplicates anymore")
+    else:
+        print(f"Can not merge patients")
+        exit(-1)
 
-
-    sql_query = f"select internalid, publicid, resourcetype from resources where parentid = {reference_internal_id};"
+    sql_query = f"select internalid, publicid, resourcetype from resources where parentid in ({str_patient_internal_ids});"
     cur.execute(sql_query)
     rows = cur.fetchall()
 
