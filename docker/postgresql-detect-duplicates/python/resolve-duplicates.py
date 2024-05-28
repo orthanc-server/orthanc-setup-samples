@@ -79,7 +79,6 @@ def check_instance(instance_uid, instances):  # instances = [(instance_public_id
             print(f"This instance does not have duplicates anymore")
     else:
         print(f"Can not merge instances")
-        exit(-1)
 
 
 def check_series(series_uid, series):  # series = [(series_public_id, series_internal_id), ...]
@@ -113,8 +112,7 @@ def check_series(series_uid, series):  # series = [(series_public_id, series_int
         else:
             print(f"This series does not have duplicates anymore")
     else:
-        print(f"Can not merge studies")
-        exit(-1)
+        print(f"Can not merge series")
 
     sql_query = f"select internalid, publicid, resourcetype from resources where parentid in ({str_series_internal_ids});"
     cur.execute(sql_query)
@@ -171,7 +169,6 @@ def check_study(study_uid, studies):  # studies = [(study_public_id, study_inter
             print(f"This study does not have duplicates anymore")
     else:
         print(f"Can not merge studies")
-        exit(-1)
 
 
     sql_query = f"select internalid, publicid, resourcetype from resources where parentid in ({str_study_internal_ids});"
@@ -255,25 +252,33 @@ def check_patient(public_id, patient_internal_ids):
         check_study(study_uid, studies)
 
 
+cur = conn.cursor()
+
+# First show all duplicates
+for it in [('Patients', 0), ('Studies', 1), ('Series', 2), ('Instances', 3)]:
+    type_str = it[0]
+    type_id = it[1]
+    sql_query = f"select internalid, publicid, resourcetype from Resources where publicid IN (select publicid from Resources where resourcetype = {type_id} group by publicid having COUNT(*)> 1);"
+    cur.execute(sql_query)
+
+    rows = cur.fetchall()
+    print(f"Found {len(rows)} duplicate {type_str}")
+    for row in rows:
+        print(f"Duplicate {type_str} {row[1]}/{row[0]}")
 
 
 # find duplicate patients
-
-cur = conn.cursor()
-
-
 if dev_mode:  # return all patients
     sql_query = "select internalid, publicid, resourcetype from Resources where resourcetype = 0;"
 else: # return only duplicate patients
     sql_query = "select internalid, publicid, resourcetype from Resources where publicid IN (select publicid from Resources where resourcetype = 0 group by publicid having COUNT(*)> 1);"
-
 cur.execute(sql_query)
 
 patients = {}
 rows = cur.fetchall()
 
 if len(rows) == 0:
-    print("no duplicates")
+    print("no patients duplicates")
 else:
     for row in rows:
         internal_id = row[0]
