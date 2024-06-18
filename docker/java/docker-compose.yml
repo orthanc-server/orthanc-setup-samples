@@ -1,0 +1,17 @@
+version: "3"
+services:
+  orthanc:
+    build: .
+    ports: ["8042:8042"]
+    environment:
+      VERBOSE_ENABLED: "true"
+      JAVA_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "AuthenticationEnabled": false,
+          "Java" : {
+            "Enabled" : true,
+            "Classpath" : "/java/OrthancJavaSDK.jar:/java",
+            "InitializationClass" : "ExtendingRest"
+          }
+        }

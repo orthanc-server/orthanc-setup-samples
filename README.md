@@ -58,7 +58,8 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 - [Postgresql version upgrade](docker/postgresql-upgrade) to demontrate how to upgrade from one Postgresql version to another
 - [Run orthanc as non-root user](docker/run-as-user) to demontrate how to run the orthancteam/orthanc image as a non root user
-- [Job service](docker/job-service) to demonstrate how to run a side web-serivce to centralize the jobs of multiple Orthanc instances running behind a load balancer
+- [Job service](docker/job-service) to demonstrate how to run a side web-service to centralize the jobs of multiple Orthanc instances running behind a load balancer
+- [Java plugin](docker/java) to demonstrate how to deploy a Java plugin
 
 ## for orthanc developers
 - [Orthanc integration tests](docker/orthanc-integration-tests) to demonstrate how to run the [Orthanc integration tests](https://bitbucket.org/sjodogne/orthanc-tests)
