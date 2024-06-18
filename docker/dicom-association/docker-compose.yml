@@ -5,6 +5,7 @@ services:
     ports: ["104:4242", "80:8042"]
     volumes: ["storage-a:/var/lib/orthanc/db/"]
     environment:
+      VERBOSE_STARTUP: "true"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
       ORTHANC__NAME: "Orthanc A"
@@ -15,7 +16,7 @@ services:
         }
 
   orthanc-b:
-    image: orthancteam/:24.4.0
+    image: orthancteam/orthanc:24.4.0
     ports: ["105:4242", "81:8042"]
     volumes: ["storage-b:/var/lib/orthanc/db/"]
     environment:
