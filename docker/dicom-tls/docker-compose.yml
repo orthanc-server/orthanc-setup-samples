@@ -25,6 +25,12 @@ services:
         - "./modalities.json:/etc/orthanc/modalities.json"
         - "pacs-storage:/var/lib/orthanc/db"
 
+    pydicom-with-tls:
+        build: pydicom-tls
+        ports: ["11112:11112"]
+        volumes:
+        - "./tls:/tls"
+
     orthanc-with-tls:
         image: orthancteam/orthanc:24.2.3
         ports: ["8053:8042"]

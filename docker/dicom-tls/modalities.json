@@ -29,6 +29,12 @@
             "Port": 4242,
             "AET": "MODAL_WITH_TLS",
             "UseDicomTls": true
+        },
+        "pydicom-with-tls": {
+            "Host": "pydicom-with-tls",
+            "Port": 11112,
+            "AET": "PYDICOM_WITH_TLS",
+            "UseDicomTls": true
         }
     }
 }

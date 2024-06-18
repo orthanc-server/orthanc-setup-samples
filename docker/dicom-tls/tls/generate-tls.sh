@@ -6,6 +6,7 @@
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout pacs-with-tls-key.pem -out pacs-with-tls-crt.pem -subj "/C=BE/CN=pacs-with-tls"
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout orthanc-with-tls-key.pem -out orthanc-with-tls-crt.pem -subj "/C=BE/CN=orthanc-with-tls"
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout modality-with-tls-key.pem -out modality-with-tls-crt.pem -subj "/C=BE/CN=modality-with-tls"
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout pydicom-with-tls-key.pem -out pydicom-with-tls-crt.pem -subj "/C=BE/CN=pydicom-with-tls"
 
-cat pacs-with-tls-crt.pem orthanc-with-tls-crt.pem modality-with-tls-crt.pem  > trusted-all-crt.pem
+cat pacs-with-tls-crt.pem orthanc-with-tls-crt.pem modality-with-tls-crt.pem pydicom-with-tls-crt.pem test-cloud-crt.pem > trusted-all-crt.pem
 cat pacs-with-tls-crt.pem orthanc-with-tls-crt.pem                            > trusted-pacs-orthanc-crt.pem
