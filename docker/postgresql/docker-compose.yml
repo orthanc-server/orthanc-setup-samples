@@ -16,6 +16,7 @@ services:
       OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
       STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
       
   orthanc-index:
     image: postgres:15
