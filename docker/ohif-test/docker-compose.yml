@@ -2,7 +2,10 @@ version: "3.3"
 services:
   orthanc:
     container_name: orthanc
-    image: jodogne/orthanc-plugins
+    image: orthancteam/orthanc:24.6.2
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
     ports:
       - 4242:4242 
       - 8042:8042
@@ -22,7 +25,7 @@ services:
       - ./ohif-v2.js:/usr/share/nginx/html/app-config.js:ro
 
   ohif_v3:
-    image: ohif/app:v3.8.0-beta.53
+    image: ohif/app:v3.9.0-beta.47
     ports:
       - 3003:80
     volumes:
