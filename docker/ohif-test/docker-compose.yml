@@ -32,5 +32,17 @@ services:
       - ./nginx_ohif.conf:/etc/nginx/conf.d/default.conf:ro
       - ./ohif-v3.js:/usr/share/nginx/html/app-config.js:ro
 
+  ohif_v3_build:
+    # to build this image:
+    # mkdir -p /tmp/ohif && cd /tmp/ohif
+    # git clone https://github.com/OHIF/Viewers.git && cd /tmp/ohif/Viewers && git checkout 6c9a4d9758a72f0aca7c941dc676df0ec12b973f
+    # docker build -t ohif:v3-fix-wrong-url .
+    image: ohif:v3-fix-wrong-url
+    ports:
+      - 3004:80
+    volumes:
+      - ./nginx_ohif.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ohif-v3.js:/usr/share/nginx/html/app-config.js:ro
+
 volumes: 
   testdata_db:

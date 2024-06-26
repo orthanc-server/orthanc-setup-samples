@@ -23,8 +23,16 @@ window.config = {
             supportsFuzzyMatching: false,
             supportsWildcard: true,
             staticWado: true,
-            singlepart: 'bulkdata,pdf,video',
-            acceptHeader: [ 'multipart/related; type=application/octet-stream; transfer-syntax=*']
+            singlepart: 'bulkdata',
+            acceptHeader: [ 'multipart/related; type=application/octet-stream; transfer-syntax=*'],
+            bulkDataURI: {
+              enabled: true,
+              relativeResolution: 'studies',
+              // In this scenario, Orthanc is not aware that is being served at http://localhost/orthanc/ so we must tell OHIF to fix
+              // the bulkDataURI
+              startsWith: 'http://localhost/',
+              prefixWith: '/orthanc/',
+            },
           },
         }],
     defaultDataSourceName: 'dicomweb',
