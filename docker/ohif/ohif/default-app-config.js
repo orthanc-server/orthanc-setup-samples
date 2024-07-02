@@ -49,7 +49,7 @@ window.config = {
         supportsFuzzyMatching: false,
         supportsWildcard: true,
         staticWado: true,
-        singlepart: 'bulkdata,pdf,video',
+        singlepart: 'bulkdata',
         acceptHeader: [ 'multipart/related; type=application/octet-stream; transfer-syntax=*']
       },
     }],
