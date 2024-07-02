@@ -58,6 +58,8 @@ def check_instance(instance_uid, instances):  # instances = [(instance_public_id
     reference_instance_tags = get_main_dicom_tags(internal_id=reference_instance_internal_id)
     duplicates_to_delete = [x[1] for x in instances[1:]]
     str_duplicates_to_delete = ', '.join([str(x) for x in duplicates_to_delete])
+    all_instances_internal_ids = [x[1] for x in instances]
+    str_all_instances_internal_ids = ", ".join([str(x) for x in all_instances_internal_ids])
     # series_internal_ids = [x[1] for x in series]
     # str_series_internal_ids = ', '.join([str(x) for x in series_internal_ids])
 
@@ -69,16 +71,25 @@ def check_instance(instance_uid, instances):  # instances = [(instance_public_id
             print(f"..Instance {instance_public_id}/{instance_internal_id} has inconsistent MainDicomTags")
             print_diff_tags(reference_instance_tags, reference_instance_internal_id, tags, instance_internal_id)
 
+    print(f"listing attachments for instance {instance_public_id}:")
+    cur = conn.cursor()
+    sql_query = f"select id, uuid from attachedfiles where id in ({str_all_instances_internal_ids});"
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    for row in rows:
+        print(f"  {row[0]} - {row[1]}")
+    cur.close()
+
 
     if all_instances_duplicates_are_identical:
         if len(duplicates_to_delete) > 0:
             print(f"All instances duplicates are identical, it is safe to delete redundant instances {str_duplicates_to_delete}")
             # now that the duplicates do not have any childs anymore, it is safe to delete them from resources -> this will also delete MainDicomTags, DicomIdentifiers, Metadata, AttachedFiles, Changes, PatientRecyclingOrder, Labels
-            print(f"TODO delete from Resources where internalid in ({str_duplicates_to_delete})")
+            print(f"TODO: delete from Resources where internalid in ({str_duplicates_to_delete})")
         else:
             print(f"This instance does not have duplicates anymore")
     else:
-        print(f"Can not merge instances")
+        print(f"ERROR: Can not merge instances")
 
 
 def check_series(series_uid, series):  # series = [(series_public_id, series_internal_id), ...]
@@ -273,6 +284,7 @@ if dev_mode:  # return all patients
 else: # return only duplicate patients
     sql_query = "select internalid, publicid, resourcetype from Resources where publicid IN (select publicid from Resources where resourcetype = 0 group by publicid having COUNT(*)> 1);"
 cur.execute(sql_query)
+
 
 patients = {}
 rows = cur.fetchall()
