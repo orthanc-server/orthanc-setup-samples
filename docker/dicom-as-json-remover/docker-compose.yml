@@ -1,0 +1,68 @@
+services:
+
+  orthanc-19:
+    image: orthancteam/orthanc:19.1.1
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4242:4242", "8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      PG_HOST: "orthanc-index"
+      AUTHENTICATION_ENABLED: "false"
+
+  orthanc-22:
+    image: orthancteam/orthanc:22.3.0
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4242:4242", "8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__POSTGRESQL__HOST: "orthanc-index"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+
+  orthanc-24:
+    image: orthancteam/orthanc:24.7.1
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4242:4242", "8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__POSTGRESQL__HOST: "orthanc-index"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  dicom-as-json-remover:
+    build: dicom-as-json-remover
+    depends_on:
+      - orthanc-index
+      # TODO: adapt accordding to the version of Orthanc you are running
+      - orthanc-22
+      # - orthanc-24
+    volumes: ["orthanc-storage:/var/lib/orthanc/db"]
+    environment:
+      PG_DB: "postgres"
+      PG_HOST: "orthanc-index"
+      PG_USER: "postgres"
+      PG_PWD: "postgres"
+      # if you are running orthanc-22, 
+      PG_PLUGIN_VERSION: "4"
+      # if you are running orthanc-24, 
+      # PG_PLUGIN_VERSION: "6"
+      RUNS_ONLY_AT_NIGHT: "false"
+
+volumes:
+  orthanc-storage:
+  orthanc-index:
