@@ -20,7 +20,7 @@ services:
       - orthanc-container
 
   orthanc-container:
-    image: orthancteam/orthanc
+    image: orthancteam/orthanc:24.7.3
     restart: unless-stopped
     volumes:
       - orthanc-storage:/var/lib/orthanc/db/
@@ -43,7 +43,7 @@ services:
 
 
   orthanc-plugin:
-    image: orthancteam/orthanc
+    image: orthancteam/orthanc:24.7.3
     restart: unless-stopped
     ports:
       - 8053:8042
