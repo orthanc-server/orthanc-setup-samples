@@ -13,7 +13,7 @@ By using PostgreSQL default DB name and username, there is no need to configure 
 
 # Starting the setup
 
-To start the setup, type: `docker-compose up --build`
+To start the setup, type: `docker-compose up`
 
 # demo
 
