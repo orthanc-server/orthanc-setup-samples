@@ -23,7 +23,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc Indexer plugin](docker/indexer) to demonstrate the use of the Indexer plugin.
 - [Sharing Orthanc configurations](docker/share-docker-compose-env-file) to demonstrate how to share configuration settings between multiple instance of Orthanc in the same Docker network.
 - [Orthanc Tools JS](docker/orthanc-tools-js) to demonstrate the of [OrthancToolsJS](https://github.com/salimkanoun/Orthanc-Tools-JS/) tools developed by Salim Kanoun and his team.
-- [Use Orthanc-Explorer-2](docker/orthanc-explorer-2) to demonstrate how to use Orthanc-Explorer-2 with an `admin` and a standard `user` interface.
+- [Use Orthanc-Explorer-2](docker/oe2) to demonstrate how to use Orthanc-Explorer-2 with an `admin` and a standard `user` interface.
 - [OHIF Viewer](docker/ohif) to demonstrate how to configure [OHIF Viewer](https://github.com/OHIF/Viewers) with Orthanc.
 - [MedDream Viewer](docker/meddream) to demonstrate how to configure [MedDream Viewer](https://www.softneta.com/products/meddream-dicom-viewer/) with Orthanc.
 - [Dcm4Chee](docker/dcm4chee5) to demonstrate how to interface Orthanc with Dcm4Chee 5, both using the DICOM protocol and the DICOMweb protocol.
