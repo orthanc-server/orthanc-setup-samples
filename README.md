@@ -92,3 +92,4 @@ You might need to change a few path in the scripts in order to make them work on
 - [pydicom integration](docker/python/orthanc/test.py)
 - [show python functions/classes](python-samples/doc.py)
 - [override /instances route](python-samples/override-instances-route.py)
+- [Worklist server that implements MPPS](python-samples/worklist-with-mpps.py)
