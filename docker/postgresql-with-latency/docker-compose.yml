@@ -1,0 +1,162 @@
+version: "3"
+services:
+  orthanc-beta:
+    image: orthancteam/orthanc-pre-release:find-refactoring-unstable
+    depends_on: [toxiproxy]
+    restart: unless-stopped
+    ports: ["8040:8042"]
+    volumes: ["orthanc-storage-beta:/var/lib/orthanc/db"]
+
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "toxiproxy",
+          "Port": 5440,
+          "TransactionMode": "ReadCommitted"
+        }
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      
+      ORTHANC__STORAGE_ACCESS_ON_FIND: "Never"
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__INSTANCE: |
+        ["Rows","Columns","ImageType","SOPClassUID","ContentDate","ContentTime","FrameOfReferenceUID","PixelSpacing","SpecificCharacterSet","BitsAllocated","BitsStored"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__STUDY: |
+        ["TimezoneOffsetFromUTC"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__SERIES: |
+        ["TimezoneOffsetFromUTC","PerformedProcedureStepStartDate","PerformedProcedureStepStartTime","RequestAttributesSequence"]
+      ORTHANC__DICOM_WEB__ENABLE_METADATA_CACHE: "true"
+      ORTHANC__DICOM_WEB__SERIES_METADATA: "Full"
+      ORTHANC__DICOM_WEB__STUDIES_METADATA: "Full"
+      # ORTHANC__DICOM_WEB__SERIES_METADATA: "MainDicomTags"
+      # ORTHANC__DICOM_WEB__STUDIES_METADATA: "MainDicomTags"
+      ORTHANC__STABLE_AGE: "60"
+
+  pg-for-beta:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5040:5432"]
+    volumes: ["pg-for-beta:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  orthanc-stable:
+    image: orthancteam/orthanc:24.8.3
+    depends_on: [toxiproxy]
+    restart: unless-stopped
+    ports: ["8043:8042"]
+    volumes: ["orthanc-storage-stable:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "toxiproxy",
+          "Port": 5443,
+          "TransactionMode": "ReadCommitted"
+        }
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      
+      ORTHANC__STORAGE_ACCESS_ON_FIND: "Never"
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__INSTANCE: |
+        ["Rows","Columns","ImageType","SOPClassUID","ContentDate","ContentTime","FrameOfReferenceUID","PixelSpacing","SpecificCharacterSet","BitsAllocated","BitsStored"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__STUDY: |
+        ["TimezoneOffsetFromUTC"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__SERIES: |
+        ["TimezoneOffsetFromUTC","PerformedProcedureStepStartDate","PerformedProcedureStepStartTime","RequestAttributesSequence"]
+      ORTHANC__DICOM_WEB__ENABLE_METADATA_CACHE: "true"
+      ORTHANC__DICOM_WEB__SERIES_METADATA: "Full"
+      ORTHANC__DICOM_WEB__STUDIES_METADATA: "Full"
+      # ORTHANC__DICOM_WEB__SERIES_METADATA: "MainDicomTags"
+      # ORTHANC__DICOM_WEB__STUDIES_METADATA: "MainDicomTags"
+      ORTHANC__STABLE_AGE: "60"
+
+  pg-for-stable:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5043:5432"]
+    volumes: ["pg-for-stable:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  orthanc-old:
+    image: orthancteam/orthanc:22.3.0
+    depends_on: [toxiproxy]
+    restart: unless-stopped
+    ports: ["8044:8042"]
+    volumes: ["orthanc-storage-old:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC__POSTGRE_S_Q_L: |
+        {
+          "Host": "toxiproxy",
+          "Port": 5444,
+          "TransactionMode": "ReadCommitted"
+        }
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+
+      ORTHANC__STORAGE_ACCESS_ON_FIND: "Never"
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__INSTANCE: |
+        ["Rows","Columns","ImageType","SOPClassUID","ContentDate","ContentTime","FrameOfReferenceUID","PixelSpacing","SpecificCharacterSet","BitsAllocated","BitsStored"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__STUDY: |
+        ["TimezoneOffsetFromUTC"]
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS__SERIES: |
+        ["TimezoneOffsetFromUTC","PerformedProcedureStepStartDate","PerformedProcedureStepStartTime","RequestAttributesSequence"]
+      ORTHANC__DICOM_WEB__ENABLE_METADATA_CACHE: "true"
+      ORTHANC__DICOM_WEB__SERIES_METADATA: "Full"
+      ORTHANC__DICOM_WEB__STUDIES_METADATA: "Full"
+      # ORTHANC__DICOM_WEB__SERIES_METADATA: "MainDicomTags"
+      # ORTHANC__DICOM_WEB__STUDIES_METADATA: "MainDicomTags"
+      ORTHANC__STABLE_AGE: "60"
+
+
+  pg-for-old:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5044:5432"]
+    volumes: ["pg-for-old:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+  toxiproxy:
+    depends_on: [pg-for-old, pg-for-stable, pg-for-beta]
+    ports: ["8474:8474", "5440:5440", "5443:5443", "5444:5444", "8050:8050"]
+    image: shopify/toxiproxy
+
+  # We create proxy configuration from another ephermal container
+  toxiproxy-config:
+    image: shopify/toxiproxy
+    depends_on: [toxiproxy]
+    restart: on-failure
+    entrypoint: > 
+      sh -c "sleep 3;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 create pg-beta --listen 0.0.0.0:5440 --upstream pg-for-beta:5432;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 create pg-stable --listen 0.0.0.0:5443 --upstream pg-for-stable:5432;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 create pg-old --listen 0.0.0.0:5444 --upstream pg-for-old:5432;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 create test --listen 0.0.0.0:8050 --upstream orthanc-beta:8042;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add pg-beta -t latency -a latency=1 -a jitter=0;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add pg-stable -t latency -a latency=1 -a jitter=0;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add pg-old -t latency -a latency=1 -a jitter=0;
+      /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add test -t latency -a latency=1000 -a jitter=0;
+      "
+
+volumes:
+  orthanc-storage-beta:
+  pg-for-beta:
+  orthanc-storage-stable:
+  pg-for-stable:
+  orthanc-storage-old:
+  pg-for-old:
