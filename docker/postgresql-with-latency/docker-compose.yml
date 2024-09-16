@@ -1,7 +1,7 @@
 version: "3"
 services:
   orthanc-beta:
-    image: orthancteam/orthanc-pre-release:find-refactoring-unstable
+    image: orthancteam/orthanc-pre-release:db-beta-2
     depends_on: [toxiproxy]
     restart: unless-stopped
     ports: ["8040:8042"]
