@@ -1,0 +1,79 @@
+version: "3.3"
+services:
+
+
+  orthanc:
+    image: orthancteam/orthanc-pre-release:db-beta-5
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+    depends_on:
+      - orthanc-index
+    environment:
+      ORTHANC__NAME: "orthanc"
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
+      ORTHANC__OHIF: |
+        {
+          "RouterBasename": "/orthanc-read-only/ohif/",
+          "DataSource" : "dicom-web"
+        }
+      ORTHANC__READ_ONLY: "false"
+
+  orthanc-read-only:
+    #image: orthancteam/orthanc-pre-release:find-refactoring-unstable
+    image: orthancteam/orthanc-pre-release:db-beta-5
+    volumes: 
+      - orthanc-storage:/var/lib/orthanc/db
+    depends_on:
+      - orthanc-index
+    environment:
+      ORTHANC__NAME: "orthanc-read-only"
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+
+      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
+      ORTHANC__OHIF: |
+        {
+          "RouterBasename": "/orthanc-read-only/ohif/",
+          "DataSource" : "dicom-web"
+        }
+      ORTHANC__READ_ONLY: "true"
+
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  nginx:
+    build: nginx
+    depends_on: 
+      - orthanc
+      - orthanc-read-only
+    restart: unless-stopped
+    ports: ["80:80"]
+
+
+volumes:
+  orthanc-storage:
+  orthanc-index:
