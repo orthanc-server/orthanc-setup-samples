@@ -4,7 +4,7 @@ echo "----------------- creating database ---------------------------------"
 
 for i in {1..50};
 do
-    /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P MyStrOngPa55word! -Q 'CREATE DATABASE orthanctest'
+    /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P MyStrOngPa55word! -No -Q 'CREATE DATABASE orthanctest'
     if [ $? -eq 0 ]
     then
         echo "----------------- database created"
