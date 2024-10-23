@@ -1,0 +1,71 @@
+services:
+  
+  orthanc-a:
+    image: orthancteam/orthanc
+    restart: unless-stopped
+    ports: ["8044:8042"]
+    volumes: ["orthanc-storage-a:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      ORTAHNC__DICOM_AET: "ORTHANCA"
+      ORTHANC__REGISTERED_USERS: |
+        {
+          "demo": "demo",
+          "meddream-a": "R4Y8p7cG5cbos6"
+        }
+      OE2_ENABLED: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_MED_DREAM_VIEWER: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__MED_DREAM_VIEWER_PUBLIC_ROOT: "http://localhost:8080/"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+  orthanc-b:
+    image: orthancteam/orthanc
+    restart: unless-stopped
+    ports: ["8045:8042"]
+    volumes: ["orthanc-storage-b:/var/lib/orthanc/db"]
+    environment:
+      VERBOSE_STARTUP: "true"
+      ORTAHNC__DICOM_AET: "ORTHANCB"
+      ORTHANC__REGISTERED_USERS: |
+        {
+          "demo": "demo",
+          "meddream-b": "kE5883fpIcZml"
+        }
+      OE2_ENABLED: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_MED_DREAM_VIEWER: "true"
+      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__MED_DREAM_VIEWER_PUBLIC_ROOT: "http://localhost:8080/"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+  meddream:
+    image: meddream/dicom-viewer:8.5.0
+    restart: unless-stopped
+    user: root
+    ports: ["8080:8080"]
+    depends_on:
+      - orthanc-a
+      - orthanc-b
+      - meddream-token-service
+    environment:
+      TOKEN_SERVICE_ADDRESS: "http://meddream-token-service:8088/v3/validate"
+      MEDDREAM_ADMIN_PASSWORD: "change-me"
+    volumes:
+      - ./meddream/application.properties:/opt/meddream/application.properties
+      - ./meddream/system.json:/opt/meddream/sys/system.json
+      - ./meddream/license:/opt/meddream/license
+
+  # if you disable the token-service, you
+  meddream-token-service:
+    image: meddream/token-service:2.1.9
+    restart: unless-stopped
+    # in production, this shall not be exposed
+    ports: ["8088:8088"]
+    environment:
+      MEDDREAM_TOKEN_USER: "token-user"
+      MEDDREAM_TOKEN_PWD: "change-me"
+    volumes:
+      - ./meddream-token-service/application.properties:/opt/token/application.properties
+
+volumes:
+  orthanc-storage-a:
+  orthanc-storage-b:
+
