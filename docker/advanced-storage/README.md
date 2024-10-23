@@ -86,7 +86,7 @@ To start the setup, type: `docker compose up`
             //     an instance identifier {SOPInstanceUID} or {OrthancInstanceID}
             // - The NamingScheme defines a RELATIVE path to either the "StorageDirectory" of Orthanc or one of
             //   the "MultipleStorages" of this plugin.
-            // - The path generated from the NamingScheme is stored in the SQL DB.  Therefore, you may change the
+            // - The relative path generated from the NamingScheme is stored in the SQL DB.  Therefore, you may change the
             //   NamingScheme at any time and you'll still be able to access previously saved files.
             "NamingScheme" : "OrthancDefault",
 
