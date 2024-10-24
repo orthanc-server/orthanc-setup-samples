@@ -3,7 +3,7 @@ services:
 
 
   orthanc:
-    image: orthancteam/orthanc-pre-release:db-beta-5
+    image: orthancteam/orthanc-pre-release:db-beta-6
     volumes: 
       - orthanc-storage:/var/lib/orthanc/db
     depends_on:
@@ -30,8 +30,7 @@ services:
       ORTHANC__READ_ONLY: "false"
 
   orthanc-read-only:
-    #image: orthancteam/orthanc-pre-release:find-refactoring-unstable
-    image: orthancteam/orthanc-pre-release:db-beta-5
+    image: orthancteam/orthanc-pre-release:db-beta-6
     volumes: 
       - orthanc-storage:/var/lib/orthanc/db
     depends_on:
