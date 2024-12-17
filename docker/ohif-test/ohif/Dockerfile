@@ -5,7 +5,7 @@ FROM node:18.16.1-slim AS builder
 RUN apt-get update && apt-get install -y git build-essential python3
 
 WORKDIR /sources
-RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.9.0-beta.56
+RUN git clone https://github.com/OHIF/Viewers.git && cd /sources/Viewers && git checkout v3.9.2
 RUN cp -r /sources/ /usr/src/app/
 RUN ls -al /usr/src/app/
 
