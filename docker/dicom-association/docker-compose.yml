@@ -1,34 +1,40 @@
 services:
   orthanc-a:
-    image: orthancteam/orthanc
-    ports: ["104:4242", "80:8042"]
+    image: orthancteam/orthanc-pre-release:master-unstable
+    ports: ["4242:4242", "8042:8042"]
     volumes: ["storage-a:/var/lib/orthanc/db/"]
     environment:
       VERBOSE_STARTUP: "true"
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
-      ORTHANC__NAME: "Orthanc A"
-      ORTHANC__DICOM_AET: "ORTHANCA"
-      ORTHANC__AUTHENTICATION_ENABLED: "false"
-      ORTHANC__DICOM_MODALITIES: |
+      ORTHANC_JSON: |
         {
-          "b": ["ORTHANCB", "orthanc-b", 4242]
+          "Name": "Orthanc A",
+          "DicomAet": "ORTHANCA",
+          "AuthenticationEnabled": false,
+          "DicomModalities": {
+            "b": ["ORTHANCB", "orthanc-b", 4242]
+          },
+          "AcceptedSopClasses" : [
+            "1.3.12.2.1107.5.9.1",  // allow one custom SOP Class
+            "1.2.840.*"             // still allow default SOP Classes
+          ]
         }
 
   orthanc-b:
-    image: orthancteam/orthanc
-    ports: ["105:4242", "81:8042"]
+    image: orthancteam/orthanc-pre-release:master-unstable
+    ports: ["4243:4242", "8043:8042"]
     volumes: ["storage-b:/var/lib/orthanc/db/"]
     environment:
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
-      ORTHANC__NAME: "Orthanc B"
-      ORTHANC__DICOM_AET: "ORTHANCB"
-      ORTHANC__AUTHENTICATION_ENABLED: "false"
-      ORTHANC__DICOM_MODALITIES: |
+      ORTHANC_JSON: |
         {
-          "a": ["ORTHANCA", "orthanc-a", 4242]
+          "Name": "Orthanc B",
+          "DicomAet": "ORTHANCB",
+          "AuthenticationEnabled": false,
+          "DicomModalities": {
+            "a": ["ORTHANCA", "orthanc-a", 4242]
+          }
         }
+
+
 volumes:
   storage-a:
   storage-b:

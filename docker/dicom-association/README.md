@@ -1,14 +1,3 @@
-To start, use `docker-compose up --build -d`.
-To stop, use `docker-compose down`.
-
-As described in the `docker-compose.yml` file, Orthanc's HTTP server is
-reachable via port 80 on the Docker host, and Orthanc's DICOM server is
-reachable via port 104 on the Docker host.
-
-
-
-
-
 # Purpose
 
 This is a sample setup to demonstrate how to configure DICOM assocations in Orthanc.
@@ -17,8 +6,9 @@ This is a sample setup to demonstrate how to configure DICOM assocations in Orth
 
 This demo contains:
 
-- an Orthanc container whose AET is ORTHANCA
-- an Orthanc container whose AET is ORTHANCB
+- an `orthanc-a` container whose AET is ORTHANCA
+- an `orthanc-b` container whose AET is ORTHANCB.  This container is configured to accept
+  non-standard SOP Classes.
 
 # Starting the setup
 
@@ -26,9 +16,9 @@ To start the setup, type: `docker-compose up`
 
 # demo
 
-- first upload a file in Orthanc A through the Rest API using this curl command or via the interface:
-  `curl -v -X POST http://demo:demo@localhost:80/instances --data-binary @anonymized1-MR-1-instance/MR000000.dcm`  
-- log in the Orthanc A user interface [http://localhost/ui/app/](http://localhost/ui/app/); login/pwd = demo/demo.
+- first upload a file in Orthanc A through the UI [http://localhost:8042/ui/app/](http://localhost:8042/ui/app/)
 - browse to the study and, click "Send to remote modality", select "b"
-- log in the Orthanc B user interface [http://localhost:81/ui/app/](http://localhost:81/ui/app/); login/pwd = demo/demo.
+- log in the Orthanc B user interface [http://localhost:8043/ui/app/](http://localhost:8043/ui/app/)
 - check that the study has been received
+- upload a new study in Orthanc B
+- in the Orthanc A UI, you can then browse the remote orthanc B UI to find this study and retrieve it in orthanc A
