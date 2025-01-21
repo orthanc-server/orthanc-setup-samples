@@ -1,6 +1,5 @@
-version: "3.3"
-
 services:
+
     orthanc:
         image: orthancteam/orthanc:24.2.0-full
         volumes: ["orthanc-db:/var/lib/orthanc/db"]

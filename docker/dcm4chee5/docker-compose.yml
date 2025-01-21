@@ -1,6 +1,5 @@
-version: "3"
-
 services:
+
   ldap:
     image: dcm4che/slapd-dcm4chee:2.6.3-29.1
     logging:
@@ -47,16 +46,32 @@ services:
       - seccomp:unconfined
 
   orthanc:
-    image: jodogne/orthanc-plugins:1.10.1
-    command: --verbose /run/secrets/  # Path to the configuration files (stored as secrets)
+    image: orthancteam/orthanc:24.10.3
     ports:
       - 4242:4242   # DICOM server
       - 8042:8042   # HTTP server
     volumes:
-      - /tmp/orthanc-storage:/var/lib/orthanc/db
-    secrets:
-      - orthanc.json
+      - orthanc-storage:/var/lib/orthanc/db
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc for DCM4CHEE",
+          "AuthenticationEnabled" : false,
+          "DicomModalities" : {
+            "dcm4chee" : [ "DCM4CHEE", "arc", 11112 ]
+          },
+          "DicomWeb": {
+            "Servers" : {
+              "dcm4chee" : {
+                "Url" : "https://arc:8443/dcm4chee-arc/aets/DCM4CHEE/rs/",
+                //"Username" : "username",
+                //"Password" : "password",
+                "HasDelete" : false
+              }
+            }
+          }  
+        }
 
-secrets:
-  orthanc.json:
-    file: orthanc.json
+volumes:
+  orthanc-storage:

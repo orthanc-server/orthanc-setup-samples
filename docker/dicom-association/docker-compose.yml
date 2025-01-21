@@ -1,7 +1,6 @@
-version: "2"
 services:
   orthanc-a:
-    image: orthancteam/orthanc:24.4.0
+    image: orthancteam/orthanc
     ports: ["104:4242", "80:8042"]
     volumes: ["storage-a:/var/lib/orthanc/db/"]
     environment:
@@ -10,13 +9,14 @@ services:
         {"demo": "demo"}
       ORTHANC__NAME: "Orthanc A"
       ORTHANC__DICOM_AET: "ORTHANCA"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
       ORTHANC__DICOM_MODALITIES: |
         {
           "b": ["ORTHANCB", "orthanc-b", 4242]
         }
 
   orthanc-b:
-    image: orthancteam/orthanc:24.4.0
+    image: orthancteam/orthanc
     ports: ["105:4242", "81:8042"]
     volumes: ["storage-b:/var/lib/orthanc/db/"]
     environment:
@@ -24,6 +24,7 @@ services:
         {"demo": "demo"}
       ORTHANC__NAME: "Orthanc B"
       ORTHANC__DICOM_AET: "ORTHANCB"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
       ORTHANC__DICOM_MODALITIES: |
         {
           "a": ["ORTHANCA", "orthanc-a", 4242]

@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   # orthanc-a is configured via a configuration file and a build step
   orthanc-a:
     build: orthanc-a

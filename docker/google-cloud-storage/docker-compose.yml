@@ -1,6 +1,5 @@
-version: "3.3"
-
 services:
+
     orthanc:
         # note: you need a post 22.2.0 tag (first tag with S3 plugin included)
         image: orthancteam/orthanc

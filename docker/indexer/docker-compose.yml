@@ -1,5 +1,5 @@
-version: "3"
 services:
+
   orthanc-pacs:
     image: orthancteam/orthanc
     restart: unless-stopped
@@ -15,5 +15,6 @@ services:
         {"demo": "demo"}
       ORTHANC__INDEXER__FOLDERS: |
         ["/dicom-files"]
+
 volumes:
   orthanc-storage:

@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-new-mssql:
     image: orthancteam/orthanc:24.3.3-full
     depends_on:

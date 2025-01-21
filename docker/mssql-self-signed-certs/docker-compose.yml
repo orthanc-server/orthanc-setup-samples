@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc:
     build:
       context: .
@@ -34,6 +34,7 @@ services:
     # entrypoint: bash
     # stdin_open: true # docker run -i
     # tty: true        # docker run -t
+
 
 volumes:
   storage:

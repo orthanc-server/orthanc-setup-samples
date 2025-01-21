@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-a:
     build: orthanc-a
     volumes: 
@@ -8,5 +8,6 @@ services:
   orthanc-b:
     build: orthanc-b
     ports: ["8046:8042"]
+
 volumes:
   orthanc-storage-a:

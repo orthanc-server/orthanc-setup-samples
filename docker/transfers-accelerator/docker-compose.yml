@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-a:
     image: orthancteam/orthanc
     ports: ["8042:8042"]
@@ -45,6 +45,7 @@ services:
 
       TRANSFERS_PLUGIN_ENABLED: "true"
       ORTHANC__TRANSFERS__MAX_HTTP_RETRIES: 5
+
 
 volumes:
   orthanc-a:

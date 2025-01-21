@@ -1,6 +1,5 @@
-version: "3"
-
 services:
+
     orthanctoolsjs:
         image: salimkanoun/orthanctoolsjs
         restart: unless-stopped
@@ -59,6 +58,7 @@ services:
             ORTHANC__DICOM_WEB__SSL: "true"
             ORTHANC__DICOM_WEB__STUDIESMETADATA: "MainDicomTags"
             ORTHANC__DICOM_WEB__SERIESMETADATA: "Full"
+
 
 volumes:
   orthanc:

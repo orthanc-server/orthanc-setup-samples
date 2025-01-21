@@ -1,5 +1,5 @@
-version: "3.3"
 services:
+
   orthanc:
     container_name: orthanc
     image: orthancteam/orthanc:24.11.0
@@ -43,6 +43,7 @@ services:
     volumes:
       - ./nginx_ohif.conf:/etc/nginx/conf.d/default.conf:ro
       - ./ohif-v3.js:/usr/share/nginx/html/app-config.js:ro
+
 
 volumes: 
   testdata_db:

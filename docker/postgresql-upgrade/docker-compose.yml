@@ -1,5 +1,5 @@
-version: "3"
 services:
+
   orthanc:
     image: orthancteam/orthanc
     # depends_on: [orthanc-index-10]

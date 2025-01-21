@@ -1,5 +1,5 @@
-version: "3"
 services:
+
   orthanc-beta:
     image: orthancteam/orthanc-pre-release:db-beta-2
     depends_on: [toxiproxy]
@@ -152,6 +152,7 @@ services:
       /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add pg-old -t latency -a latency=1 -a jitter=0;
       /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add test -t latency -a latency=1000 -a jitter=0;
       "
+
 
 volumes:
   orthanc-storage-beta:

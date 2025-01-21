@@ -1,5 +1,5 @@
-version: "3"
 services:
+
   orthanc:
     build: .
     ports: ["8042:8042"]

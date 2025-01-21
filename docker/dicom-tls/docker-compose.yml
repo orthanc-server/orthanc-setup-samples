@@ -1,5 +1,5 @@
-version: "3.3"
 services:
+
     pacs-with-tls:
         image: orthancteam/orthanc:24.2.3
         ports: ["8052:8042", "4252:4242"]

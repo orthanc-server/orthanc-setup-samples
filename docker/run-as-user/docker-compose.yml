@@ -1,6 +1,4 @@
-version: "3.3"
 services:
-
 
   orthanc:
     image: orthancteam/orthanc
@@ -30,6 +28,7 @@ services:
       - orthanc-storage:/var/lib/orthanc/db
     user: root
     command: chown -R 999:999 /var/lib/orthanc/db
+
 
 volumes:
   orthanc-storage:

@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-a-server:
     build: nginx-a
     depends_on: [orthanc-a]
@@ -34,6 +34,8 @@ services:
     restart: unless-stopped
     volumes:
       - "./tls:/usr/tls"
+
 volumes:
+
   orthanc-a-storage:
   orthanc-b-storage:

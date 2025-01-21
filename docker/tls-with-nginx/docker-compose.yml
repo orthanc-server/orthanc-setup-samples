@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   nginx:
     build: nginx
     #entrypoint: ["ls",  "-a" , "/etc/nginx/tls"]
@@ -46,6 +46,8 @@ services:
       ORTHANC__DICOM_AET: "ORTHANC-C"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
+
+
 volumes:
   nginx-tls:
   orthanc-a-tls:

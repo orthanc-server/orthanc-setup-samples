@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc:
     image: orthancteam/orthanc
     restart: unless-stopped
@@ -24,5 +24,6 @@ services:
         }
       VERBOSE_ENABLED: "true"
       VERBOSE_STARTUP: "true"
+
 volumes:
   orthanc-storage:

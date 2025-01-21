@@ -1,6 +1,5 @@
-version: "3.3"
-
 services:
+
     orthanc:
         image: osimis/orthanc
         ports: [8042:8042]
@@ -32,9 +31,10 @@ services:
         entrypoint: sh
         command: -c 'mkdir -p /data/my-sample-bucket && /usr/bin/docker-entrypoint.sh server /data'
 
+
 volumes:
     minio-storage:
     orthanc-sqlite-storage:
+
 networks:
     test:
-

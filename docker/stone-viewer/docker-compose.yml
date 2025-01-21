@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc:
     image: orthancteam/orthanc
     ports: ["8042:8042"]
@@ -57,5 +57,7 @@ services:
       ORTHANC__STONE_WEB_VIEWER__DATE_FORMAT: "DD/MM/YYYY"
 
       ORTHANC__AUTHENTICATION_ENABLED: "false"
+
+
 volumes:
   orthanc-storage:

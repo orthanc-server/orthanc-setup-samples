@@ -1,6 +1,5 @@
-version: "3.3"
-
 services:
+
     # this is the Orthanc acting as a Gateway between the PACS and S3
     orthanc-gw:
         build: orthanc-gw

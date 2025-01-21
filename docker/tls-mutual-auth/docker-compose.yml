@@ -1,5 +1,5 @@
-version: "3.4"
 services:
+
   orthanc-a:
     image: orthancteam/orthanc
     ports: ["8042:8042"]

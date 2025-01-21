@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc:
     build: orthanc
     restart: unless-stopped
@@ -10,5 +10,7 @@ services:
       VERBOSE_ENABLED: "true"
       ORTHANC__REGISTERED_USERS: |
         {"demo": "demo"}
+
+
 volumes:
   orthanc-storage:

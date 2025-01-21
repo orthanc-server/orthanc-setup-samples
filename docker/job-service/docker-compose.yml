@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   nginx-load-balancer:
     image: nginx:1.25.2-alpine-slim
     depends_on: [orthanc-a] # , orthanc-b, orthanc-c]
@@ -51,7 +51,6 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
-
 
   job-service:
     build: job-service

@@ -1,5 +1,5 @@
-version: "3"
 services:
+
   # first setup through configuration file and build step
   orthanc:
     image: orthancteam/orthanc:24.2.0

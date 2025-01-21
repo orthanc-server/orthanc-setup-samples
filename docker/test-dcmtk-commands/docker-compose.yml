@@ -1,5 +1,5 @@
-version: "3.3"
 services:
+
     orthanc:
         image: orthancteam/orthanc
         ports: ["104:4242", "80:8042"]
@@ -30,6 +30,7 @@ services:
                 {
                     "a": ["ORTHANC", "orthanc", 4242]
                 }
-            
+
+
 volumes:
     orthanc-storage:

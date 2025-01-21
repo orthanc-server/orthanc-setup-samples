@@ -1,14 +1,14 @@
-version: "3.3"
-
 services:
+
     orthanc:
         # note: you need a post 22.2.0 tag (first tag with S3 plugin included)
         image: orthancteam/orthanc
         ports: [8042:8042]
         environment:
-            - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=test-orthanc-s3-plugin
-            - ORTHANC__AWS_S3_STORAGE__REGION=eu-central-1
-            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=AK123456789
+            - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=test-s3-plugin-orthanc-team
+            - ORTHANC__AWS_S3_STORAGE__REGION=eu-west-3
+            - ORTHANC__AWS_S3_STORAGE__ENABLE_AWS_SDK_LOGS=true
+            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=AK1234
 
             - ORTHANC__POSTGRESQL__HOST=database-test.cluster-cydazert.eu-central-1.rds.amazonaws.com
             - ORTHANC__POSTGRESQL__PORT=5432
@@ -18,6 +18,7 @@ services:
 
             - ORTHANC__AUTHENTICATION_ENABLED=false
             - ORTHANC__DICOM_SERVER_ENABLED=false
+            - VERBOSE_ENABLED=true
 
         secrets:
           - ORTHANC__AWS_S3_STORAGE__SECRET_KEY

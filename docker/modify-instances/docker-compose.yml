@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-pacs:
     build: orthanc-pacs
     restart: unless-stopped
@@ -10,6 +10,8 @@ services:
     restart: unless-stopped
     ports: ["8044:8042"]
     volumes: ["orthanc-storage-modality:/var/lib/orthanc/db:Z"]
+
+
 volumes:
   orthanc-storage-pacs:
   orthanc-storage-modality:

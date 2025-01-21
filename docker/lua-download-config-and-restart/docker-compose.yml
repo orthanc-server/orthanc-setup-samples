@@ -1,6 +1,5 @@
-version: "3.3"
-
 services:
+
   orthanc:
     build: orthanc
     restart: unless-stopped
@@ -16,6 +15,6 @@ services:
     restart: unless-stopped
     ports: ["8000:8000"]
 
+
 volumes:
   orthanc-storage:
-

@@ -1,4 +1,3 @@
-version: "3"
 services:
   
   orthanc:
@@ -13,9 +12,23 @@ services:
           "demo": "demo",
           "meddream": "R4Y8p7cG5cbos6"
         }
+      ORTHANC__POSTGRESQL: |
+        {
+          "Host": "orthanc-index"
+        }
+
       OE2_ENABLED: "true"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_OPEN_IN_MED_DREAM_VIEWER: "true"
       ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__MED_DREAM_VIEWER_PUBLIC_ROOT: "http://localhost:8080/"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
 
   meddream:
     image: meddream/orthanc-dicom-viewer:8.3.0
@@ -34,4 +47,5 @@ services:
 
 volumes:
   orthanc-storage:
+  orthanc-index:
 

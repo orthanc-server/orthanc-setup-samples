@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc:
     image: orthancteam/orthanc
     depends_on: [db]

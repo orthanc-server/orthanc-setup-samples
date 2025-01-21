@@ -1,5 +1,5 @@
-version: "2"
 services:
+
   orthanc-under-tests:
     build: orthanc-under-tests
     depends_on:

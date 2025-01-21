@@ -53,7 +53,6 @@ services:
       - ./meddream/system.json:/opt/meddream/sys/system.json
       - ./meddream/license:/opt/meddream/license
 
-  # if you disable the token-service, you
   meddream-token-service:
     image: meddream/token-service:2.1.9
     restart: unless-stopped

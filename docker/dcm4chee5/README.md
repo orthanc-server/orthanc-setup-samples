@@ -90,6 +90,26 @@ $ curl http://localhost:8042/studies/
 [ "66c8e41e-ac3a9029-0b85e42a-8195ee0a-92c2e62e" ]
 ```
 
+* To **query** for all studies from a specific patient stored by Dcm4chee (i.e. to make
+  Orthanc issue a **C-Find** command to Dcm4Chee):
+
+```
+$ curl http://localhost:8042/modalities/dcm4chee/query -d '{"Level":"Study", "Query": {"PatientID": "2345", "SopClassesInStudy": ""}}'
+{
+   "ID" : "4dc64a99-ec6a-48a8-bb8a-cf53caee4cc0",
+   "Path" : "/queries/4dc64a99-ec6a-48a8-bb8a-cf53caee4cc0"
+}
+$ curl http://localhost:8042/queries/4dc64a99-ec6a-48a8-bb8a-cf53caee4cc0/answers?expand
+[...]
+```
+
+* To **retrieve** the result of the query using **C-Get**
+
+```
+$ curl http://localhost:8042/queries/f50b51b4-4e60-4276-9bd3-c7f7a77bd996/get -d '{}'
+```
+
+
 * More examples about performing query/retrieve from Orthanc are
   available [in the Orthanc
   Book](https://book.orthanc-server.com/users/rest.html#performing-query-retrieve-c-find-and-find-with-rest).
