@@ -1,82 +1,112 @@
-version: "3"
 services:
 
   nginx:
     build: nginx
-    depends_on: [orthanc-for-admin, orthanc-for-users, pacs]
+    depends_on: [orthanc-default, orthanc-custom, pacs]
     restart: unless-stopped
     ports: ["80:80"]
 
 
-  # first setup through configuration file and build step
-  orthanc-for-admin:
-    build: orthanc
+  orthanc-custom:
+    # image: orthancteam/orthanc-pre-release:master-unstable
+    image: orthancteam/orthanc:24.11.0
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
-    environment:
-      ORTHANC__NAME: "Orthanc for admin"
-      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
-      ORTHANC__REGISTERED_USERS: |
-        {"admin": "admin"}
-      ORTHANC__OVERWRITE_INSTANCES: "true"
-
     env_file:
       - common-orthanc.env
+    environment:
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc Customized",
+          "OrthancExplorer2" : {
+            "Theme": "Dark",
+            "UiOptions" : {
+              "StudyListSearchMode": "search-button",
+              "EnableLinkToLegacyUi": false,
+              "EnableApiViewMenu": true,
+              "ViewersIcons" : {
+                "osimis-web-viewer": "bi bi-eye",
+                "stone-webviewer": "bi bi-eye-fill",
+                "ohif": "bi bi-grid",
+                "ohif-vr": "bi bi-grid-1x2",
+                "ohif-tmtv": "bi bi-grid-3x3-gap",
+                "ohif-seg": "fa-solid fa-shapes fa-button",
+                "ohif-micro": "fa-solid fa-microscope fa-button",
+                "meddream": "bi bi-columns-gap",
+                "volview": "bi bi-box",
+                "wsi": "fa-solid fa-microscope fa-button"
+              },
+              "StudyListColumns" : [
+                "PatientBirthDate",
+                "PatientName",
+                "PatientID",
+                "StudyDescription",
+                "StudyDate",
+                "InstitutionName",
+                "modalities",
+                "AccessionNumber",
+                "seriesAndInstancesCount"
+              ],
+              "DateFormat": "dd/MM/yyyy"
+            }
+          },
 
-  orthanc-for-users:
-    build: orthanc
+          "RegisteredUsers": {
+            "demo": "demo"
+          }
+        }
+
+  orthanc-default:
+    # image: orthancteam/orthanc-pre-release:master-unstable
+    image: orthancteam/orthanc:24.11.0
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
-    environment:
-      ORTHANC__NAME: "Orthanc for users"
-      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_UPLOAD: "false"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DICOM_MODALITIES: "false"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_DELETE_RESOURCES: "false"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_SETTINGS: "false"
-      ORTHANC__ORTHANC_EXPLORER_2__UI_OPTIONS__ENABLE_LINK_TO_LEGACY_UI: "false"
-      ORTHANC__REGISTERED_USERS: |
-        {"user": "user"}
-      ORTHANC__OVERWRITE_INSTANCES: "true"
-
     env_file:
       - common-orthanc.env
+    environment:
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc default",
+          "OrthancExplorer2" : {
+          },
+
+          "AuthenticationEnabled": false
+        }
+
 
   orthanc-db:
-    image: postgres:14
+    image: postgres:15
     restart: unless-stopped
     volumes: ["orthanc-db:/var/lib/postgresql/data"]
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
-
   pacs:
-    image: orthancteam/orthanc
+    image: orthancteam/orthanc-pre-release:master-unstable
     volumes: ["pacs-storage:/var/lib/orthanc/db"]
-    depends_on: [pacs-db]
     restart: unless-stopped
     environment:
-      ORTHANC__NAME: "Pacs"
-      ORTHANC__DICOM_AET: "PACS"
-      ORTHANC__ORTHANC_EXPLORER_2__IS_DEFAULT_ORTHANC_UI: "true"
-      ORTHANC__AUTHENTICATION_ENABLED: "false"
-      ORTHANC__POSTGRESQL__HOST: "pacs-db"
-      OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
-      ORTHANC__DICOM_MODALITIES: |
-        {"orthanc": ["ORTHANC", "orthanc-for-admin", 4242]}
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "PACS",
+          "DicomAet": "PACS",
+          "OrthancExplorer2" : {
+          },
 
-  pacs-db:
-    image: postgres:14
-    restart: unless-stopped
-    volumes: ["pacs-db:/var/lib/postgresql/data"]
-    environment:
-      POSTGRES_HOST_AUTH_METHOD: "trust"
+          "DicomModalities": {
+            "orthanc": ["ORTHANC", "orthanc-default", 4242]
+          },
+
+          "AuthenticationEnabled": false
+        }
 
 
 volumes:
   orthanc-storage:
   orthanc-db:
   pacs-storage:
-  pacs-db:

@@ -1,26 +1,25 @@
 # Purpose
 
-This is a sample setup to demonstrate how to run Orthanc-Explorer-2 behind a reverse proxy.
+This is a sample setup to demonstrate how to run Orthanc and configure the Orthanc-Explorer-2 User Interface.
 
-As of version 0.4.0, there's no real user management in Orthanc-Explorer-2 but you can
-simulate this by having 2 orthanc running on the same DB.  One Orthanc is accessible to admin
-users with full access to the UI and API while another Orthanc is accessible to users with reduced
-functionality and UI.
+The OE2 plugin is actually enabled by default in the `orthancteam/orthanc` Docker images.  Its configuration can be tuned
+thanks to a number of [configuration options](https://github.com/orthanc-server/orthanc-explorer-2/blob/master/Plugin/DefaultConfiguration.json).
 
-**Disclaimer**: this sample is provided 'as is' without any guarantee.  Don't use it in production unless you perfectly understand every part of it.
-
-**Note**:  Since this sample was written, we have introduced a more advanced user management in the [orthanc-auth-service](https://github.com/orthanc-team/orthanc-auth-service).
+**Note**:  If you are looking for user management, have a look to this project: [orthanc-auth-service](https://github.com/orthanc-team/orthanc-auth-service).
 
 # Description
 
 This demo contains:
 
+- 2 Orthanc containers connected to the same database.  One Orthanc has the default OE2 UI configured while the other
+  has a custom configuration.
+- 1 Orthanc container acting as a remote PACS remote accessible from DICOM or DICOMWeb.
+
 - a nginx container that provides a web server on port 80.  It exposes the 3 Orthanc instances on theses subroutes
-  -  [/orthanc-admin/](http://localhost/orthanc-admin/ui/app/).
-  -  [/orthanc-users/](http://localhost/orthanc-users/ui/app/).
+  -  [/orthanc-custom/](http://localhost/orthanc-custom/ui/app/).
+  -  [/orthanc-default/](http://localhost/orthanc-default/ui/app/).
   -  [/pacs/](http://localhost/pacs/ui/app/).
 
-- 3 Orthanc containers, one configured for `admin` and one configured for `users` and one configured as an external pacs
 - a Postgresql container to store the Orthanc database
 
 
@@ -30,6 +29,9 @@ To start the setup, type: `docker-compose up --build`
 
 # demo
 
-- Orthanc UI with full admin access is accessible at [http://localhost/orthanc-admin/ui/app/](http://localhost/orthanc-admin/ui/app/).  Login/pwd = `admin/admin`
-- Orthanc UI with reduced user access is accessible at [http://localhost/orthanc-users/ui/app/](http://localhost/orthanc-users/ui/app/).  Login/pwd = `user/user`
-- Orthanc UI for the PACS is accessible at [http://localhost/pacs/ui/app/](http://localhost/pacs/ui/app/).  No login required.
+- The customized Orthanc UI is accessible at [http://localhost/orthanc-custom/ui/app/](http://localhost/orthanc-custom/ui/app/).  Login/pwd = `demo/demo`
+- The default Orthanc UI is accessible at [http://localhost/orthanc-default/ui/app/](http://localhost/orthanc-default/ui/app/).  No user/pwd.
+- The PACS UI is accessible at [http://localhost/pacs/ui/app/](http://localhost/pacs/ui/app/).  No user/pwd.
+
+You may upload multiple studies in the default Orthanc UI, transfer them to the remote Orthanc UI and then, play around with all the local and remote
+browsing interfaces.
