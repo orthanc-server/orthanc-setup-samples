@@ -1,0 +1,60 @@
+services:
+
+  # In this orthanc "user" interface, users may access only the studies they are authorized to access
+  orthanc:
+    # we need these commits: 
+    # https://orthanc.uclouvain.be/hg/orthanc-authorization/rev/ffa6e2388943
+    # https://github.com/orthanc-server/orthanc-explorer-2/commit/2d274fdfc20ab43adad637aa9ab0aea061538eaa
+    image: orthancteam/orthanc-pre-release:master-unstable
+    volumes: 
+      - "orthanc-storage:/var/lib/orthanc/db"
+      - "./orthanc/plugin.py:/scripts/plugin.py"
+    ports: ["8042:8042"]
+    depends_on: [orthanc-db, auth-service]
+    restart: unless-stopped
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+
+      AUTHORIZATION_PLUGIN_ENABLED: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      PYTHON_PLUGIN_ENABLED: "true"
+
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc auth test",
+          "AuthenticationEnabled": true,
+          "RegisteredUsers": {
+            "user1": "user1",
+            "user2": "user2",
+            "admin": "admin"
+          },
+          "Authorization": {
+            "WebServiceUserProfileUrl": "http://auth-service:8000/user/get-profile",
+            "TokenHttpHeaders": [
+              "Authorization"
+            ],
+
+            "StandardConfigurations": [
+              "orthanc-explorer-2",
+              "stone-webviewer"
+            ],
+            "CheckedLevel" : "studies"
+          },
+          "OrthancExplorer2": {
+            "Tokens": {
+              // experimental, set it to false when using basic-auth together with the auth-plugin (https://discourse.orthanc-server.org/t/user-based-access-control-with-label-based-resource-access/5454)
+              "RequiredForLinks": false  
+            }
+          },          
+          "PythonScript": "/scripts/plugin.py"
+        }
+
+  # this web-service implements authorization checks (it is called by the authorization plugin)
+  auth-service:
+    build: auth-service
+    restart: unless-stopped
+
+volumes:
+  orthanc-storage:
