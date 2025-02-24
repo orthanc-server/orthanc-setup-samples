@@ -1,17 +1,16 @@
 services:
 
   orthanc:
-    image: orthancteam/orthanc
+    image: orthancteam/orthanc:25.1.1
     depends_on: [index]
     ports: ["104:4242", "80:8042"]
     volumes: ["storage:/var/lib/orthanc/db:Z"]
     environment:
-      ORTHANC__MYSQL__HOST: index
-      ORTHANC__MYSQL__USERNAME: test-user
-      ORTHANC__MYSQL__DATABASE: orthanc
-      ORTHANC__MYSQL__PASSWORD: foo
-      ORTHANC__REGISTERED_USERS: |
-        {"demo": "demo"}
+      ORTHANC__MYSQL__HOST: "index"
+      ORTHANC__MYSQL__USERNAME: "test-user"
+      ORTHANC__MYSQL__DATABASE: "orthanc"
+      ORTHANC__MYSQL__PASSWORD: "foo"
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
 
     restart: unless-stopped
   index:
@@ -25,10 +24,10 @@ services:
       ]
     volumes: ["index:/var/lib/mysql:Z"]
     environment:
-      MYSQL_PASSWORD: foo
-      MYSQL_USER: test-user
-      MYSQL_DATABASE: orthanc
-      MYSQL_ROOT_PASSWORD: foo-root
+      MYSQL_PASSWORD: "foo"
+      MYSQL_USER: "test-user"
+      MYSQL_DATABASE: "orthanc"
+      MYSQL_ROOT_PASSWORD: "foo-root"
 
     restart: unless-stopped
 
