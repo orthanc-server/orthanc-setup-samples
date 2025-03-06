@@ -1,16 +1,12 @@
 services:
 
-  # In this orthanc "user" interface, users may access only the studies they are authorized to access
   orthanc:
-    # we need these commits: 
-    # https://orthanc.uclouvain.be/hg/orthanc-authorization/rev/ffa6e2388943
-    # https://github.com/orthanc-server/orthanc-explorer-2/commit/2d274fdfc20ab43adad637aa9ab0aea061538eaa
-    image: orthancteam/orthanc-pre-release:master-unstable
+    image: orthancteam/orthanc:25.2.0
     volumes: 
       - "orthanc-storage:/var/lib/orthanc/db"
       - "./orthanc/plugin.py:/scripts/plugin.py"
     ports: ["8042:8042"]
-    depends_on: [orthanc-db, auth-service]
+    depends_on: [auth-service]
     restart: unless-stopped
     environment:
       VERBOSE_STARTUP: "true"
