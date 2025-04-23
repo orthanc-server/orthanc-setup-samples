@@ -3,7 +3,7 @@
 This docker-compose file presents various way to configure Orthanc through
 environment variables, secrets or configuration files.
 
-More details about the configuration can be found in the [Orthanc book](https://book.orthanc-server.com/users/docker-osimis.html)
+More details about the configuration can be found in the [Orthanc book](https://book.orthanc-server.com/users/docker-orthancteam.html)
 
 # Starting the setup
 
