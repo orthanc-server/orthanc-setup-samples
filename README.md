@@ -44,6 +44,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Health-check](docker/health-check) to monitor Orthanc and restart it if it becomes unresponsive.
 - [Export studies to S3](docker/copy-to-S3) to export zipped studies into and S3 bucket.
 - [Customize OE2 UI](docker/oe2-custom) to customize the logo and CSS of the Orthanc Explorer 2 User Interface.
+- [Migrate from SQLite to PostgreSQL using the Advanced Storage plugin](docker/sqlite-to-postgresql) to demonstrate how to replace the SQLite DB by PostgreSQL without re-ingesting the whole DB.
 
 ## for software integrators
 - [Orthanc + Serve-Folders Plugin](docker/serve-folders) to demonstrate how to use the Orthanc [Serve-Folders plugin](https://book.orthanc-server.com/plugins/serve-folders.html) to build custom web interface on top of Orthanc

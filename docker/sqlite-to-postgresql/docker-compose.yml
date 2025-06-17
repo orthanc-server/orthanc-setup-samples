@@ -1,0 +1,105 @@
+services:
+
+  orthanc-sqlite:
+    image: orthancteam/orthanc:25.6.4
+    restart: unless-stopped
+    ports: ["8043:8042"]
+    volumes: 
+      - "orthanc-storage-for-sqlite:/orthanc-storage-for-sqlite/"
+      - "orthanc-sqlite-index:/var/lib/orthanc/db/"
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc SQLite",
+          "AuthenticationEnabled": false,
+          "IndexDirectory": "/var/lib/orthanc/db/",
+          "StorageDirectory": "/orthanc-storage-for-sqlite/"
+        }
+
+  orthanc-pg:
+    image: orthancteam/orthanc:25.6.4
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4243:4242", "8043:8042"]
+    volumes: 
+      - "orthanc-storage-for-sqlite:/orthanc-storage-for-sqlite/"
+      - "orthanc-storage-for-pg:/orthanc-storage-for-pg/"
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc PG",
+          "AuthenticationEnabled": false,
+          "IndexDirectory": "/var/lib/orthanc/db/",
+          "StorageDirectory": "/orthanc-storage-for-pg/",
+          "PostgreSQL": {
+            "Host": "orthanc-index"
+          },
+          "AdvancedStorage": {
+            "Enable": true,
+            "Indexer": {
+              "Enable": true,
+              "Folders": [
+                "/orthanc-storage-for-sqlite/"
+              ],
+              "TakeOwnership": true
+            }
+          }
+        }
+
+  orthanc-pg-hk:
+    # note: you need a 1.12.8+ Housekeeper plugin to benefit from the ForceReconstructFiles option
+    image: orthancteam/orthanc-pre-release:master-unstable
+    depends_on: [orthanc-index]
+    restart: unless-stopped
+    ports: ["4243:4242", "8043:8042"]
+    volumes: 
+      - "orthanc-storage-for-sqlite:/orthanc-storage-for-sqlite/"
+      - "orthanc-storage-for-pg:/orthanc-storage-for-pg/"
+    environment:
+      VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc PG+HK",
+          "AuthenticationEnabled": false,
+          "IndexDirectory": "/var/lib/orthanc/db/",
+          "StorageDirectory": "/orthanc-storage-for-pg/",
+          "PostgreSQL": {
+            "Host": "orthanc-index"
+          },
+          "AdvancedStorage": {
+            "Enable": true,
+            "NamingScheme": "{split(StudyDate)}/{StudyInstanceUID} - {PatientID}/{SeriesInstanceUID}/{pad6(InstanceNumber)} - {UUID}{.ext}",
+            "Indexer": {
+              "Enable": true,
+              "Folders": [
+                "/orthanc-storage-for-sqlite/"
+              ],
+              "TakeOwnership": true
+            }
+          },
+          "Housekeeper" : {
+            "Enable": true,
+            "Force": true,
+            "ForceReconstructFiles": true
+          }
+        }
+
+  orthanc-index:
+    image: postgres:15
+    restart: unless-stopped
+    ports: ["5432:5432"]
+    volumes: ["orthanc-pg-index:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+
+volumes:
+  orthanc-storage-for-sqlite:
+  orthanc-storage-for-pg:
+  orthanc-pg-index:
+  orthanc-sqlite-index:
