@@ -94,7 +94,12 @@ def OnGetJpegArchive(output, uri, **request):
             # print(f'downloading /preview for {instance["ID"]}')
             # pprint.pprint(instance)
 
-            jpeg_content = orthanc.RestApiGet(f'/instances/{instance["ID"]}/preview')
+            try:
+                jpeg_content = orthanc.RestApiGet(f'/instances/{instance["ID"]}/preview')
+            except Exception as e:
+                # here is probably an instance which can't be previewed (pdf, video,...), let's skip it
+                # TODO: catch only 415 http errors (bug in Python wrapper?)
+                continue
 
             # build the filename of the jpeg in the zip
             resource_tags = {**study_tags, **instance['MainDicomTags']}
