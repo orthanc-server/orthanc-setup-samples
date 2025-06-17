@@ -7,7 +7,7 @@ RUN apt-get update && apt install -y python3-venv
 RUN python3 -m venv /.venv
 
 RUN /.venv/bin/pip install pydicom
-ENV PYTHONPATH=/.venv/lib64/python3.11/site-packages/
+ENV PYTHONPATH=/.venv/lib64/python3.12/site-packages/
 
 RUN mkdir /python
 COPY * /python/

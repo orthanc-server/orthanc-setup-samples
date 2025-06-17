@@ -9,13 +9,20 @@ services:
 
   orthanc-custom:
     # image: orthancteam/orthanc-pre-release:master-unstable
-    image: orthancteam/orthanc:24.11.0
+    image: orthancteam/orthanc
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
     env_file:
       - common-orthanc.env
     environment:
+      VERBOSE_STARTUP: "true"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      ORTHANC__STONE_WEB_VIEWER__SCREENSHOT_TEMPLATE: "{PatientID}-{PatientName}-{StudyDate}-{SeriesDescription}.jpg"
+
+      OHIF_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      VOLVIEW_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
           "Name": "Orthanc Customized",
@@ -59,13 +66,17 @@ services:
 
   orthanc-default:
     # image: orthancteam/orthanc-pre-release:master-unstable
-    image: orthancteam/orthanc:24.11.0
+    image: orthancteam/orthanc
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
     env_file:
       - common-orthanc.env
     environment:
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      OHIF_PLUGIN_ENABLED: "true"
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      VOLVIEW_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
           "Name": "Orthanc default",
@@ -84,7 +95,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
   pacs:
-    image: orthancteam/orthanc-pre-release:master-unstable
+    image: orthancteam/orthanc
     volumes: ["pacs-storage:/var/lib/orthanc/db"]
     restart: unless-stopped
     environment:

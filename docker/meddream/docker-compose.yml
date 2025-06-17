@@ -31,7 +31,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
   meddream:
-    image: meddream/orthanc-dicom-viewer:8.3.0
+    image: meddream/orthanc-dicom-viewer:8.6.0
     restart: unless-stopped
     user: root
     ports: ["8080:8080"]
