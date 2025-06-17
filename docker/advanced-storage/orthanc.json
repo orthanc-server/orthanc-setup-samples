@@ -1,0 +1,34 @@
+{
+    "Name": "Orthanc demo",
+    "AuthenticationEnabled": false,
+    "PostgreSQL": {
+        "Host": "orthanc-index",
+        "IndexConnectionsCount": 40
+    },
+    "AdvancedStorage": {
+        "Enable": true,
+        //"NamingScheme": "dicom/{split(StudyDate)}/{StudyInstanceUID} - {PatientID}/{SeriesInstanceUID}/{pad6(InstanceNumber)} - {UUID}{.ext}",
+        "NamingScheme": "dicom/{PatientID} - {PatientName}/{StudyDate} - {StudyInstanceUID} - {StudyDescription}/{SeriesInstanceUID}/{UUID}{.ext}",
+        "MaxPathLength": 500,
+        "OtherAttachmentsPrefix": "attachments/",
+        "MultipleStorages": {
+            "Storages": {
+                "1": "/orthanc-storage-1",
+                "2": "/orthanc-storage-2"
+            },
+            // the storage on which new data is stored.
+            // There's currently no automatic changes of disks
+            "CurrentWriteStorage": "1"
+        },
+        "DelayedDeletion": {
+            "Enable": true
+            //"ThrottleDelayMs": 50
+        },
+        "Indexer": {
+            "Enable": true,
+            "Folders": [
+                "/folder-to-index"
+            ]
+        }
+    }
+}
