@@ -45,7 +45,8 @@ services:
               "Folders": [
                 "/orthanc-storage-for-sqlite/"
               ],
-              "TakeOwnership": true
+              "TakeOwnership": true,
+              "ThrottleDelayMs": 1
             }
           }
         }
