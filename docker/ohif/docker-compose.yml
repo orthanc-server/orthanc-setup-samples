@@ -20,7 +20,7 @@ services:
       - orthanc-container
 
   orthanc-container:
-    image: orthancteam/orthanc:24.7.3
+    image: orthancteam/orthanc:25.8.0
     restart: unless-stopped
     volumes:
       - orthanc-storage:/var/lib/orthanc/db/
@@ -40,10 +40,11 @@ services:
         }
 
       VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
 
 
   orthanc-plugin:
-    image: orthancteam/orthanc:24.7.3
+    image: orthancteam/orthanc:25.8.0
     restart: unless-stopped
     ports:
       - 8053:8042
@@ -74,12 +75,13 @@ services:
         }
 
       VERBOSE_STARTUP: "true"
+      VERBOSE_ENABLED: "true"
 
 
   orthanc-index:
     image: postgres:15
     restart: unless-stopped
-    ports: ["5432:5432"]
+    # ports: ["5432:5432"]
     volumes: ["orthanc-index:/var/lib/postgresql/data"]
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
