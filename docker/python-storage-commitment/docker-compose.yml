@@ -1,7 +1,7 @@
 services:
 
   orthanc:
-    image: orthancteam/orthanc-pre-release:master-unstable
+    image: orthancteam/orthanc:25.8.0
     ports: ["8045:8042"]
     volumes:
       - orthanc-storage:/var/lib/orthanc/db/
