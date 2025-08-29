@@ -42,6 +42,7 @@ Class CompressionType:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginCompressionType
   - Enumeration value GZIP: 2
   - Enumeration value GZIP_WITH_SIZE: 3
+  - Enumeration value NONE: 4
   - Enumeration value ZLIB: 0
   - Enumeration value ZLIB_WITH_SIZE: 1
 
@@ -90,8 +91,17 @@ Function CreateImage():
 Function CreateImageFromBuffer():
   Documentation: Implemented in C++ function CreateImageFromBuffer()
 
+Function CreateKeysValuesIterator():
+  Documentation: Generated from C function OrthancPluginCreateKeysValuesIterator()
+
 Function DecodeDicomImage():
   Documentation: Generated from C function OrthancPluginDecodeDicomImage()
+
+Function DeleteKeyValue():
+  Documentation: Generated from C function OrthancPluginDeleteKeyValue()
+
+Function DequeueValue():
+  Documentation: Implemented in C++ function DequeueValue()
 
 Function DicomBufferToJson():
   Documentation: Generated from C function OrthancPluginDicomBufferToJson()
@@ -144,6 +154,12 @@ Class DicomWebBinaryMode:
 Class DicomWebNode:
   Documentation: Generated from Orthanc C class: OrthancPluginDicomWebNode
 
+Function EmitAuditLog():
+  Documentation: Generated from C function OrthancPluginEmitAuditLog()
+
+Function EnqueueValue():
+  Documentation: Generated from C function OrthancPluginEnqueueValue()
+
 Class ErrorCode:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginErrorCode
   - Enumeration value ALREADY_EXISTING_TAG: 2042
@@ -180,15 +196,19 @@ Class ErrorCode:
   - Enumeration value DATABASE_PLUGIN: 31
   - Enumeration value DATABASE_UNAVAILABLE: 36
   - Enumeration value DICOM_FIND_UNAVAILABLE: 2016
+  - Enumeration value DICOM_GET_UNAVAILABLE: 2045
   - Enumeration value DICOM_MOVE_UNAVAILABLE: 2017
   - Enumeration value DICOM_PORT_IN_USE: 2004
   - Enumeration value DIRECTORY_EXPECTED: 2002
   - Enumeration value DIRECTORY_OVER_FILE: 2000
   - Enumeration value DISCONTINUED_ABI: 40
+  - Enumeration value DUPLICATE_RESOURCE: 46
   - Enumeration value EMPTY_REQUEST: 33
   - Enumeration value FILE_STORAGE_CANNOT_WRITE: 2001
+  - Enumeration value FORBIDDEN_ACCESS: 45
   - Enumeration value FULL_STORAGE: 19
   - Enumeration value HTTP_PORT_IN_USE: 2003
+  - Enumeration value INCOMPATIBLE_CONFIGURATIONS: 47
   - Enumeration value INCOMPATIBLE_DATABASE_VERSION: 18
   - Enumeration value INCOMPATIBLE_IMAGE_FORMAT: 23
   - Enumeration value INCOMPATIBLE_IMAGE_SIZE: 24
@@ -200,6 +220,7 @@ Class ErrorCode:
   - Enumeration value LUA_ALREADY_EXECUTED: 2032
   - Enumeration value LUA_BAD_OUTPUT: 2033
   - Enumeration value LUA_RETURNS_NO_STRING: 2035
+  - Enumeration value MAIN_DICOM_TAGS_MULTIPLY_DEFINED: 44
   - Enumeration value MAKE_DIRECTORY: 2008
   - Enumeration value NETWORK_PROTOCOL: 9
   - Enumeration value NOT_ACCEPTABLE: 34
@@ -257,6 +278,9 @@ Class ErrorCode:
 Function ExtendOrthancExplorer():
   Documentation: Generated from C function OrthancPluginExtendOrthancExplorer()
 
+Function ExtendOrthancExplorer2():
+  Documentation: Generated from C function OrthancPluginExtendOrthancExplorer2()
+
 Class FindAnswers:
   Documentation: Generated from Orthanc C class: OrthancPluginFindAnswers
   - Method FindAddAnswer(): Generated from C function OrthancPluginFindAddAnswer()
@@ -264,7 +288,7 @@ Class FindAnswers:
 
 Class FindMatcher:
   Documentation: Generated from Orthanc C class: OrthancPluginFindMatcher
-  - Method FindMatcherIsMatch(): Generated from C function OrthancPluginFindMatcherIsMatch()
+  - Method IsMatch(): Generated from C function OrthancPluginFindMatcherIsMatch()
 
 Class FindQuery:
   Documentation: Generated from Orthanc C class: OrthancPluginFindQuery
@@ -280,6 +304,9 @@ Function GenerateRestApiAuthorizationToken():
 Function GenerateUuid():
   Documentation: Generated from C function OrthancPluginGenerateUuid()
 
+Function GetAttachmentCustomData():
+  Documentation: Generated from C function OrthancPluginGetAttachmentCustomData()
+
 Function GetCommandLineArgument():
   Documentation: Generated from C function OrthancPluginGetCommandLineArgument()
 
@@ -291,6 +318,9 @@ Function GetConfiguration():
 
 Function GetConfigurationPath():
   Documentation: Generated from C function OrthancPluginGetConfigurationPath()
+
+Function GetDatabaseServerIdentifier():
+  Documentation: Generated from C function OrthancPluginGetDatabaseServerIdentifier()
 
 Function GetDicomForInstance():
   Documentation: Generated from C function OrthancPluginGetDicomForInstance()
@@ -313,6 +343,9 @@ Function GetFontsCount():
 Function GetGlobalProperty():
   Documentation: Generated from C function OrthancPluginGetGlobalProperty()
 
+Function GetKeyValue():
+  Documentation: Implemented in C++ function GetKeyValue()
+
 Function GetOrthancDirectory():
   Documentation: Generated from C function OrthancPluginGetOrthancDirectory()
 
@@ -322,8 +355,18 @@ Function GetOrthancPath():
 Function GetPeers():
   Documentation: Generated from C function OrthancPluginGetPeers()
 
+Function GetQueueSize():
+  Documentation: Implemented in C++ function GetQueueSize()
+
 Function GetTagName():
   Documentation: Generated from C function OrthancPluginGetTagName()
+
+Class HttpAuthenticationStatus:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginHttpAuthenticationStatus
+  - Enumeration value FORBIDDEN: 2
+  - Enumeration value GRANTED: 0
+  - Enumeration value REDIRECT: 3
+  - Enumeration value UNAUTHORIZED: 1
 
 Function HttpDelete():
   Documentation: Generated from C function OrthancPluginHttpDelete()
@@ -393,11 +436,46 @@ Class JobStopReason:
   - Enumeration value PAUSED: 2
   - Enumeration value SUCCESS: 1
 
+Class KeysValuesIterator:
+  Documentation: Generated from Orthanc C class: OrthancPluginKeysValuesIterator
+  - Method GetKey(): Generated from C function OrthancPluginKeysValuesIteratorGetKey()
+  - Method GetValue(): Generated from C function OrthancPluginKeysValuesIteratorGetValue()
+  - Method Next(): Implemented in C++ function KeysValuesIteratorNext()
+
+Function LoadDicomInstance():
+  Documentation: Generated from C function OrthancPluginLoadDicomInstance()
+
+Class LoadDicomInstanceMode:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginLoadDicomInstanceMode
+  - Enumeration value EMPTY_PIXEL_DATA: 3
+  - Enumeration value UNTIL_PIXEL_DATA: 2
+  - Enumeration value WHOLE_DICOM: 1
+
+Class LogCategory:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginLogCategory
+  - Enumeration value DICOM: 16
+  - Enumeration value GENERIC: 1
+  - Enumeration value HTTP: 4
+  - Enumeration value JOBS: 32
+  - Enumeration value LUA: 64
+  - Enumeration value PLUGINS: 2
+  - Enumeration value SQLITE: 8
+
 Function LogError():
   Documentation: Generated from C function OrthancPluginLogError()
 
 Function LogInfo():
   Documentation: Generated from C function OrthancPluginLogInfo()
+
+Class LogLevel:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginLogLevel
+  - Enumeration value ERROR: 0
+  - Enumeration value INFO: 2
+  - Enumeration value TRACE: 3
+  - Enumeration value WARNING: 1
+
+Function LogMessage():
+  Documentation: Generated from C function OrthancPluginLogMessage()
 
 Function LogWarning():
   Documentation: Generated from C function OrthancPluginLogWarning()
@@ -452,6 +530,11 @@ Class PixelFormat:
   - Enumeration value RGBA32: 5
   - Enumeration value SIGNED_GRAYSCALE16: 3
   - Enumeration value UNKNOWN: 6
+
+Class QueueOrigin:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginQueueOrigin
+  - Enumeration value BACK: 1
+  - Enumeration value FRONT: 0
 
 Function ReadFile():
   Documentation: Generated from C function OrthancPluginReadFile()
@@ -549,20 +632,34 @@ Class RestOutput:
   - Method SendHttpStatusCode(): Generated from C function OrthancPluginSendHttpStatusCode()
   - Method SendMethodNotAllowed(): Generated from C function OrthancPluginSendMethodNotAllowed()
   - Method SendMultipartItem(): Generated from C function OrthancPluginSendMultipartItem()
+  - Method SendStreamChunk(): Generated from C function OrthancPluginSendStreamChunk()
   - Method SendUnauthorized(): Generated from C function OrthancPluginSendUnauthorized()
   - Method SetCookie(): Generated from C function OrthancPluginSetCookie()
   - Method SetHttpErrorDetails(): Generated from C function OrthancPluginSetHttpErrorDetails()
   - Method SetHttpHeader(): Generated from C function OrthancPluginSetHttpHeader()
   - Method StartMultipartAnswer(): Generated from C function OrthancPluginStartMultipartAnswer()
+  - Method StartStreamAnswer(): Generated from C function OrthancPluginStartStreamAnswer()
 
 Class ServerChunkedRequestReader:
   Documentation: Generated from Orthanc C class: OrthancPluginServerChunkedRequestReader
 
+Function SetAttachmentCustomData():
+  Documentation: Generated from C function OrthancPluginSetAttachmentCustomData()
+
+Function SetCurrentThreadName():
+  Documentation: Generated from C function OrthancPluginSetCurrentThreadName()
+
 Function SetDescription():
   Documentation: Generated from C function OrthancPluginSetDescription()
 
+Function SetDescription2():
+  Documentation: Generated from C function OrthancPluginSetDescription2()
+
 Function SetGlobalProperty():
   Documentation: Generated from C function OrthancPluginSetGlobalProperty()
+
+Function SetMetricsIntegerValue():
+  Documentation: Generated from C function OrthancPluginSetMetricsIntegerValue()
 
 Function SetMetricsValue():
   Documentation: Generated from C function OrthancPluginSetMetricsValue()
@@ -570,12 +667,23 @@ Function SetMetricsValue():
 Function SetRootUri():
   Documentation: Generated from C function OrthancPluginSetRootUri()
 
+Function SetRootUri2():
+  Documentation: Generated from C function OrthancPluginSetRootUri2()
+
+Function SetStableStatus():
+  Documentation: Implemented in C++ function SetStableStatus()
+
+Class StableStatus:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginStableStatus
+  - Enumeration value STABLE: 0
+  - Enumeration value UNSTABLE: 1
+
 Class StorageArea:
   Documentation: Generated from Orthanc C class: OrthancPluginStorageArea
+  - Method Create(): Generated from C function OrthancPluginStorageAreaCreate()
+  - Method Read(): Generated from C function OrthancPluginStorageAreaRead()
   - Method ReconstructMainDicomTags(): Generated from C function OrthancPluginReconstructMainDicomTags()
-  - Method StorageAreaCreate(): Generated from C function OrthancPluginStorageAreaCreate()
-  - Method StorageAreaRead(): Generated from C function OrthancPluginStorageAreaRead()
-  - Method StorageAreaRemove(): Generated from C function OrthancPluginStorageAreaRemove()
+  - Method Remove(): Generated from C function OrthancPluginStorageAreaRemove()
 
 Class StorageCommitmentFailureReason:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginStorageCommitmentFailureReason
@@ -585,6 +693,17 @@ Class StorageCommitmentFailureReason:
   - Enumeration value PROCESSING_FAILURE: 1
   - Enumeration value REFERENCED_SOPCLASS_NOT_SUPPORTED: 4
   - Enumeration value RESOURCE_LIMITATION: 3
+  - Enumeration value SUCCESS: 0
+
+Function StoreKeyValue():
+  Documentation: Generated from C function OrthancPluginStoreKeyValue()
+
+Class StoreStatus:
+  Documentation: Generated from C enumeration OrthancPluginOrthancPluginStoreStatus
+  - Enumeration value ALREADY_STORED: 1
+  - Enumeration value FAILURE: 2
+  - Enumeration value FILTERED_OUT: 3
+  - Enumeration value STORAGE_FULL: 4
   - Enumeration value SUCCESS: 0
 
 Function TranscodeDicomInstance():
@@ -622,6 +741,9 @@ Class ValueRepresentation:
   - Enumeration value UN: 25
   - Enumeration value US: 26
   - Enumeration value UT: 27
+
+Class WebDavCollection:
+  Documentation: Generated from Orthanc C class: OrthancPluginWebDavCollection
 
 Class WorklistAnswers:
   Documentation: Generated from Orthanc C class: OrthancPluginWorklistAnswers

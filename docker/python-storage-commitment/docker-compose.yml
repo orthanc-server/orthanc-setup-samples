@@ -1,0 +1,48 @@
+services:
+
+  orthanc:
+    image: orthancteam/orthanc:25.8.0
+    ports: ["8045:8042"]
+    volumes:
+      - orthanc-storage:/var/lib/orthanc/db/
+      - ./plugin.py:/scripts/plugin.py
+      - ./on-change.lua:/scripts/on-change.lua
+      - ../../dicomFiles:/dicom-files/
+    environment:
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Storage commitment demo",
+          "AuthenticationEnabled": false,
+          "PythonScript": "/scripts/plugin.py",
+          "LuaScripts": ["/scripts/on-change.lua"],
+          "DicomModalities": {
+            "modality": ["MODALITY", "modality", 4242]
+          }
+        }
+
+  modality:
+    image: orthancteam/orthanc:25.6.4
+    ports: ["8046:8042"]
+    volumes:
+      - modality-storage:/var/lib/orthanc/db/
+    depends_on:
+      - orthanc
+    environment:
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Modality",
+          "DicomAet": "MODALITY",
+          "AuthenticationEnabled": false,
+          "DicomModalities": {
+            "orthanc": ["ORTHANC", "orthanc", 4242]
+          }
+        }
+
+
+volumes:
+  orthanc-storage:
+  modality-storage:
