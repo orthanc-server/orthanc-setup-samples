@@ -8,8 +8,8 @@ services:
 
 
   orthanc-custom:
-    # image: orthancteam/orthanc-pre-release:master-unstable
     image: orthancteam/orthanc
+    # image: orthancteam/orthanc
     volumes: ["orthanc-storage:/var/lib/orthanc/db"]
     depends_on: [orthanc-db]
     restart: unless-stopped
@@ -23,6 +23,7 @@ services:
       OHIF_PLUGIN_ENABLED: "true"
       DICOM_WEB_PLUGIN_ENABLED: "true"
       VOLVIEW_PLUGIN_ENABLED: "true"
+      STL_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
           "Name": "Orthanc Customized",
@@ -55,6 +56,20 @@ services:
                 "AccessionNumber",
                 "seriesAndInstancesCount"
               ],
+              "CustomButtons": {
+                "bulk-studies": [
+                  {
+                    "Id": "bulk-get-archive",
+                    "Tooltip": "BULK GET ARCHIVE",
+                    "HttpMethod": "GET",
+                    "Target": "_self",
+                    "Icon": "bi bi-alarm",
+                    //"Url": "http://localhost:3001/my-url?series={UUID}"
+                    "Url": "../../tools/create-archive?resources={CommaSeparatedUUIDs}",
+                    "StartMessage": "This is a toast message from BULK GET ARCHIVE"
+                  }
+                ]
+              },
               "DateFormat": "dd/MM/yyyy"
             }
           },
