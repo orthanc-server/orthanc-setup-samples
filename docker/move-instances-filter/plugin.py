@@ -3,10 +3,23 @@ import json
 import pprint, os
 import dataclasses
 
-# this plugins filters out some instances when a C-Move is received
+###
+# This plugins filters out some instances when
+# - a C-Move is received
+# - a C-Store is performed
+#
+# The filter applies only on some AET.
+# The filter criteria is the SOPClassUID
+###
 
+# Here is the list of the (begining of) SOPClassUID's to filter out
 EXCLUDED_SOP_CLASSES = [
     "1.2.840.10008.5.1.4.1.1.104.1"
+]
+
+# Here is the list of the AET of the modalities to apply the filter to.
+AET_TO_APPLY_THE_FILTER_TO = [
+    "MODALITY"
 ]
 
 def GetOrthancAliasFromAET(AET):
@@ -21,7 +34,7 @@ def GetOrthancAliasFromAET(AET):
         if modalityDetails["AET"] == AET:
             return modality
 
-    raise Exception('It seems that the modality issuing the original DICOM query is not registered in the Proxy config!')
+    raise Exception('It seems that the modality issuing the original DICOM query is not registered in the config!')
 
 
 class MoveDriver:
@@ -107,12 +120,13 @@ class MoveDriver:
         # get SOPClassUID        
         sop_class_uid = json.loads(orthanc.RestApiGet('/instances/{0}/tags'.format(orthanc_id)))["0008,0016"]["Value"]
 
-        if not sop_class_uid.startswith(tuple(EXCLUDED_SOP_CLASSES)):    
+        if self.target_aet in AET_TO_APPLY_THE_FILTER_TO and sop_class_uid.startswith(tuple(EXCLUDED_SOP_CLASSES)):
+            return
 
-            # C-store
-            orthanc.RestApiPost('/modalities/{0}/store'.format(self.target_modality_alias), json.dumps({
-                "Resources": [orthanc_id]
-            }))
+        # C-store
+        orthanc.RestApiPost('/modalities/{0}/store'.format(self.target_modality_alias), json.dumps({
+            "Resources": [orthanc_id]
+        }))
         
 
     def cleanup(self):
@@ -158,8 +172,23 @@ def FreeMoveCallback(driver):
     orthanc.LogInfo("FreeMoveCallback")
 
     driver.cleanup()
+
+def OnStore(output, uri, **request):
+
+    if request['method'] != 'POST':
+        output.SendMethodNotAllowed('POST')
     
+    else:
+        query = json.loads(request['body'])
+        query["Permissive"] = True
+
+    answer = orthanc.RestApiPost(uri, json.dumps(query))
+
+    output.AnswerBuffer(answer, 'application/json')
+
+
 orthanc.RegisterMoveCallback2(CreateMoveCallback, GetMoveSizeCallback, ApplyMoveCallback, FreeMoveCallback)
+orthanc.RegisterRestCallback('/modalities/(.*)/store', OnStore)
 
 
 if os.environ.get('VERBOSE_ENABLED') in ["true", "True", True]:

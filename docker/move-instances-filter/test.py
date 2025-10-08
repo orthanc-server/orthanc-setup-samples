@@ -1,18 +1,10 @@
 """
-TODO:
-- test a move a study
-- test a move a series
-- test a move an instance
-- test a move of several studies
-- test a move of several series
-- test a move of several instances
 SOPClass to filter:
 
 1.2.840.10008.5.1.4.1.1.104.1
 
 """
 
-import time
 from orthanc_api_client import OrthancApiClient
 
 
@@ -36,4 +28,9 @@ study_uid = pacs.instances.get_tags(uploaded_instances_ids[0]).get('StudyInstanc
 
 modality.modalities.move_study(from_modality="orthanc", dicom_id=study_uid, to_modality_aet="MODALITY")
 
-# TODO: test all cases. Make this file a true test file
+instances = modality.instances.get_all_ids()
+
+if len(instances) == 1:
+    print("Test succeeded!")
+else:
+    print("Test failed...")

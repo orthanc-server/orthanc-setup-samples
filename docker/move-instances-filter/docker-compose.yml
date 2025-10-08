@@ -31,6 +31,9 @@ services:
       VERBOSE_STARTUP: "true"
       ORTHANC_JSON: |
         {
+          "RejectedSopClasses" : [
+            "1.2.840.10008.5.1.4.1.1.104.1"
+          ],
           "Name": "Modality",
           "DicomAet": "MODALITY",
           "AuthenticationEnabled": false,
