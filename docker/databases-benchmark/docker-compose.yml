@@ -1,0 +1,96 @@
+services:
+
+  orthanc-sqlite:
+    image: ${ORTHANC_IMAGE}
+    restart: unless-stopped
+    ports: ["8142:8042"]
+    volumes: ["orthanc-storage-sqlite:/var/lib/orthanc/db"]
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "SQLite",
+          "AuthenticationEnabled": false,
+          "StableAge": 1  // To trigger /metadata computation ASAP
+        }
+
+  orthanc-pg:
+    image: ${ORTHANC_IMAGE}
+    restart: unless-stopped
+    ports: ["8143:8042"]
+    volumes: ["orthanc-storage-pg-files:/var/lib/orthanc/db"]
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "SQLite",
+          "AuthenticationEnabled": false,
+          "StableAge": 1  // To trigger /metadata computation ASAP
+
+          
+          , "PostgreSQL": {
+            "Host": "pg-db"
+          }
+        }
+
+  pg-db:
+    image: postgres:17
+    restart: unless-stopped
+    volumes: ["pg-db:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  orthanc-mysql:
+    image: ${ORTHANC_IMAGE}
+    restart: unless-stopped
+    ports: ["8144:8042"]
+    volumes: ["orthanc-storage-mysql-files:/var/lib/orthanc/db"]
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "MySQL",
+          "AuthenticationEnabled": false,
+          "StableAge": 1  // To trigger /metadata computation ASAP
+
+          
+          , "MySQL": {
+            "Host": "mysql-db",
+            "Database": "orthanc",
+            "Username": "test-user",
+            "Password": "foo"
+          }
+        }
+
+  mysql-db:
+    image: mysql:8.0
+    command:
+      [
+        mysqld,
+        --default-authentication-plugin=mysql_native_password,
+        --log-bin-trust-function-creators=1,
+      ]
+    volumes: ["mysql-db:/var/lib/mysql"]
+    environment:
+      MYSQL_PASSWORD: "foo"
+      MYSQL_USER: "test-user"
+      MYSQL_DATABASE: "orthanc"
+      MYSQL_ROOT_PASSWORD: "foo-root"
+
+    restart: unless-stopped
+
+
+  test:
+    build: test
+    environment:
+      STEPS_COUNT: "100"
+    volumes:
+      - ./results:/results
+
+volumes:
+  orthanc-storage-sqlite:
+  orthanc-storage-pg-files:
+  orthanc-storage-mysql-files:
+  pg-db:
+  mysql-db:
+
