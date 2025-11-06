@@ -14,27 +14,84 @@ import matplotlib.pyplot as plt
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
-test_configs = {
-  "sqlite": {
-    "orthanc-url": "http://orthanc-sqlite:8042",
-    "results": "/results/sqlite.txt",
-    "has_extended_changes": True
-  },
-  "pg": {
-    "orthanc-url": "http://orthanc-pg:8042",
-    "results": "/results/pg.txt",
-    "has_extended_changes": True
-  },
-  "mysql": {
-    "orthanc-url": "http://orthanc-mysql:8042",
-    "results": "/results/mysql.txt",
-    "has_extended_changes": False
-  }
-}
+local_tests = False
+
+if local_tests:
+    results_root_path = "../results/"
+
+    test_configs = {
+        "local-8048": {
+            "orthanc-url": "http://localhost:8048",
+            "results": results_root_path + "local-8048.txt"
+        }
+    }
+else:
+    results_root_path = "/results/"
+
+    test_configs = {
+        "pg-1.12.4": {
+            "orthanc-url": "http://orthanc-pg-old:8042",
+            "results": results_root_path + "pg-1.12.4.txt"
+        },
+        "pg-1.12.9": {
+            "orthanc-url": "http://orthanc-pg-129:8042",
+            "results": results_root_path + "pg-1.12.9.txt"
+        },
+#   "sqlite-1.12.1": {
+#     "orthanc-url": "http://orthanc-sqlite-121:8042",
+#     "results": results_root_path + "sqlite-1.12.1.txt"
+#   },
+#   "sqlite-1.12.9": {
+#     "orthanc-url": "http://orthanc-sqlite-129:8042",
+#     "results": results_root_path + "sqlite-1.12.9.txt"
+#   },
+#   "sqlite-next": {
+#     "orthanc-url": "http://orthanc-sqlite-next:8042",
+#     "results": results_root_path + "sqlite-next.txt"
+#   },
+#   "pg-1.12.9": {
+#     "orthanc-url": "http://orthanc-pg:8042",
+#     "results": results_root_path + "pg-1.12.9.txt"
+#   },
+#   "mysql": {
+#     "orthanc-url": "http://orthanc-mysql:8042",
+#     "results": results_root_path + "mysql.txt"
+#   }
+    }
 
 instances_per_step = int(os.environ.get('INSTANCES_PER_STEP', '5000'))
-results_headers = ["#instances", f"Upload {instances_per_step} instances [s]", f"Upload {instances_per_step} instances + compute /metadata [s]", "5x tools/find at study level on StudyDate [ms]", "5x WADO-RS a single instance [ms]"]
-results_y_axis_titles = ["NA", "[s]", "[s]", "[ms]", "[ms]"]
+results_headers = ["#instances"]
+results_y_axis_titles = ["NA"]
+
+measure_upload_time = True
+measure_upload_time_with_metadata_caching = True
+measure_tools_find_at_study_level = True
+measure_wado_rs_single_frame = True
+measure_list_series_instances = True
+
+if measure_upload_time:
+    results_headers.append(f"Upload {instances_per_step} instances [s]")
+    results_y_axis_titles.append("[s]")
+
+if measure_upload_time_with_metadata_caching:
+    results_headers.append(f"Upload {instances_per_step} instances + compute /metadata [s]")
+    results_y_axis_titles.append("[s]")
+
+if measure_tools_find_at_study_level:
+    results_headers.append("5x tools/find at study level on StudyDate [ms]")    
+    results_y_axis_titles.append("[ms]")
+
+if measure_wado_rs_single_frame:
+    results_headers.append("5x WADO-RS a single instance [ms]")    
+    results_y_axis_titles.append("[ms]")
+
+if measure_list_series_instances:
+    results_headers.append("20x /tools/lookup [ms]")    
+    results_y_axis_titles.append("[ms]")
+
+    results_headers.append("20x /series/../instances?expand=true [ms]")    
+    results_y_axis_titles.append("[ms]")
+
 
 uploader_threads_count = os.environ.get("UPLOADER_THREADS_COUNT", 5)
 instances_queue = queue.Queue(0)
@@ -68,6 +125,7 @@ def step(test_config):
 
     study_dates = []
     dicom_web_instances_uri = []
+    series_dicom_ids = []
     upload_instances_count = 0
     last_series_dicom_id = None
 
@@ -83,6 +141,7 @@ def step(test_config):
         
         for i_series in range(0, 4):
             tags = populator.generate_series_tags(tags, i_series, study_id)
+            series_dicom_ids.append(tags["SeriesInstanceUID"])
             for i_instance in range(0, int(instances_per_step/int(4*5))):
                 tags = populator.generate_instance_tags(tags, i_instance, i_series, study_id)
                 dicom = helpers.generate_test_dicom_file(width=2, height=2, tags=tags)
@@ -119,33 +178,59 @@ def step(test_config):
     end_upload = time.perf_counter()
     logging.info(f"{test_config}: Uploading - done in {(end_upload - start_upload):.3f} s")
 
+    result_row = [f"{instances_count_before + upload_instances_count}"]
+    if measure_upload_time:
+        result_row.append(f"{(end_upload - start_upload):.3f}")
 
-    logging.info(f"{test_config}: Waiting for DICOMWeb /metadata to complete")
-    if False:
-        while len(o.get_json(f"/changes?type=UpdatedAttachment&since={last_change_id_before_upload}")['Changes']) != 20: # 20 series must update their /metadata
-            logging.info(f"{test_config}: Waiting for DICOMWeb /metadata to complete {len(o.get_json(f'/changes?type=UpdatedAttachment&since={last_change_id_before_upload}')['Changes'])}")
-            time.sleep(0.5)
-    else:
+    if measure_upload_time_with_metadata_caching:
+        logging.info(f"{test_config}: Waiting for DICOMWeb /metadata to complete")
         last_series_orthanc_id = o.lookup(last_series_dicom_id)[0]
         while "4301" not in o.get_json(f"/series/{last_series_orthanc_id}/attachments"):
             logging.info(f"{test_config}: Waiting for DICOMWeb /metadata to complete (waiting for attachment) /series/{last_series_orthanc_id}/attachments")
             time.sleep(1.1)
-    end_upload_with_metadata = time.perf_counter()
-    logging.info(f"{test_config}: Waiting for DICOMWeb /metadata - upload + metadata done in {(end_upload_with_metadata - start_upload):.3f} s")
+        end_upload_with_metadata = time.perf_counter()
+        logging.info(f"{test_config}: Waiting for DICOMWeb /metadata - upload + metadata done in {(end_upload_with_metadata - start_upload):.3f} s")
 
-    time.sleep(30)
+        result_row.append(f"{(end_upload_with_metadata - start_upload):.3f}")
 
-    start_tools_find = time.perf_counter()
-    for study_date in study_dates:
-        o.studies.find(query={"StudyDate": study_date})
-    end_tools_find = time.perf_counter()
-    logging.info(f"{test_config}: 5x tools/find at study level on StudyDate - done in {(end_tools_find - start_tools_find)*1e3:.3f} ms")
+    time.sleep(3)
 
-    start_wado_rs = time.perf_counter()
-    for uri in dicom_web_instances_uri:
-        o.get_binary(endpoint=uri)
-    end_wado_rs = time.perf_counter()
-    logging.info(f"{test_config}: 5x DICOMWeb WADO-RS at instance level - done in {(end_wado_rs - start_wado_rs)*1e3:.3f} ms")
+    if measure_tools_find_at_study_level:
+        start_tools_find = time.perf_counter()
+        for study_date in study_dates:
+            o.studies.find(query={"StudyDate": study_date})
+        end_tools_find = time.perf_counter()
+        logging.info(f"{test_config}: 5x tools/find at study level on StudyDate - done in {(end_tools_find - start_tools_find)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_tools_find - start_tools_find)*1e3:.3f}")
+
+
+    if measure_wado_rs_single_frame:
+        start_wado_rs = time.perf_counter()
+        for uri in dicom_web_instances_uri:
+            o.get_binary(endpoint=uri)
+        end_wado_rs = time.perf_counter()
+        logging.info(f"{test_config}: 5x DICOMWeb WADO-RS at instance level - done in {(end_wado_rs - start_wado_rs)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_wado_rs - start_wado_rs)*1e3:.3f}")
+
+    if measure_list_series_instances:
+        start_lookup = time.perf_counter()
+        series_ids = []
+        for series_dicom_id in series_dicom_ids:
+            series_ids.append(o.lookup(series_dicom_id)[0])
+        end_lookup = time.perf_counter()
+        logging.info(f"{test_config}: 20x /tools/lookup - done in {(end_lookup - start_lookup)*1e3:.3f} ms")
+
+        start_list_series_instances = time.perf_counter()
+        for series_id in series_ids:
+            o.get_json(f"/series/{series_id}/instances?expand=true")
+        end_list_series_instances = time.perf_counter()
+        logging.info(f"{test_config}: 20x /series/../instances?expand=true - done in {(end_list_series_instances - start_list_series_instances)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_lookup - start_lookup)*1e3:.3f}")
+        result_row.append(f"{(end_list_series_instances - start_list_series_instances)*1e3:.3f}")
+
 
     # write to csv
     results_path = test_configs[test_config]["results"]
@@ -157,11 +242,7 @@ def step(test_config):
         if not results_file_already_exists:
             writer.writerow(results_headers)
 
-        writer.writerow([f"{instances_count_before + upload_instances_count}",
-                        f"{(end_upload - start_upload):.3f}",
-                        f"{(end_upload_with_metadata - start_upload):.3f}",
-                        f"{(end_tools_find - start_tools_find)*1e3:.3f}",
-                        f"{(end_wado_rs - start_wado_rs)*1e3:.3f}"])
+        writer.writerow(result_row)
 
 steps_count = int(os.environ.get('STEPS_COUNT', '10'))
 
@@ -177,7 +258,7 @@ for s in range(0, steps_count):
             dfs.append(pd.read_csv(test_configs[test_config]['results']))
             plot_prefix_titles.append(test_config)
         
-        plt.figure(figsize=(15, 10))
+        plt.figure(figsize=(12, 4*(len(results_headers)-1)))
 
         plot_counter = 1
         for r in range(1, len(results_headers)):
@@ -198,7 +279,7 @@ for s in range(0, steps_count):
         plt.tight_layout()
 
         # Save the plot
-        plot_path = "/results/combined_plots.png"
+        plot_path = results_root_path + "combined_plots.png"
         plt.savefig(plot_path, format='png', dpi=200, bbox_inches='tight')
         plt.close()
 

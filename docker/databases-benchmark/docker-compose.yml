@@ -1,83 +1,154 @@
 services:
 
-  orthanc-sqlite:
-    image: ${ORTHANC_IMAGE}
+  # orthanc-sqlite-121:
+  #   # image: ${ORTHANC_IMAGE}
+  #   image: orthancteam/orthanc:23.7.0
+  #   restart: unless-stopped
+  #   ports: ["8142:8042"]
+  #   volumes: ["orthanc-storage-sqlite-121:/var/lib/orthanc/db"]
+  #   environment:
+  #     DICOM_WEB_PLUGIN_ENABLED: "true"
+  #     ORTHANC_JSON: |
+  #       {
+  #         "Name": "SQLite",
+  #         "AuthenticationEnabled": false,
+  #         "DicomWeb": {
+  #           "EnableMetadataCache": false
+  #         },
+  #         "StableAge": 1  // To trigger /metadata computation ASAP
+  #       }
+
+  orthanc-sqlite-129:
+    # image: ${ORTHANC_IMAGE}
+    image: orthancteam/orthanc:25.10.3
     restart: unless-stopped
-    ports: ["8142:8042"]
-    volumes: ["orthanc-storage-sqlite:/var/lib/orthanc/db"]
+    # ports: ["8143:8042"]
+    volumes: ["orthanc-storage-sqlite-129:/var/lib/orthanc/db"]
     environment:
       DICOM_WEB_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
-          "Name": "SQLite",
+          "Name": "SQLite 1.12.9",
           "AuthenticationEnabled": false,
+          "DicomWeb": {
+            "EnableMetadataCache": false
+          },
           "StableAge": 1  // To trigger /metadata computation ASAP
         }
 
-  orthanc-pg:
-    image: ${ORTHANC_IMAGE}
+  # orthanc-sqlite-next:
+  #   # image: ${ORTHANC_IMAGE}
+  #   image: orthancteam/orthanc-pre-release:queues-timeout-normal-unstable-before-tests-amd64
+  #   restart: unless-stopped
+  #   ports: ["8144:8042"]
+  #   volumes: ["orthanc-storage-sqlite-next:/var/lib/orthanc/db"]
+  #   environment:
+  #     DICOM_WEB_PLUGIN_ENABLED: "true"
+  #     ORTHANC_JSON: |
+  #       {
+  #         "Name": "SQLite",
+  #         "AuthenticationEnabled": false,
+  #         "DicomWeb": {
+  #           "EnableMetadataCache": false
+  #         },
+  #         "StableAge": 1  // To trigger /metadata computation ASAP
+  #       }
+
+
+
+  orthanc-pg-129:
+    image: orthancteam/orthanc:25.10.3
+    # image: ${ORTHANC_IMAGE}
     restart: unless-stopped
-    ports: ["8143:8042"]
-    volumes: ["orthanc-storage-pg-files:/var/lib/orthanc/db"]
+    # ports: ["8145:8042"]
+    volumes: ["orthanc-storage-pg-129-files:/var/lib/orthanc/db"]
     environment:
       DICOM_WEB_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
-          "Name": "SQLite",
+          "Name": "PG 1.12.9",
           "AuthenticationEnabled": false,
           "StableAge": 1  // To trigger /metadata computation ASAP
 
           
           , "PostgreSQL": {
-            "Host": "pg-db"
+            "Host": "pg-129-db"
           }
         }
 
-  pg-db:
+  pg-129-db:
     image: postgres:17
     restart: unless-stopped
-    volumes: ["pg-db:/var/lib/postgresql/data"]
+    volumes: ["pg-129-db:/var/lib/postgresql/data"]
     environment:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
-  orthanc-mysql:
-    image: ${ORTHANC_IMAGE}
+
+  orthanc-pg-old:
+    image: orthancteam/orthanc:24.11.0
+    # image: ${ORTHANC_IMAGE}
     restart: unless-stopped
-    ports: ["8144:8042"]
-    volumes: ["orthanc-storage-mysql-files:/var/lib/orthanc/db"]
+    # ports: ["8145:8042"]
+    volumes: ["orthanc-storage-pg-old-files:/var/lib/orthanc/db"]
     environment:
       DICOM_WEB_PLUGIN_ENABLED: "true"
       ORTHANC_JSON: |
         {
-          "Name": "MySQL",
+          "Name": "PG old",
           "AuthenticationEnabled": false,
           "StableAge": 1  // To trigger /metadata computation ASAP
 
           
-          , "MySQL": {
-            "Host": "mysql-db",
-            "Database": "orthanc",
-            "Username": "test-user",
-            "Password": "foo"
+          , "PostgreSQL": {
+            "Host": "pg-old-db"
           }
         }
 
-  mysql-db:
-    image: mysql:8.0
-    command:
-      [
-        mysqld,
-        --default-authentication-plugin=mysql_native_password,
-        --log-bin-trust-function-creators=1,
-      ]
-    volumes: ["mysql-db:/var/lib/mysql"]
-    environment:
-      MYSQL_PASSWORD: "foo"
-      MYSQL_USER: "test-user"
-      MYSQL_DATABASE: "orthanc"
-      MYSQL_ROOT_PASSWORD: "foo-root"
-
+  pg-old-db:
+    image: postgres:17
     restart: unless-stopped
+    volumes: ["pg-old-db:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  # orthanc-mysql:
+  #   image: ${ORTHANC_IMAGE}
+  #   restart: unless-stopped
+  #   ports: ["8144:8042"]
+  #   volumes: ["orthanc-storage-mysql-files:/var/lib/orthanc/db"]
+  #   environment:
+  #     DICOM_WEB_PLUGIN_ENABLED: "true"
+  #     ORTHANC_JSON: |
+  #       {
+  #         "Name": "MySQL",
+  #         "AuthenticationEnabled": false,
+  #         "StableAge": 1  // To trigger /metadata computation ASAP
+
+          
+  #         , "MySQL": {
+  #           "Host": "mysql-db",
+  #           "Database": "orthanc",
+  #           "Username": "test-user",
+  #           "Password": "foo"
+  #         }
+  #       }
+
+  # mysql-db:
+  #   image: mysql:8.0
+  #   command:
+  #     [
+  #       mysqld,
+  #       --default-authentication-plugin=mysql_native_password,
+  #       --log-bin-trust-function-creators=1,
+  #     ]
+  #   volumes: ["mysql-db:/var/lib/mysql"]
+  #   environment:
+  #     MYSQL_PASSWORD: "foo"
+  #     MYSQL_USER: "test-user"
+  #     MYSQL_DATABASE: "orthanc"
+  #     MYSQL_ROOT_PASSWORD: "foo-root"
+
+  #   restart: unless-stopped
 
 
   test:
@@ -88,9 +159,13 @@ services:
       - ./results:/results
 
 volumes:
-  orthanc-storage-sqlite:
-  orthanc-storage-pg-files:
-  orthanc-storage-mysql-files:
-  pg-db:
-  mysql-db:
+  # orthanc-storage-sqlite-121:
+  orthanc-storage-sqlite-129:
+  # orthanc-storage-sqlite-next:
+  orthanc-storage-pg-old-files:
+  orthanc-storage-pg-129-files:
+  # orthanc-storage-mysql-files:
+  pg-old-db:
+  pg-129-db:
+  # mysql-db:
 
