@@ -36,11 +36,30 @@ services:
           "DicomAet": "ORTHANCB",
           "AuthenticationEnabled": false,
           "DicomModalities": {
-            "a": ["ORTHANCA", "orthanc-a", 4242]
+            "a": ["ORTHANCA", "orthanc-a", 4242],
+            "b": ["ORTHANCB", "orthanc-b", 4242],
+            "c": ["ORTHANCC", "orthanc-c", 4242]
           }
         }
 
+  orthanc-c:
+    image: orthancteam/orthanc
+    ports: ["4244:4242", "8044:8042"]
+    volumes: ["storage-c:/var/lib/orthanc/db/"]
+    environment:
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc C",
+          "DicomAet": "ORTHANCC",
+          "AuthenticationEnabled": false,
+          "DicomModalities": {
+            "a": ["ORTHANCA", "orthanc-a", 4242],
+            "b": ["ORTHANCB", "orthanc-b", 4242],
+            "c": ["ORTHANCC", "orthanc-c", 4242]
+          }
+        }
 
 volumes:
   storage-a:
   storage-b:
+  storage-c:
