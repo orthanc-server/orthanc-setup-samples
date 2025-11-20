@@ -1,6 +1,7 @@
 import orthanc
 import json
 import pprint
+import logging
 
 # this plugins Stabilizes a study as soon as a storage commitment request has been received for all its instances
 
@@ -10,52 +11,79 @@ def storage_commitment_scp_callback(job_id, transaction_uid, requested_sop_class
 
     orthanc.LogInfo("Received storage commitment: building data structure")
 
-    # we build a dico with all instances as keys.  We will remove them
+    # we build a dico with all instances as keys. We will remove them
     requested_instances = {}  # keep track of the sop_class_uids (as stored in Orthanc)
     parent_studies_ids = set()    
-    studies = {} # keep track of all instances of each study (as stored in Orthanc)
+    requested_per_study = {}  # keep track of all requested instances per study (including missing)
+    requested_sop_class_uids_by_sop_instance_uids = {} # Maps SOPInstanceUID to SOPClassUID
 
     try:
-        for i in range(0, len(requested_sop_instance_uids)):
-            lookup = json.loads(orthanc.RestApiPost("/tools/lookup", requested_sop_instance_uids[i]))
-        
-            if len(lookup) != 1:
-                requested_instances[requested_sop_instance_uids[i]] = None  # not found in Orthanc (or multiple instances with the same SOPInstanceUID: we are not able to differentiate them)
+        mark_studies_stable = True
+
+        # Build requested_per_study dictionary from all SC request UIDs
+        for i in range(len(requested_sop_instance_uids)):
+            sop_instance_uid = requested_sop_instance_uids[i]
+            requested_sop_class = requested_sop_class_uids[i]
+            requested_sop_class_uids_by_sop_instance_uids[sop_instance_uid] = requested_sop_class
+
+            lookup = json.loads(orthanc.RestApiPost("/tools/lookup", sop_instance_uid))
+
+            if len(lookup) != 1 or 'ID' not in lookup[0]:
+                requested_instances[sop_instance_uid] = None
+                mark_studies_stable = False
             else:
                 instance_id = lookup[0]['ID']
-
                 sop_class_uid_in_orthanc = json.loads(orthanc.RestApiGet(f"/instances/{instance_id}/metadata?expand"))['SopClassUid']
                 parent_study_id = json.loads(orthanc.RestApiGet(f"/instances/{instance_id}/study"))['ID']
 
-                requested_instances[requested_sop_instance_uids[i]] = sop_class_uid_in_orthanc
+                requested_instances[sop_instance_uid] = sop_class_uid_in_orthanc
 
                 parent_studies_ids.add(parent_study_id)
 
+                if parent_study_id not in requested_per_study:
+                    requested_per_study[parent_study_id] = set()
+                requested_per_study[parent_study_id].add(sop_instance_uid)
+
+
         pprint.pprint(parent_studies_ids)
 
-        # check if all the requested instances are actually stored in Orthanc   
         for parent_study_id in parent_studies_ids:
-            studies[parent_study_id] = []
-            study_instances = json.loads(orthanc.RestApiGet(f"/studies/{parent_study_id}/instances"))
-            
-            for study_instance in study_instances:
-                studies[parent_study_id].append(study_instance['MainDicomTags'].get('SOPInstanceUID'))
+            study_requested_uids = requested_per_study.get(parent_study_id, set())
+            pprint.pprint(study_requested_uids)
 
-            pprint.pprint(studies[parent_study_id])
+            # Verify all requested instances for this study are present and match SOP Class
+            all_success = True
+            failed_uids = []
+            for uid in study_requested_uids:
+                requested_class = requested_sop_class_uids_by_sop_instance_uids.get(uid)
+                stored_class = requested_instances.get(uid)
 
-            for requested_sop_instance_uid in requested_sop_instance_uids:
-                if requested_sop_instance_uid in studies[parent_study_id]:
-                    studies[parent_study_id].remove(requested_sop_instance_uid)
+                if requested_class is None or stored_class is None:
+                    all_success = False
+                    failed_uids.append(uid)
+                    continue
+                if stored_class != requested_class:
+                    all_success = False
+                    failed_uids.append(uid)
 
-            if len(studies[parent_study_id]) == 0:  # all the instances of the study have been requested in the Storage Commitment -> consider the study as stable
+            if all_success and mark_studies_stable:
                 orthanc.LogInfo(f"The study {parent_study_id} is complete, stabilizing it")
                 # ret, hasStableStatusChanged = orthanc.SetStableStatus(parent_study_id, orthanc.StableStatus.STABLE)
+                orthanc.RestApiPut(
+                    f"/studies/{parent_study_id}/metadata/1027", # StableStudyTrigger
+                    "StorageCommitment"
+                )
                 orthanc.SetStableStatus(parent_study_id, orthanc.StableStatus.STABLE)
-    
+            else:
+                orthanc.LogInfo(
+                    f"The study {parent_study_id} is not fully committed, not stabilizing."
+                    f"Missing or failed SOP Instance UIDs: {failed_uids}"
+                )
+
         return requested_instances
     
     except Exception as e:
-        orthanc.LogError("Error in StorageCommitment SCP: " + e)
+        orthanc.LogError("Error in StorageCommitment SCP: " + str(e))
         return None
 
 
@@ -77,7 +105,7 @@ def storage_commitment_lookup(requested_sop_class_uid, requested_sop_instance_ui
         else:
             reason = orthanc.StorageCommitmentFailureReason.CLASS_INSTANCE_CONFLICT
 
-    orthanc.LogInfo("  Storage commitment SCP job: " + ("Success" if success else "Failure") + \
+    orthanc.LogInfo(" Storage commitment SCP job: " + ("Success" if success else "Failure") + \
                     " while looking for " + requested_sop_class_uid + " / " + requested_sop_instance_uid)
 
     return reason
