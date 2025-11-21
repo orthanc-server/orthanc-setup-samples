@@ -17,6 +17,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
 - [Orthanc basic DICOM association](docker/dicom-association) to demonstrate a simple DICOM association between Orthanc servers (and perform operations such as C-FIND, C-MOVE, C-STORE, C-ECHO).
 - [Orthanc peering](docker/peering) to demonstrate Orthanc peering.
 - [Orthanc dicom-web](docker/dicom-web) to demonstrate Orthanc dicom-web connectivity.
+- [Orthanc worklists](docker/oe2-worklists) to demonstrate how to configure the worklists plugin with OE2.
 - [Orthanc + Transfers accelerator](docker/transfers-accelerator) to demonstrate Transfers accelerator plugin.
 - [Orthanc basic HTTP authentication](docker/basic-authentication) to demonstrate static, basic HTTP authentication.
 - [Orthanc Python plugin](docker/python) to demonstrate the use of the Python plugin.
