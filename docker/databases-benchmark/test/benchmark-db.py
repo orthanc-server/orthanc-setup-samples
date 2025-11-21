@@ -29,14 +29,27 @@ else:
     results_root_path = "/results/"
 
     test_configs = {
-        "pg-1.12.4": {
-            "orthanc-url": "http://orthanc-pg-old:8042",
-            "results": results_root_path + "pg-1.12.4.txt"
+        # "sqlite-with-index-values": {
+        #     "orthanc-url": "http://orthanc-sqlite-with-index-values:8042",
+        #     "results": results_root_path + "sqlite-sqlite-with-index-values.txt"
+        # },
+        "sqlite-129": {
+            "orthanc-url": "http://orthanc-sqlite-129:8042",
+            "results": results_root_path + "sqlite-sqlite-129.txt"
         },
-        "pg-1.12.9": {
-            "orthanc-url": "http://orthanc-pg-129:8042",
-            "results": results_root_path + "pg-1.12.9.txt"
+        "sqlite-without-index-values": {
+            "orthanc-url": "http://orthanc-sqlite-without-index-values:8042",
+            "results": results_root_path + "sqlite-sqlite-without-index-values.txt"
         },
+
+        # "pg-1.12.4": {
+        #     "orthanc-url": "http://orthanc-pg-old:8042",
+        #     "results": results_root_path + "pg-1.12.4.txt"
+        # },
+        # "pg-1.12.9": {
+        #     "orthanc-url": "http://orthanc-pg-129:8042",
+        #     "results": results_root_path + "pg-1.12.9.txt"
+        # },
 #   "sqlite-1.12.1": {
 #     "orthanc-url": "http://orthanc-sqlite-121:8042",
 #     "results": results_root_path + "sqlite-1.12.1.txt"
@@ -64,7 +77,7 @@ results_headers = ["#instances"]
 results_y_axis_titles = ["NA"]
 
 measure_upload_time = True
-measure_upload_time_with_metadata_caching = True
+measure_upload_time_with_metadata_caching = False  #note, check the docker-compose file and make sure the "DicomWeb.EnableMetadataCache" is configured with the same value !
 measure_tools_find_at_study_level = True
 measure_wado_rs_single_frame = True
 measure_list_series_instances = True
