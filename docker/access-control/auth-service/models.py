@@ -10,7 +10,7 @@ class AuthValidationRequest(BaseModel):
     token_value: Optional[str] = Field(alias="token-value", default=None)
     level: str
     method: str
-    uri: Optional[str]
+    uri: Optional[str] = None
 
 
 class AuthValidationResponse(BaseModel):
