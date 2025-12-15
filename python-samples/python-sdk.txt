@@ -1,3 +1,6 @@
+Function AcknowledgeQueueValue():
+  Documentation: Generated from C function OrthancPluginAcknowledgeQueueValue()
+
 Function AutodetectMimeType():
   Documentation: Generated from C function OrthancPluginAutodetectMimeType()
 
@@ -105,6 +108,12 @@ Function DequeueValue():
 
 Function DicomBufferToJson():
   Documentation: Generated from C function OrthancPluginDicomBufferToJson()
+
+Class DicomConnection:
+  Documentation: Generated from Orthanc C class: OrthancPluginDicomConnection
+  - Method GetConnectionCalledAet(): Generated from C function OrthancPluginGetConnectionCalledAet()
+  - Method GetConnectionRemoteAet(): Generated from C function OrthancPluginGetConnectionRemoteAet()
+  - Method GetConnectionRemoteIp(): Generated from C function OrthancPluginGetConnectionRemoteIp()
 
 Class DicomInstance:
   Documentation: Generated from Orthanc C class: OrthancPluginDicomInstance
@@ -554,6 +563,9 @@ Function RegisterErrorCode():
 Function RegisterFindCallback():
   Documentation: Implemented in C++ function RegisterFindCallback()
 
+Function RegisterFindCallback2():
+  Documentation: Implemented in C++ function RegisterFindCallback2()
+
 Function RegisterIncomingCStoreInstanceFilter():
   Documentation: Implemented in C++ function RegisterIncomingCStoreInstanceFilter()
 
@@ -565,6 +577,9 @@ Function RegisterMoveCallback():
 
 Function RegisterMoveCallback2():
   Documentation: Implemented in C++ function RegisterMoveCallback2()
+
+Function RegisterMoveCallback3():
+  Documentation: Implemented in C++ function RegisterMoveCallback3()
 
 Function RegisterOnChangeCallback():
   Documentation: Implemented in C++ function RegisterOnChangeCallback()
@@ -587,8 +602,17 @@ Function RegisterStorageArea():
 Function RegisterStorageCommitmentScpCallback():
   Documentation: Implemented in C++ function RegisterStorageCommitmentScpCallback()
 
+Function RegisterStorageCommitmentScpCallback2():
+  Documentation: Implemented in C++ function RegisterStorageCommitmentScpCallback2()
+
 Function RegisterWorklistCallback():
   Documentation: Implemented in C++ function RegisterWorklistCallback()
+
+Function RegisterWorklistCallback2():
+  Documentation: Implemented in C++ function RegisterWorklistCallback2()
+
+Function ReserveQueueValue():
+  Documentation: Implemented in C++ function ReserveQueueValue()
 
 Class ResourceType:
   Documentation: Generated from C enumeration OrthancPluginOrthancPluginResourceType
