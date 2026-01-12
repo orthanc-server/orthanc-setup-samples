@@ -25,3 +25,11 @@ The test scenario:
 - cleanup the S3-Zip plugin local storage
 - restarts the system to clear the storage caches
 - download the studies again
+
+TODO/To discuss:
+- series deletions (delete local files + delete zip files in S3 (on DELETED_SERIES event ?))
+- more error handling
+- remove series from `LocalToS3ZipManager`
+- handle max size for the local temporary storage
+- use a queue to perform `move_series_to_s3` asynchronously
+- handle other attachments than DICOM
