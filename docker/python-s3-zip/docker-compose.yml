@@ -1,0 +1,92 @@
+services:
+
+    orthanc-s3-default:
+        image: orthancteam/orthanc-pre-release:master-unstable
+        ports: [8052:8042]
+        depends_on:
+            - toxiproxy
+        volumes:
+            - orthanc-s3-default-sqlite-storage:/var/lib/orthanc/db
+        environment:
+            ORTHANC_JSON: |
+                {
+                    "Name": "ORTHANC S3 default",
+                    "AuthenticationEnabled": false,
+                    "DicomServerEnabled": false,
+                    "StableAge": 5,
+                    "AwsS3Storage": {
+                        "BucketName": "default-bucket",
+                        "Region": "eu-west-1",
+                        "AccessKey": "minio",
+                        "SecretKey": "miniopwd",
+                        "Endpoint": "http://toxiproxy:9000",
+                        "VirtualAddressing": false
+                    }
+                }
+            VERBOSE_ENABLED: "true"
+            VERBOSE_STARTUP: "true"
+
+    orthanc-s3-zip:
+        build: .
+        # image: orthancteam/orthanc-pre-release:master-unstable
+        ports: [8053:8042]
+        depends_on:
+            - toxiproxy
+        volumes:
+            - orthanc-s3-zip-sqlite-storage:/var/lib/orthanc/db
+            - ./tmp-local-storage/:/tmp-local-storage
+            - ./plugin:/plugin
+        environment:
+            ORTHANC_JSON: |
+                {
+                    "Name": "ORTHANC S3 zip",
+                    "AuthenticationEnabled": false,
+                    "DicomServerEnabled": false,
+                    "PythonScript": "/plugin/plugin.py",
+                    "StableAge": 5,
+                    "S3Zip": {
+                        "LocalTemporaryFolder": "/tmp-local-storage",
+                        "BucketName": "zip-bucket",
+                        "Region": "eu-west-1",
+                        "AccessKey": "minio",
+                        "SecretKey": "miniopwd",
+                        "Endpoint": "http://toxiproxy:9000",
+                        "VirtualAddressing": false
+                    }
+                }
+            VERBOSE_ENABLED: "true"
+            VERBOSE_STARTUP: "true"
+
+    minio:
+        image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+        # don't expose these ports in a real world setup
+        ports: [9000:9000, 9001:9001]
+        environment:
+            - MINIO_REGION=eu-west-1
+            - MINIO_ROOT_USER=minio
+            - MINIO_ROOT_PASSWORD=miniopwd
+        volumes:
+            - minio-storage:/data
+        entrypoint: sh
+        command: -c 'mkdir -p /data/default-bucket && mkdir -p /data/zip-bucket && /usr/bin/docker-entrypoint.sh server /data --console-address ":9001"'
+
+    toxiproxy:
+        depends_on: [minio]
+        ports: ["9010:9000"]
+        image: shopify/toxiproxy
+
+    toxiproxy-config:
+        image: shopify/toxiproxy
+        depends_on: [toxiproxy]
+        restart: on-failure
+        entrypoint: > 
+            sh -c "sleep 3;
+            /go/bin/toxiproxy-cli -h toxiproxy:8474 create minio --listen 0.0.0.0:9000 --upstream minio:9000;
+            /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add minio -t latency -a latency=50 -a jitter=0;
+            "
+
+
+volumes:
+    minio-storage:
+    orthanc-s3-default-sqlite-storage:
+    orthanc-s3-zip-sqlite-storage:
