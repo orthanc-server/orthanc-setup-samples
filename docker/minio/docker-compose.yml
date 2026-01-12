@@ -1,7 +1,7 @@
 services:
 
     orthanc:
-        image: osimis/orthanc
+        image: orthancteam/orthanc
         ports: [8042:8042]
         environment:
             - ORTHANC__NAME=ORTHANC Minio demo
