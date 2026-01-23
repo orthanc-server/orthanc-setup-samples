@@ -1,13 +1,57 @@
 services:
 
   orthanc-a:
-    build: orthanc-a
+    image: orthancteam/orthanc
     volumes: 
       - orthanc-storage-a:/var/lib/orthanc/db/
     ports: ["8045:8042"]
+    environment:
+      VEBOSE_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc A",
+          "AuthenticationEnabled": true,
+          "RegisteredUsers": {
+            "demo": "demo"
+          },
+          "DicomWeb": {
+            "Servers": {
+              "b": [
+                "http://orthanc-b:8042/dicom-web/", "demo", "demo"
+              ],
+              "external-ws" : {
+                "Url": "https://my.dicom-server.com/",
+                "HttpHeaders": {
+                  "api-key": "my-api-key"
+                }
+              }
+            }
+          }
+        }
+
   orthanc-b:
-    build: orthanc-b
+    image: orthancteam/orthanc
     ports: ["8046:8042"]
+    volumes: 
+      - orthanc-storage-b:/var/lib/orthanc/db/
+    environment:
+      VEBOSE_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc B",
+          "AuthenticationEnabled": true,
+          "RegisteredUsers": {
+            "demo": "demo"
+          },
+          "DicomWeb": {
+            "Servers": {
+              "bar": [
+                "http://orthanc-a:8042/dicom-web/", "demo", "demo"
+              ]
+            }
+          }
+        }
 
 volumes:
   orthanc-storage-a:
+  orthanc-storage-b:

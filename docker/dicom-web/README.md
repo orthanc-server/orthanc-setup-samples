@@ -1,4 +1,4 @@
-To start, use `docker-compose up --build -d`.
+To start, use `docker-compose up -d`.
 To stop, use `docker-compose down`.
 
 # demo
