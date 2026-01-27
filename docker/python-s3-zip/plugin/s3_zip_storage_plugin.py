@@ -160,4 +160,18 @@ def on_stable_series(series_id: str):
     if not storage_singleton:
         raise RuntimeError("S3ZipStorage has not been initialized.")
 
-    storage_singleton.copy_series_to_s3(series_id=series_id)  # TODO: schedule_copy instead of synchronous copy !
+    storage_singleton.schedule_copy_series_to_s3(series_id=series_id)
+
+def on_orthanc_started():
+    global storage_singleton
+    if not storage_singleton:
+        raise RuntimeError("S3ZipStorage has not been initialized.")
+
+    storage_singleton.start()
+
+def on_orthanc_stopped():
+    global storage_singleton
+    if not storage_singleton:
+        raise RuntimeError("S3ZipStorage has not been initialized.")
+
+    storage_singleton.stop()

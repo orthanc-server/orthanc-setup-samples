@@ -21,6 +21,11 @@ class S3ZipStorage:
                                                 bucket_name=bucket_name,
                                                 local_storage=self._local_storage)
 
+    def start(self):
+        self._zip_manager.start()
+
+    def stop(self):
+        self._zip_manager.stop()
 
     def storage_create(self,
                        uuid: str, 
@@ -77,5 +82,5 @@ class S3ZipStorage:
         return orthanc.ErrorCode.SUCCESS
 
 
-    def copy_series_to_s3(self, series_id: str):
-        self._zip_manager.copy_series_to_s3(series_id=series_id)
+    def schedule_copy_series_to_s3(self, series_id: str):
+        self._zip_manager.schedule_copy_series_to_s3(series_id=series_id)

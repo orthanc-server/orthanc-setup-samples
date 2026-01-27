@@ -54,7 +54,7 @@ default_orthanc.delete_all_content()
 print("Cleaning zip Orthanc")
 zip_orthanc.delete_all_content()
 
-instances_per_series=250
+instances_per_series=20
 series_count=4
 default_populator = OrthancTestDbPopulator(api_client=default_orthanc,
                                            studies_count=1,
