@@ -9,18 +9,68 @@ from typing import List, Dict
 from boto3 import client as S3Client
 from local_storage_interface import LocalStorageInterface
 
+
+
+
 # This class is in charge of compressing and moving series between the local storage
 # and S3.
 class LocalToS3ZipManager:
 
+    # This class is only used to make sure we do not download twice the same series at the 
+    # same time.  The ZipRetrieval is destructed at the end of the download phase once the
+    # files are stored in the local storage -> the files are not locked in the local storage
+    # but they are referenced in a LRU (TODO).
+    class ZipRetrieval:
+
+        s3_zip_key: str
+        _condition: threading.Condition
+        _ref_count: int
+        _manager: 'LocalToS3ZipManager'
+        _downloaded: bool
+
+        def __init__(self, s3_zip_key: str, manager: 'LocalToS3ZipManager'):
+            self.s3_zip_key = s3_zip_key
+            self._condition = threading.Condition()
+            self._ref_count = 0
+            self._manager = manager
+            self._downloaded = False
+
+        def __enter__(self):
+            orthanc.LogInfo(f"Entering ZipRetrieval: {self.s3_zip_key}")
+            self._ref_count += 1
+            self._condition.__enter__()
+            orthanc.LogInfo(f"Entered ZipRetrieval: {self.s3_zip_key}")
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            orthanc.LogInfo(f"Exiting ZipRetrieval: {self.s3_zip_key}")
+            self._ref_count -= 1
+            self._condition.__exit__(exc_type, exc_val, exc_tb)
+            if self._ref_count == 0:
+                orthanc.LogInfo(f"Removing ZipRetrieval: {self.s3_zip_key}")
+                self._manager._discard_zip_retrieval(self.s3_zip_key)
+            orthanc.LogInfo(f"Exited ZipRetrieval: {self.s3_zip_key}")
+
+        @property
+        def downloaded(self):
+            return self._downloaded
+
+        def set_downloaded(self):
+            orthanc.LogInfo(f"Set Downloaded: {self.s3_zip_key}")
+            self._downloaded = True
+            self._condition.notify_all()
+            orthanc.LogInfo(f"Set Downloaded: {self.s3_zip_key}, done")
+
+        def wait_downloaded(self):
+            orthanc.LogInfo(f"Waiting Downloaded: {self.s3_zip_key}")
+            while not self._downloaded:
+                self._condition.wait()
+            orthanc.LogInfo(f"Waiting Downloaded: {self.s3_zip_key}, done")
+
     _s3_client: S3Client
     _local_storage: LocalStorageInterface
     _bucket_name: str
-    # _s3_zips_being_retrieved: List[str]
-    _s3_zips_being_retrieved_conditions: Dict[str, threading.Condition]
-    _s3_zips_being_retrieved_locks: Dict[str, threading.Lock]
-    _s3_zips_being_retrieved_meta_lock: threading.Lock
-    _s3_zips_download: List[str]
+    _s3_zip_retrievals: Dict[str, ZipRetrieval]
+    _s3_zip_retrievals_lock: threading.Lock
     _copy_thread: threading.Thread
     _threads_should_stop: bool
 
@@ -28,11 +78,8 @@ class LocalToS3ZipManager:
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
-        # self._s3_zips_being_retrieved = []
-        self._s3_zips_being_retrieved_conditions = {}
-        self._s3_zips_being_retrieved_locks = {}
-        self._s3_zips_being_retrieved_meta_lock = threading.Lock()
-        self._s3_zips_download = []
+        self._s3_zip_retrievals = {}
+        self._s3_zip_retrievals_lock = threading.Lock()
         self._threads_should_stop = False
         self._copy_thread = threading.Thread(target=self._copy_thread_worker)
 
@@ -65,7 +112,7 @@ class LocalToS3ZipManager:
                     self.copy_series_to_s3(series_id=series_id)
                 except Exception as e:
                     orthanc.LogWarning(f"LocalToS3ZipManager: failed to move series {series_id} to S3: {str(e)}")
-                    # TODO: identify if this is a "permanent failure".  In this case, no need to repost the message
+                    # TODO: identify if this is a "permanent failure".  In this case, no need to repost the message + handle max retries
                     orthanc.EnqueueValue("series-to-copy", bseries_id)
 
                 orthanc.AcknowledgeQueueValue("series-to-copy", value_id)
@@ -102,26 +149,28 @@ class LocalToS3ZipManager:
 
         orthanc.LogInfo(f"LocalToS3ZipManager: moved series {series_id} to S3")
 
+    def _discard_zip_retrieval(self, s3_zip_key: str):
+        with self._s3_zip_retrievals_lock:
+            del self._s3_zip_retrievals[s3_zip_key]
+
     def retrieve_zip_from_s3(self, s3_zip_key: str):
-
         # make sure we do not retrieve the same file multiple times at the same time
-        with self._s3_zips_being_retrieved_meta_lock:  # global lock to safely manipulate per-file conditions
-            if s3_zip_key not in self._s3_zips_being_retrieved_conditions:
-                self._s3_zips_being_retrieved_conditions[s3_zip_key] = threading.Condition()
-            condition = self._s3_zips_being_retrieved_conditions[s3_zip_key]
+        with self._s3_zip_retrievals_lock:  # global lock to safely manipulate the retrieval dict
+            if s3_zip_key not in self._s3_zip_retrievals:
+                self._s3_zip_retrievals[s3_zip_key] = LocalToS3ZipManager.ZipRetrieval(s3_zip_key, manager=self)
+            zip_retrieval = self._s3_zip_retrievals[s3_zip_key]
 
-        with condition: # the first thread to get here keeps the condition "locked" during the zip retrieval
-            if s3_zip_key not in self._s3_zips_download:
+        with zip_retrieval: # the first thread to get here keeps the condition "locked" during the zip retrieval
+            if not zip_retrieval.downloaded:
                 self._retrieve_zip_from_s3(s3_zip_key)
-                self._s3_zips_download.append(s3_zip_key)   # TODO: at some point, when the we need to remove ids from this list + remove the conditions
-                condition.notify_all() # notify all waiting threads
+                zip_retrieval.set_downloaded()
             else:
-                # wait until the first thread has finished downloading the zip
-                while s3_zip_key not in self._s3_zips_download:
-                    condition.wait()
+                zip_retrieval.wait_downloaded()
+
             
 
     def _retrieve_zip_from_s3(self, s3_zip_key: str):
+        orthanc.LogInfo(f"Retrieving zip from s3: {s3_zip_key}")
         with tempfile.NamedTemporaryFile(delete=True, suffix=".zip") as tmp_zip:
             self._s3_client.download_file(self._bucket_name,
                                           s3_zip_key, 
@@ -132,6 +181,7 @@ class LocalToS3ZipManager:
                     with zipf.open(file_info) as f:
                         self._local_storage.write_file(uuid=file_info.filename,
                                                        content=f.read())
+        orthanc.LogInfo(f"Retrieving zip from s3: {s3_zip_key}, done")
 
 
     def _get_instances_attachments(self, series_id: str) -> List[str]:
