@@ -145,11 +145,13 @@ def register_s3_zip_storage_plugin():
     else:
         raise RuntimeError(f"Failed to initialize S3ZipStorage.  The path '{s3_temp_folder_root}' exists but is not a directory")
 
+    enable_compression = "EnableCompression" not in s3_zip_config or s3_zip_config.get("EnableCompression")
 
     storage_singleton = S3ZipStorage(temporary_folder_root=s3_temp_folder_root, 
                                      temp_folder_max_size_mb=1024,
                                      s3_client=s3_client, 
-                                     bucket_name=bucket_name)
+                                     bucket_name=bucket_name,
+                                     enable_compression=enable_compression)
 
     orthanc.RegisterStorageArea3(_storage_create, _storage_read_range, _storage_remove)
 

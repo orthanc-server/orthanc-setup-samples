@@ -34,7 +34,6 @@ TODO/To discuss:
 - handle Orthanc stopped before the zip is moved to S3 and the temporary storage is lost -> remove the resource from Orthanc SQL DB ?
 - add an API route to know where the series is ...
 - add a route to trigger the move: SetStableStatus() ?
-- add a flag to disable compression in the zip algo ?
 - override /series/.../archive-s3-zip to return directly the zip from s3
   or, add the s3 path in the series/metadata such that another client can download it directly
 - use the s3 multipart upload (or transfer mode)
@@ -42,3 +41,4 @@ TODO/To discuss:
 Done:
 - use a queue to perform `move_series_to_s3` asynchronously
 - remove series from `LocalToS3ZipManager`
+- add a flag to disable compression in the zip algo ?

@@ -15,13 +15,14 @@ class S3ZipStorage:
     _local_storage: LocalStorage
     _zip_manager: LocalToS3ZipManager
 
-    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str):
+    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool):
         self._local_storage = LocalStorage(root=temporary_folder_root,
                                            max_size_mb=temp_folder_max_size_mb)
         
         self._zip_manager = LocalToS3ZipManager(s3_client=s3_client,
                                                 bucket_name=bucket_name,
-                                                local_storage=self._local_storage)
+                                                local_storage=self._local_storage,
+                                                enable_compression=enable_compression)
 
     def start(self):
         self._zip_manager.start()

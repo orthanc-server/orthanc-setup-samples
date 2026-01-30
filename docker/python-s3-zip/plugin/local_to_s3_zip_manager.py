@@ -73,11 +73,16 @@ class LocalToS3ZipManager:
     _s3_zip_retrievals_lock: threading.Lock
     _copy_thread: threading.Thread
     _threads_should_stop: bool
+    _zip_compression: int
 
-    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface):
+    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool):
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
+        if enable_compression:
+            self._zip_compression = zipfile.ZIP_DEFLATED
+        else:
+            self._zip_compression = zipfile.ZIP_STORED
         self._s3_zip_retrievals = {}
         self._s3_zip_retrievals_lock = threading.Lock()
         self._threads_should_stop = False
@@ -128,7 +133,7 @@ class LocalToS3ZipManager:
 
         # let's zip them in a temp file and upload it to S3.
         with tempfile.NamedTemporaryFile(delete=True, suffix=".zip") as tmp_zip:
-            with zipfile.ZipFile(tmp_zip.name, "w") as zipf:
+            with zipfile.ZipFile(tmp_zip.name, "w", compression=self._zip_compression) as zipf:
                 for a_uuid in attachments_uuids:
                     if not local_series_folder: # they all share the same folder
                         local_series_folder = CustomData.from_orthanc_attachment(a_uuid).local_series_folder

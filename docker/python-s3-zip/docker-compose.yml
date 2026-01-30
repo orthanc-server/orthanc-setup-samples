@@ -51,7 +51,8 @@ services:
                         "AccessKey": "minio",
                         "SecretKey": "miniopwd",
                         "Endpoint": "http://toxiproxy:9000",
-                        "VirtualAddressing": false
+                        "VirtualAddressing": false,
+                        "EnableCompression": true
                     }
                 }
             VERBOSE_ENABLED: "true"
