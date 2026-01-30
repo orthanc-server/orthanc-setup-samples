@@ -1,10 +1,12 @@
 import orthanc
 import os
 import json
+from helpers import Helpers
 from typing import Optional, Tuple
 from boto3 import client as S3Client
 from local_storage import LocalStorage
 from local_to_s3_zip_manager import LocalToS3ZipManager
+from custom_data import CustomData
 
 
 
@@ -34,13 +36,17 @@ class S3ZipStorage:
                        content: bytes, 
                        dicom_instance: orthanc.DicomInstance) -> Tuple[orthanc.ErrorCode, Optional[bytes]]:
         
+        series_hash = Helpers.get_series_hash(dicom_instance)
+
         # we always write only to the local storage
         error_code = self._local_storage.create(uuid=uuid,
+                                                local_series_folder=series_hash,
                                                 content_type=content_type,
                                                 compression_type=compression_type,
                                                 content=content)
         
-        return error_code, None  # no need to store custom_data (no custom_data means that the file is stored only in the local storage)
+        # return error_code, None  # no need to store custom_data (no custom_data means that the file is stored only in the local storage)
+        return error_code, CustomData(CustomData.Storage.LOCAL, local_series_folder=series_hash).to_binary()
 
 
     def storage_read_range(self,
@@ -50,11 +56,12 @@ class S3ZipStorage:
                            size: int,
                            custom_data: bytes) -> Tuple[orthanc.ErrorCode, Optional[bytes]]:
 
-        if not self._local_storage.has_local_file(uuid=uuid, content_type=content_type):  # TODO: implement a LocalFileLocker with __enter__ & __exit__ to make sure the file is not deleted in the meantime
-            custom_data_json = json.loads(custom_data.decode('utf-8'))  # TODO: implement a class to serialize/deserialize the custom_data
-            s3_zip_key = custom_data_json.get("s3-zip-key")
-            self._zip_manager.retrieve_zip_from_s3(s3_zip_key=s3_zip_key)
-
+        cd = CustomData.from_binary(custom_data)
+        if not self._local_storage.has_local_file(uuid=uuid, 
+                                                  local_series_folder=cd.local_series_folder,
+                                                  content_type=content_type):  # TODO: implement a LocalFileLocker with __enter__ & __exit__ to make sure the file is not deleted in the meantime
+            self._zip_manager.retrieve_zip_from_s3(s3_zip_key=cd.s3_zip_key,
+                                                   local_series_folder=cd.local_series_folder)
 
 
         # make sure the file is in the local storage (this is a blocking call)
@@ -64,6 +71,7 @@ class S3ZipStorage:
         #     custom_data = json.loads(custom_data.decode('utf-8'))
         
         return self._local_storage.read_range(uuid=uuid,
+                                              local_series_folder=cd.local_series_folder,
                                               content_type=content_type,
                                               range_start=range_start,
                                               size=size)
@@ -75,6 +83,7 @@ class S3ZipStorage:
 
         # always delete from the local storage in case it has been stored there
         self._local_storage.remove(uuid=uuid,
+                                   local_series_folder=CustomData.from_binary(custom_data).local_series_folder,
                                    content_type=content_type)
 
         # TODO: we should probably mark the file as deleted somehow but, how and when do we remove the zip in S3 ?
