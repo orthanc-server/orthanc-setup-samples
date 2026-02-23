@@ -13,8 +13,7 @@ To run the setup:
 
 ```
 docker pull orthancteam/orthanc-pre-release:master-unstable
-pip install boto3 orthanc-tools
-python test-scenario.py
+uv run test-scenario.py
 ```
 
 The test scenario:

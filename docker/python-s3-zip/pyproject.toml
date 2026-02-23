@@ -1,0 +1,11 @@
+[project]
+name = "python-s3-zip"
+version = "0.1.0"
+description = "Code and demo for the S3 Zip Storage Python plugin"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.42.54",
+    "orthanc-tools>=0.17.17",
+    "python-on-whales>=0.80.0",
+]

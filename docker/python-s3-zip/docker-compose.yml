@@ -75,17 +75,26 @@ services:
     toxiproxy:
         depends_on: [minio]
         ports: ["9010:9000"]
-        image: shopify/toxiproxy
+        image: ghcr.io/shopify/toxiproxy
 
     toxiproxy-config:
-        image: shopify/toxiproxy
+        image: curlimages/curl
         depends_on: [toxiproxy]
         restart: on-failure
-        entrypoint: > 
+        entrypoint: >
             sh -c "sleep 3;
-            /go/bin/toxiproxy-cli -h toxiproxy:8474 create minio --listen 0.0.0.0:9000 --upstream minio:9000;
-            /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add minio -t latency -a latency=50 -a jitter=0;
-            "
+            curl -sf -X POST http://toxiproxy:8474/proxies -H 'Content-Type: application/json' -d '{\"name\":\"minio\",\"listen\":\"0.0.0.0:9000\",\"upstream\":\"minio:9000\"}';
+            curl -sf -X POST http://toxiproxy:8474/proxies/minio/toxics -H 'Content-Type: application/json' -d '{\"type\":\"latency\",\"attributes\":{\"latency\":50,\"jitter\":0}}';"
+
+    # toxiproxy-config:
+    #     image: shopify/toxiproxy
+    #     depends_on: [toxiproxy]
+    #     restart: on-failure
+    #     entrypoint: >
+    #         sh -c "sleep 3;
+    #         /go/bin/toxiproxy-cli -h toxiproxy:8474 create minio --listen 0.0.0.0:9000 --upstream minio:9000;
+    #         /go/bin/toxiproxy-cli -h toxiproxy:8474 toxic add minio -t latency -a latency=50 -a jitter=0;
+    #         "
 
 
 volumes:
