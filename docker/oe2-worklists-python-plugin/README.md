@@ -2,6 +2,8 @@
 
 This is a sample setup to demonstrate how to add a button into the GUI (at study level).
 This button will create a worklist with the patient data of the selected study.
+Note that this plugin does not make sense anymore since we have added a UI in OE2 to create worklists 
+but it is still a good example to demonstrate how one can add custom buttons in OE2.
 
 
 # Description
