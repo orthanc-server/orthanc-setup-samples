@@ -1,6 +1,9 @@
 import os
 import orthanc
 import threading
+import subprocess
+import queue
+import shutil
 from typing import Tuple, Optional
 from local_storage_interface import LocalStorageInterface
 from collections import deque
@@ -10,27 +13,62 @@ class LocalStorage(LocalStorageInterface):
 
 
     _root: str
-    _max_size_bytes: int    # TODO: handle max size
-    _used_size_bytes: int
-    _lock: threading.Lock
-    _lru_files: deque
+    _max_size: int    # all sizes are in [bytes]
+    _available_size: int
+    _block_size: int
+    _lock: threading.RLock
+    _folder_stats: queue.PriorityQueue
 
     def __init__(self, root: str, max_size_mb: int):
         self._root = root
-        self._max_size_bytes = max_size_mb * 1024 * 1024
-        self._used_size_bytes = 0
-        self._lock = threading.Lock()
-        self._lru_files = deque()
+        self._max_size = max_size_mb * 1024 * 1024
+        self._lock = threading.RLock()
+        
+        self._update_local_storage_stats()
 
+    def _update_local_storage_stats(self):
+        with self._lock:
+            self._available_size = self._max_size
+            self._block_size = os.statvfs(self._root).f_frsize
+
+            self._folder_stats = queue.PriorityQueue()
+
+            cmd = ["du", "-b", "--max-depth=1", self._root]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            lines = result.stdout.strip().split("\n")
+
+            for line in lines:
+                size_str, path = line.split("\t")
+                folder_size = int(size_str)
+                if path != self._root:
+                    last_modified = os.path.getmtime(path)
+                    self._available_size -= folder_size
+                    self._folder_stats.put((last_modified, path, folder_size))
+            
 
     def _make_room(self, size: int):
         with self._lock:
-            while self._max_size_bytes - self._used_size_bytes < size:
-                file_to_remove = self._lru_files.pop()
+            estimated_disk_size = ((size + self._block_size - 1) // self._block_size) * self._block_size
+
+            if estimated_disk_size < self._available_size:
+                self._available_size -= estimated_disk_size
+                return
+
+            self._update_local_storage_stats()
+
+            # reclaim space
+            while estimated_disk_size > self._available_size and not self._folder_stats.empty():
+                _, path, folder_size = self._folder_stats.get()
+
+                orthanc.LogInfo(f"LocalStorage: reclaiming space by deleting local folder '{path}'")
+                shutil.rmtree(path)
+                self._available_size += folder_size
 
 
     def write_file(self, local_series_folder: str, uuid: str, content: bytes):
-        
+
+        self._make_room(len(content))        
+
         self._write_file(uuid=uuid,
                          local_series_folder=local_series_folder, 
                          content_type=orthanc.ContentType.DICOM,

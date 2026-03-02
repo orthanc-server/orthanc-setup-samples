@@ -29,7 +29,6 @@ The test scenario:
 TODO/To discuss:
 - series deletions (delete local files + delete zip files in S3 (on DELETED_SERIES event ?)).  This should not be required since we want to keep both the source and the anonymized studies
 - more error handling
-- handle max size for the local temporary storage
 - handle other attachments than DICOM ? (no: there are no other attachments)
 - handle Orthanc stopped before the zip is moved to S3 and the temporary storage is lost -> remove the resource from Orthanc SQL DB ?
 - add an API route to know where the series is ...
@@ -42,3 +41,4 @@ Done:
 - use a queue to perform `move_series_to_s3` asynchronously
 - remove series from `LocalToS3ZipManager`
 - add a flag to disable compression in the zip algo ?
+- handle max size for the local temporary storage

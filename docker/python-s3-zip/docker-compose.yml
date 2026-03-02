@@ -52,7 +52,8 @@ services:
                         "SecretKey": "miniopwd",
                         "Endpoint": "http://toxiproxy:9000",
                         "VirtualAddressing": false,
-                        "EnableCompression": true
+                        "EnableCompression": false,
+                        "LocalStorageMaxSizeMB": 3000
                     }
                 }
             VERBOSE_ENABLED: "true"
