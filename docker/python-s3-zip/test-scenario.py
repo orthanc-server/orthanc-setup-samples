@@ -2,6 +2,7 @@
 print ("Starting test scenario for S3 zip plugin benchmark...")
 
 from orthanc_api_client import OrthancApiClient
+from orthanc_api_client.helpers import wait_until
 from orthanc_tools import OrthancTestDbPopulator
 import time
 import boto3
@@ -95,6 +96,17 @@ def wait_until_zip_found_on_s3(series_id: str):
         time.sleep(10)
 
 
+def get_zip_size_on_s3(series_id: str):
+    boto_session = boto3.Session(region_name="eu-west-1",
+                                 aws_access_key_id="minio",
+                                 aws_secret_access_key="miniopwd")
+    s3_client = boto_session.client('s3',
+                                    endpoint_url="http://localhost:9000",
+                                    config=boto3.session.Config(s3={'addressing_style': 'path'}))
+
+    response = s3_client.head_object(Bucket="zip-bucket", Key=f"{series_id}.zip")
+    return response['ContentLength']
+
 # --- Test scenario ---
 
 compose_up()
@@ -111,6 +123,52 @@ default_orthanc.delete_all_content()
 print("Cleaning zip Orthanc")
 zip_orthanc.delete_all_content()
 
+
+print("---------------- Test new API routes on zip Orthanc ----------------")
+zip_populator = OrthancTestDbPopulator(api_client=zip_orthanc,
+                                       studies_count=1,
+                                       series_count=1,
+                                       instances_count=100,
+                                       worker_threads_count=5)
+zip_populator.execute()
+all_series_ids = zip_orthanc.series.get_all_ids()
+series_id = all_series_ids[0]
+series_status = zip_orthanc.get_json(endpoint=f'series/{series_id}/s3-zip/status')
+if series_status.get('is-stored-in-s3'):
+    print("is-stored-in-s3 should be False directly after upload")
+    exit(-1)
+
+print("Forcing the copy to S3 before the StableSeries event occurs (this is an asynchronous operation)")
+zip_orthanc.post(endpoint=f'series/{series_id}/s3-zip/copy-to-s3', json={})
+
+
+print("Waiting until zip file is found on S3 (as seen from the zip Orthanc)...")
+if not wait_until(lambda: zip_orthanc.get_json(endpoint=f'series/{series_id}/s3-zip/status').get('is-stored-in-s3'),
+                  timeout=10,
+                  polling_interval=1):
+    print("is-stored-in-s3 should be True within 10 seconds after the call to 'copy-to-s3'")
+    exit(-2)
+
+series_status = zip_orthanc.get_json(endpoint=f'series/{series_id}/s3-zip/status')
+print(f"s3-zip-key = {series_status.get('s3-zip-key')}")
+
+print("Downloading directly from S3 through the Orthanc REST Api override of /series/.../archive")
+series_zip = zip_orthanc.get_binary(endpoint=f'series/{series_id}/archive')
+zip_size_on_s3 = get_zip_size_on_s3(series_id=series_id)
+if len(series_zip) != zip_size_on_s3:
+    print(f"Retrieved zip does not have the same size as the zip on s3 ({len(series_zip)} vs {zip_size_on_s3} )")
+    exit(-3)
+else:
+    print(f"Retrieved zip from /series/.../archive (size = {len(series_zip)})")
+
+print("---------------- Test new API routes on zip Orthanc - done ----------------")
+
+
+print("Cleaning zip Orthanc (again)")
+zip_orthanc.delete_all_content()
+
+
+print("---------------- Performance tests ----------------")
 
 instances_per_series=20
 series_count=4
@@ -164,3 +222,4 @@ with measure_time("Downloading study from S3 default Orthanc (as seen from the R
 with measure_time("Downloading study from S3 zip Orthanc (as seen from the REST Api)"):
     zip_orthanc.studies.download_archive(orthanc_id=zip_orthanc.studies.get_all_ids()[0],
                                          path="/tmp/zip.zip")
+print("---------------- Performance tests - done ----------------")

@@ -121,6 +121,56 @@ def _storage_remove(uuid: str,
                  error_code=str(result))
     return result
 
+def on_rest_api_series_s3_status(output, uri, **request):  # GET -> returns a status to know if the series is stored in S3
+    global storage_singleton
+
+    if request['method'] == 'GET':
+        series_id = request['groups'][0]
+        series_status = storage_singleton.get_series_status(series_id=series_id)
+        if not series_status:
+            logger.error("Failed to retrieve series status", series_id)
+            output.SendHttpStatusCode(400)
+            return
+        
+        status = {
+            'is-stored-in-s3': series_status.is_stored_in_s3,
+            's3-zip-key': series_status.s3_zip_key
+        }
+        output.AnswerBuffer(json.dumps(status), 'application/json')
+    else:
+        output.SendMethodNotAllowed('GET')
+
+def on_rest_api_series_s3_archive(output, uri, **request): # GET -> streams a zip from s3 through Orthanc
+    global storage_singleton
+
+    if request['method'] == 'GET':
+        series_id = request['groups'][0]
+        zip_stream = storage_singleton.get_s3_zip_stream(series_id=series_id)
+
+        output.SetHttpHeader('Content-Disposition', f'filename={series_id}.zip')
+        output.StartStreamAnswer('application/zip')
+
+        while True:
+            chunk = zip_stream.read(64*1024)
+            if not chunk:
+                return                
+
+            output.SendStreamChunk(chunk)
+    else:
+        output.SendMethodNotAllowed('GET')
+
+def on_rest_api_series_s3_copy_to_s3(output, uri, **request):  # POST, no payload, answer = {} -> schedules a copy to s3 (asynchronous)
+    global storage_singleton
+
+    if request['method'] == 'POST':
+        series_id = request['groups'][0]
+        storage_singleton.schedule_copy_series_to_s3(series_id=series_id)
+        status = {}
+        output.AnswerBuffer(json.dumps(status), 'application/json')
+    else:
+        output.SendMethodNotAllowed('POST')
+
+
 
 def register_s3_zip_storage_plugin():
 
@@ -253,6 +303,13 @@ def register_s3_zip_storage_plugin():
     logger.debug("calling orthanc.RegisterStorageArea3()")
     orthanc.RegisterStorageArea3(_storage_create, _storage_read_range, _storage_remove)
     logger.debug("orthanc.RegisterStorageArea3() returned")
+
+    logger.debug("registering new REST Api routes")
+    orthanc.RegisterRestCallback('/series/(.*)/s3-zip/status', on_rest_api_series_s3_status)
+    orthanc.RegisterRestCallback('/series/(.*)/s3-zip/copy-to-s3', on_rest_api_series_s3_copy_to_s3)
+    orthanc.RegisterRestCallback('/series/(.*)/archive', on_rest_api_series_s3_archive)
+    logger.debug("registering new REST Api routes - done")
+
 
     logger.info("S3Zip storage plugin registered SUCCESSFULLY",
                 bucket=bucket_name,

@@ -5,7 +5,7 @@ from helpers import Helpers
 from typing import Optional, Tuple
 from boto3 import client as S3Client
 from local_storage import LocalStorage
-from local_to_s3_zip_manager import LocalToS3ZipManager
+from local_to_s3_zip_manager import LocalToS3ZipManager, SeriesS3Info
 from custom_data import CustomData
 from s3zip_logging import get_logger
 
@@ -192,3 +192,13 @@ class S3ZipStorage:
     def schedule_copy_series_to_s3(self, series_id: str):
         logger.debug("scheduling series copy to S3", series_id=series_id)
         self._zip_manager.schedule_copy_series_to_s3(series_id=series_id)
+
+
+    def get_series_status(self, series_id: str) -> Optional[SeriesS3Info]:
+        logger.debug("retrieving series S3 status", series_id=series_id)
+        return self._zip_manager.get_series_info(series_id=series_id)
+
+
+    def get_s3_zip_stream(self, series_id: str):  # returns a stream
+        logger.debug("retrieving a series S3 zip stream", series_id=series_id)
+        return self._zip_manager.get_s3_zip_stream(series_id=series_id)

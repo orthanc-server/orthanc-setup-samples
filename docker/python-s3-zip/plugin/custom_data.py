@@ -58,12 +58,16 @@ class CustomData:
         return cd
 
     @classmethod
-    def from_orthanc_attachment(cls, attachment_uuid: str) -> 'CustomData':
+    def from_orthanc_attachment(cls, attachment_uuid: str) -> Optional['CustomData']:
         logger.debug("calling orthanc.GetAttachmentCustomData()", attachment_uuid=attachment_uuid)
-        cd = cls.from_binary(orthanc.GetAttachmentCustomData(attachment_uuid))
-        logger.debug("orthanc.GetAttachmentCustomData() returned",
-                     attachment_uuid=attachment_uuid,
-                     storage=cd.storage.value,
-                     local_series_folder=cd.local_series_folder,
-                     s3_zip_key=cd.s3_zip_key or "<none>")
-        return cd
+        b = orthanc.GetAttachmentCustomData(attachment_uuid)
+        if len(b) > 0:
+            cd = cls.from_binary(b)
+            logger.debug("orthanc.GetAttachmentCustomData() returned",
+                        attachment_uuid=attachment_uuid,
+                        storage=cd.storage.value,
+                        local_series_folder=cd.local_series_folder,
+                        s3_zip_key=cd.s3_zip_key or "<none>")
+            return cd
+        else:
+            return None

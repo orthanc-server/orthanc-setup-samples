@@ -5,13 +5,23 @@ import os
 import tempfile
 import threading
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 from boto3 import client as S3Client
 from local_storage_interface import LocalStorageInterface
 from custom_data import CustomData
 from s3zip_logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class SeriesS3Info:
+
+    series_id: str
+    is_stored_in_s3: bool = False
+    s3_zip_key: str = None
+
+    def __init__(self, series_id: str):
+        self.series_id = series_id
 
 
 # This class is in charge of compressing and moving series between the local storage
@@ -107,9 +117,11 @@ class LocalToS3ZipManager:
                      bucket=bucket_name,
                      compression=compression_name)
 
+
     def start(self):
         logger.info("S3 copy thread starting")
         self._copy_thread.start()
+
 
     def stop(self):
         logger.info("S3 copy thread stopping")
@@ -117,8 +129,10 @@ class LocalToS3ZipManager:
         self._copy_thread.join()
         logger.info("S3 copy thread stopped")
 
+
     def _get_series_s3_key(self, series_id: str) -> str:
         return f"{series_id}.zip"
+
 
     def schedule_copy_series_to_s3(self, series_id: str):
         logger.debug("enqueuing series for S3 copy", series_id=series_id)
@@ -126,6 +140,7 @@ class LocalToS3ZipManager:
         orthanc.EnqueueValue("series-to-copy", series_id.encode('utf-8'))
         logger.debug("orthanc.EnqueueValue() returned", series_id=series_id)
         logger.debug("series enqueued for S3 copy", series_id=series_id)
+
 
     def _copy_thread_worker(self):
         orthanc.SetCurrentThreadName("S3-COPY-THREAD")
@@ -164,6 +179,7 @@ class LocalToS3ZipManager:
                 logger.info("copy_series_to_s3 cycle complete", series_id=series_id)
 
         logger.info("S3 copy thread exiting")
+
 
     def copy_series_to_s3(self, series_id: str):
         logger.info("series copy to S3 starting", series_id=series_id)
@@ -295,6 +311,18 @@ class LocalToS3ZipManager:
             del self._s3_zip_retrievals[series_id]
             logger.debug("discarded ZipRetrieval", s3_zip_key=series_id)
 
+
+    def get_s3_zip_stream(self, series_id: str):  # returns a stream
+        logger.info("series zip stream from S3",
+                    series_id=series_id)
+
+        s3_zip_key = self._get_series_s3_key(series_id=series_id)
+
+        response =  self._s3_client.get_object(Bucket=self._bucket_name,
+                                               Key=s3_zip_key)
+        return response['Body']
+
+
     def retrieve_zip_from_s3(self, s3_zip_key: str, local_series_folder: str):
         # make sure we do not retrieve the same file multiple times at the same time
         is_new_retrieval = False
@@ -319,7 +347,6 @@ class LocalToS3ZipManager:
                 logger.debug("another thread already downloaded this zip, waiting",
                              s3_zip_key=s3_zip_key)
                 zip_retrieval.wait_downloaded()
-
 
 
     def _retrieve_zip_from_s3(self, s3_zip_key: str, local_series_folder: str):
@@ -424,3 +451,21 @@ class LocalToS3ZipManager:
                     query_ms=duration_ms)
 
         return attachments_uuids
+
+    def get_series_info(self, series_id: str) -> Optional[SeriesS3Info]:
+        attachments_uuids = self._get_instances_attachments(series_id=series_id)
+
+        if len(attachments_uuids) == 0:
+            return None
+
+        status = SeriesS3Info(series_id=series_id)
+
+        # get the custom data of a random attachment (the first one)
+        cd = CustomData.from_orthanc_attachment(attachment_uuid=attachments_uuids[0])
+        if cd:
+            status.is_stored_in_s3 = cd.storage == CustomData.Storage.S3_ZIP
+            if status.is_stored_in_s3:
+                status.s3_zip_key = cd.s3_zip_key
+
+        return status
+    

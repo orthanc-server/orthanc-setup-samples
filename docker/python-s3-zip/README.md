@@ -18,6 +18,7 @@ uv run test-scenario.py
 
 The test scenario:
 - starts the `docker-compose` setup
+- performs some functional REST Api tests
 - uploads a test study on 2 Orthanc instances:
   - one with the standard S3 plugin (`s3-default`)
   - one with the S3-Zip python plugin (`s3-zip`)
@@ -28,12 +29,7 @@ The test scenario:
 TODO/To discuss:
 - series deletions (delete local files + delete zip files in S3 (on DELETED_SERIES event ?)).  This should not be required since we want to keep both the source and the anonymized studies
 - more error handling
-- handle other attachments than DICOM ? (no: there are no other attachments)
 - handle Orthanc stopped before the zip is moved to S3 and the temporary storage is lost -> remove the resource from Orthanc SQL DB ?
-- add an API route to know where the series is ...
-- add a route to trigger the move: SetStableStatus() ?
-- override /series/.../archive-s3-zip to return directly the zip from s3
-  or, add the s3 path in the series/metadata such that another client can download it directly
 - use the s3 multipart upload (or transfer mode)
 
 Done:
@@ -41,3 +37,7 @@ Done:
 - remove series from `LocalToS3ZipManager`
 - add a flag to disable compression in the zip algo ?
 - handle max size for the local temporary storage
+- added an API route to know where the series is `/series/.../s3-zip/status`
+- added an API route to schedule the copy to s3 before the StableSeries event `/series/.../s3-zip/copy-to-s3`
+- added an API route override to download the zip directly from s3 through Orthanc `/series/.../archive`
+
