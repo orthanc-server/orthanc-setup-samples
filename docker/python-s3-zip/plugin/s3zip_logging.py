@@ -29,8 +29,7 @@ from typing import Callable, Optional
 #
 # **Why this matters in Orthanc:**
 # The s3zip plugin runs inside Orthanc's Python plugin host, where
-# **other plugins load first**. In particular, `plugin_lib.config`
-# (from the `o8t_utility_plugin` package) likely calls `logging.basicConfig()`
+# **other plugins load first**. In particular, the caller uses `logging.basicConfig()`
 # during its own initialization. By the time the s3zip plugin initializes:
 #
 # 1.  The root logger already has a handler (configured by `plugin_lib.config`).
@@ -53,7 +52,7 @@ from typing import Callable, Optional
 # its own format, its own output stream --- regardless of what any other plugin
 # or the Orthanc host has already done to the root logger.
 #
-# **After `inject_logger_factory()` is called** (from `o8t_orthanc_plugin.py`),
+# **After `inject_logger_factory()` is called** by the calling application,
 # the s3zip-specific handler is removed and `propagate` is set to True so that
 # all s3zip messages flow through the root logger's JSON formatter instead.
 
@@ -112,7 +111,7 @@ def _ensure_s3zip_logging():
 def inject_logger_factory(factory: Callable[[str], logging.Logger]) -> None:
     """Switch s3zip loggers to use the shared root logger (JSON-formatted).
 
-    Call this from ``o8t_orthanc_plugin.py`` after importing the s3zip plugin
+    Call this from your application after importing the s3zip plugin
     and after ``plugin_lib.config`` has set up JSON logging on the root logger.
 
     Effect:
