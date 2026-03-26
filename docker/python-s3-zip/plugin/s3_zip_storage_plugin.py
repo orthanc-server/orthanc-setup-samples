@@ -17,6 +17,7 @@ logger.debug("s3_zip_storage_plugin module loaded")
 
 storage_singleton: Optional[S3ZipStorage] = None
 
+
 def _storage_create(uuid: str,
                     content_type: orthanc.ContentType,
                     compression_type: orthanc.CompressionType,
@@ -49,6 +50,7 @@ def _storage_create(uuid: str,
                  size_bytes=len(content),
                  error_code=str(result[0]))
     return result
+
 
 def _storage_read_range(uuid: str,
                         content_type: orthanc.ContentType,
@@ -92,6 +94,7 @@ def _storage_read_range(uuid: str,
                  bytes_returned=len(data) if data else 0)
     return result
 
+
 def _storage_remove(uuid: str,
                     content_type: orthanc.ContentType,
                     custom_data: bytes) -> orthanc.ErrorCode:
@@ -121,6 +124,7 @@ def _storage_remove(uuid: str,
                  error_code=str(result))
     return result
 
+
 def on_rest_api_series_s3_status(output, uri, **request):  # GET -> returns a status to know if the series is stored in S3
     global storage_singleton
 
@@ -140,24 +144,35 @@ def on_rest_api_series_s3_status(output, uri, **request):  # GET -> returns a st
     else:
         output.SendMethodNotAllowed('GET')
 
-def on_rest_api_series_s3_archive(output, uri, **request): # GET -> streams a zip from s3 through Orthanc
-    global storage_singleton
 
+def on_rest_api_series_s3_archive(output, uri, **request): # GET -> streams a zip from s3 through Orthanc (if not in s3, get it from Orthanc core API (without streaming))
+    global storage_singleton
     if request['method'] == 'GET':
         series_id = request['groups'][0]
-        zip_stream = storage_singleton.get_s3_zip_stream(series_id=series_id)
+
+        series_status = storage_singleton.get_series_status(series_id=series_id)
 
         output.SetHttpHeader('Content-Disposition', f'filename={series_id}.zip')
         output.StartStreamAnswer('application/zip')
 
-        while True:
-            chunk = zip_stream.read(64*1024)
-            if not chunk:
-                return                
+        if series_status.is_stored_in_s3:
+            logger.info("streaming series archive from s3")
+            zip_stream = storage_singleton.get_s3_zip_stream(series_id=series_id)
 
-            output.SendStreamChunk(chunk)
+            while True:
+                chunk = zip_stream.read(64*1024)
+                if not chunk:
+                    return                
+
+                output.SendStreamChunk(chunk)
+        else:
+            logger.info("getting series archive from core")
+            zip = orthanc.RestApiGet(uri)
+            output.SendStreamChunk(zip)
+
     else:
         output.SendMethodNotAllowed('GET')
+
 
 def on_rest_api_series_s3_copy_to_s3(output, uri, **request):  # POST, no payload, answer = {} -> schedules a copy to s3 (asynchronous)
     global storage_singleton
@@ -336,6 +351,7 @@ def on_stable_series(series_id: str):
 
     logger.info("on_stable_series handler done, returning to Orthanc", series_id=series_id)
 
+
 def on_orthanc_started():
     logger.debug("on_orthanc_started handler entered")
 
@@ -347,6 +363,7 @@ def on_orthanc_started():
     storage_singleton.start()
 
     logger.info("on_orthanc_started handler done, returning to Orthanc")
+
 
 def on_orthanc_stopped():
     logger.debug("on_orthanc_stopped handler entered")

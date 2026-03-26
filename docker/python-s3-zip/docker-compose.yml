@@ -54,10 +54,14 @@ services:
                         "VirtualAddressing": false,
                         "EnableCompression": false,
                         "LocalStorageMaxSizeMB": 3000
+                    },
+                    "Python": {
+                        "AllowThreads": true
                     }
                 }
             VERBOSE_ENABLED: "true"
             VERBOSE_STARTUP: "true"
+            S3ZIP_LOG_LEVEL: "INFO"
 
     minio:
         image: minio/minio:RELEASE.2025-09-07T16-13-09Z
