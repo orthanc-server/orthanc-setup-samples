@@ -337,6 +337,18 @@ def register_s3_zip_storage_plugin():
           f"region={s3_zip_config.get('Region')} temp_folder={s3_temp_folder_root} "
           f"compression={enable_compression}", file=sys.stderr)
 
+def on_new_series(series_id: str):
+
+    logger.debug("on_new_series handler entered", series_id=series_id)
+
+    global storage_singleton
+    if not storage_singleton:
+        raise RuntimeError("S3ZipStorage has not been initialized.")
+
+    storage_singleton.on_new_series(series_id=series_id)
+
+    logger.info("on_new_series handler done, returning to Orthanc", series_id=series_id)
+
 
 def on_stable_series(series_id: str):
 

@@ -29,7 +29,6 @@ The test scenario:
 TODO/To discuss:
 - series deletions (delete local files + delete zip files in S3 (on DELETED_SERIES event ?)).  This should not be required since we want to keep both the source and the anonymized studies
 - more error handling
-- handle Orthanc stopped before the zip is moved to S3 and the temporary storage is lost -> remove the resource from Orthanc SQL DB ?
 - use the s3 multipart upload (or transfer mode)
 
 Done:
@@ -40,4 +39,5 @@ Done:
 - added an API route to know where the series is `/series/.../s3-zip/status`
 - added an API route to schedule the copy to s3 before the StableSeries event `/series/.../s3-zip/copy-to-s3`
 - added an API route override to download the zip directly from s3 through Orthanc `/series/.../archive`
+- handle Orthanc stopped before the zip is moved to S3 and the temporary storage is lost -> remove the resource from Orthanc SQL DB (done in `UncommittedSeriesHandler`)
 

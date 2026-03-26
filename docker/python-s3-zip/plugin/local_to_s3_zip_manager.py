@@ -8,6 +8,7 @@ import time
 from typing import List, Dict, Optional
 from boto3 import client as S3Client
 from local_storage_interface import LocalStorageInterface
+from uncommitted_series_handler import UncommittedSeriesHandler
 from custom_data import CustomData
 from s3zip_logging import get_logger
 
@@ -92,6 +93,7 @@ class LocalToS3ZipManager:
 
     _s3_client: S3Client
     _local_storage: LocalStorageInterface
+    _uncommitted_series_handler: UncommittedSeriesHandler
     _bucket_name: str
     _s3_zip_retrievals: Dict[str, ZipRetrieval]
     _s3_zip_retrievals_lock: threading.Lock
@@ -99,10 +101,11 @@ class LocalToS3ZipManager:
     _threads_should_stop: bool
     _zip_compression: int
 
-    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool):
+    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool, uncommitted_series_handler: UncommittedSeriesHandler):
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
+        self._uncommitted_series_handler = uncommitted_series_handler
         if enable_compression:
             self._zip_compression = zipfile.ZIP_DEFLATED
         else:
@@ -293,6 +296,8 @@ class LocalToS3ZipManager:
             # In the best scenario, the files will still be stored locally at the time we need it.
 
         duration_ms = int((time.monotonic() - t0) * 1000)
+
+        self._uncommitted_series_handler.on_committed_series(series_id=series_id)
 
         logger.info("series stored to S3",
                     series_id=series_id,

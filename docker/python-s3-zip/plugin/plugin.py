@@ -6,7 +6,7 @@ import sys
 print("[s3zip] plugin.py module is being loaded (standalone entry point)", file=sys.stderr)
 
 import orthanc
-from s3_zip_storage_plugin import register_s3_zip_storage_plugin, on_stable_series, on_orthanc_stopped, on_orthanc_started
+from s3_zip_storage_plugin import register_s3_zip_storage_plugin, on_stable_series, on_new_series, on_orthanc_stopped, on_orthanc_started
 from s3zip_logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,6 +23,8 @@ def on_change(changeType, level, resource):
                  resource=str(resource))
     if changeType == orthanc.ChangeType.STABLE_SERIES:  # TODO: act on stabled anonymized series
         on_stable_series(series_id=resource)
+    elif changeType == orthanc.ChangeType.NEW_SERIES:
+        on_new_series(series_id=resource)
     elif changeType == orthanc.ChangeType.ORTHANC_STARTED:
         on_orthanc_started()
     elif changeType == orthanc.ChangeType.ORTHANC_STOPPED:

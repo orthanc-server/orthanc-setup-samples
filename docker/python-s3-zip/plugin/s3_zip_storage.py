@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from boto3 import client as S3Client
 from local_storage import LocalStorage
 from local_to_s3_zip_manager import LocalToS3ZipManager, SeriesS3Info
+from uncommitted_series_handler import UncommittedSeriesHandler
 from custom_data import CustomData
 from s3zip_logging import get_logger
 
@@ -16,6 +17,7 @@ class S3ZipStorage:
 
     _local_storage: LocalStorage
     _zip_manager: LocalToS3ZipManager
+    _uncommitted_series_handler: UncommittedSeriesHandler
 
     def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool):
         logger.debug("initializing S3ZipStorage",
@@ -24,23 +26,32 @@ class S3ZipStorage:
                      bucket=bucket_name,
                      compression=enable_compression)
 
+        self._uncommitted_series_handler = UncommittedSeriesHandler()
+
         self._local_storage = LocalStorage(root=temporary_folder_root,
                                            max_size_mb=temp_folder_max_size_mb)
 
         self._zip_manager = LocalToS3ZipManager(s3_client=s3_client,
                                                 bucket_name=bucket_name,
                                                 local_storage=self._local_storage,
-                                                enable_compression=enable_compression)
+                                                enable_compression=enable_compression,
+                                                uncommitted_series_handler=self._uncommitted_series_handler)
 
         logger.debug("S3ZipStorage initialized")
 
     def start(self):
+        logger.debug("cleaning uncommitted series")
+        self._uncommitted_series_handler.on_orthanc_started()
+
         logger.debug("starting S3ZipStorage manager")
         self._zip_manager.start()
 
     def stop(self):
         logger.debug("stopping S3ZipStorage manager")
         self._zip_manager.stop()
+
+    def on_new_series(self, series_id: str):
+        self._uncommitted_series_handler.on_new_series(series_id=series_id)
 
     def storage_create(self,
                        uuid: str,
