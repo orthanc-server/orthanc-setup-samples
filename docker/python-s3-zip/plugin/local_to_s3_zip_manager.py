@@ -295,6 +295,21 @@ class LocalToS3ZipManager:
             # At this point, the local storage does not need to keep the files stored locally but there is no need to notify it.
             # In the best scenario, the files will still be stored locally at the time we need it.
 
+            # Write a marker file so the LRU eviction guard knows this folder is safe to evict
+            if local_series_folder:
+                marker_path = os.path.join(
+                    self._local_storage.get_folder_path(local_series_folder),
+                    ".s3-uploaded"
+                )
+                try:
+                    with open(marker_path, "w") as f:
+                        f.write(s3_key)
+                    logger.debug("wrote S3 upload marker file",
+                                 series_id=series_id, marker_path=marker_path)
+                except Exception as e:
+                    logger.warning("failed to write S3 upload marker file",
+                                   series_id=series_id, error=str(e))
+
         duration_ms = int((time.monotonic() - t0) * 1000)
 
         self._uncommitted_series_handler.on_committed_series(series_id=series_id)
