@@ -101,11 +101,12 @@ class LocalToS3ZipManager:
     _threads_should_stop: bool
     _zip_compression: int
 
-    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool, uncommitted_series_handler: UncommittedSeriesHandler):
+    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool, uncommitted_series_handler: UncommittedSeriesHandler, key_prefix: str = ""):
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
         self._uncommitted_series_handler = uncommitted_series_handler
+        self._key_prefix = key_prefix.strip('/')
         if enable_compression:
             self._zip_compression = zipfile.ZIP_DEFLATED
         else:
@@ -118,7 +119,8 @@ class LocalToS3ZipManager:
         compression_name = "ZIP_DEFLATED" if enable_compression else "ZIP_STORED"
         logger.debug("LocalToS3ZipManager initialized",
                      bucket=bucket_name,
-                     compression=compression_name)
+                     compression=compression_name,
+                     key_prefix=self._key_prefix or "<none>")
 
 
     def start(self):
@@ -134,6 +136,8 @@ class LocalToS3ZipManager:
 
 
     def _get_series_s3_key(self, series_id: str) -> str:
+        if self._key_prefix:
+            return f"{self._key_prefix}/{series_id}.zip"
         return f"{series_id}.zip"
 
 

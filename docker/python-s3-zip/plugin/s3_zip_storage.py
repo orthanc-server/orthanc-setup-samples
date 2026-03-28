@@ -19,12 +19,13 @@ class S3ZipStorage:
     _zip_manager: LocalToS3ZipManager
     _uncommitted_series_handler: UncommittedSeriesHandler
 
-    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool):
+    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool, key_prefix: str = ""):
         logger.debug("initializing S3ZipStorage",
                      temp_folder=temporary_folder_root,
                      max_size_mb=temp_folder_max_size_mb,
                      bucket=bucket_name,
-                     compression=enable_compression)
+                     compression=enable_compression,
+                     key_prefix=key_prefix or "<none>")
 
         self._uncommitted_series_handler = UncommittedSeriesHandler()
 
@@ -35,7 +36,8 @@ class S3ZipStorage:
                                                 bucket_name=bucket_name,
                                                 local_storage=self._local_storage,
                                                 enable_compression=enable_compression,
-                                                uncommitted_series_handler=self._uncommitted_series_handler)
+                                                uncommitted_series_handler=self._uncommitted_series_handler,
+                                                key_prefix=key_prefix)
 
         # Set up the eviction guard: a folder is safe to evict only if it has the
         # .s3-uploaded marker file written by the copy thread after a successful S3 upload.

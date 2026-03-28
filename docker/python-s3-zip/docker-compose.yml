@@ -53,7 +53,8 @@ services:
                         "Endpoint": "http://toxiproxy:9000",
                         "VirtualAddressing": false,
                         "EnableCompression": false,
-                        "LocalStorageMaxSizeMB": 3000
+                        "LocalStorageMaxSizeMB": 3000,
+                        "PrefixKey": "orthanc-zips"
                     },
                     "Python": {
                         "AllowThreads": true
