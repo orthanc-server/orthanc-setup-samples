@@ -19,12 +19,13 @@ class S3ZipStorage:
     _zip_manager: LocalToS3ZipManager
     _uncommitted_series_handler: UncommittedSeriesHandler
 
-    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool):
+    def __init__(self, temporary_folder_root: str, temp_folder_max_size_mb: int, s3_client: S3Client, bucket_name: str, enable_compression: bool, key_prefix: str = ""):
         logger.debug("initializing S3ZipStorage",
                      temp_folder=temporary_folder_root,
                      max_size_mb=temp_folder_max_size_mb,
                      bucket=bucket_name,
-                     compression=enable_compression)
+                     compression=enable_compression,
+                     key_prefix=key_prefix or "<none>")
 
         self._uncommitted_series_handler = UncommittedSeriesHandler()
 
@@ -35,7 +36,16 @@ class S3ZipStorage:
                                                 bucket_name=bucket_name,
                                                 local_storage=self._local_storage,
                                                 enable_compression=enable_compression,
-                                                uncommitted_series_handler=self._uncommitted_series_handler)
+                                                uncommitted_series_handler=self._uncommitted_series_handler,
+                                                key_prefix=key_prefix)
+
+        # Set up the eviction guard: a folder is safe to evict only if it has the
+        # .s3-uploaded marker file written by the copy thread after a successful S3 upload.
+        def _is_folder_safe_to_evict(folder_name: str) -> bool:
+            marker_path = os.path.join(self._local_storage.get_folder_path(folder_name), ".s3-uploaded")
+            return os.path.exists(marker_path)
+
+        self._local_storage.set_eviction_guard(_is_folder_safe_to_evict)
 
         logger.debug("S3ZipStorage initialized")
 
@@ -134,17 +144,44 @@ class S3ZipStorage:
         logger.debug("local_storage.has_local_file() returned", uuid=uuid, has_local=has_local)
 
         if not has_local:
+            s3_zip_key = cd.s3_zip_key
+
+            if s3_zip_key is None:
+                # The custom data says "local" but the file is gone (pod restart with
+                # ephemeral storage, or LRU eviction before S3 upload).
+                # Try to recover by checking if a marker file left by the S3 copy thread
+                # tells us the S3 key.
+                marker_path = os.path.join(
+                    self._local_storage.get_folder_path(cd.local_series_folder),
+                    ".s3-uploaded"
+                )
+                if os.path.exists(marker_path):
+                    with open(marker_path, "r") as f:
+                        s3_zip_key = f.read().strip()
+                    logger.warning(
+                        "instance marked as local but file is gone; recovered S3 key from marker",
+                        uuid=uuid,
+                        s3_zip_key=s3_zip_key,
+                        local_series_folder=cd.local_series_folder)
+                else:
+                    logger.error(
+                        "instance marked as local but file is gone and no S3 key available. "
+                        "DATA LOSS: this instance cannot be retrieved.",
+                        uuid=uuid,
+                        local_series_folder=cd.local_series_folder)
+                    return orthanc.ErrorCode.UNKNOWN_RESOURCE, None
+
             logger.info("instance not in local cache, retrieving series from S3",
                         uuid=uuid,
-                        s3_zip_key=cd.s3_zip_key,
+                        s3_zip_key=s3_zip_key,
                         local_series_folder=cd.local_series_folder)
-            logger.debug("calling zip_manager.retrieve_zip_from_s3()", uuid=uuid, s3_zip_key=cd.s3_zip_key)
-            self._zip_manager.retrieve_zip_from_s3(s3_zip_key=cd.s3_zip_key,
+            logger.debug("calling zip_manager.retrieve_zip_from_s3()", uuid=uuid, s3_zip_key=s3_zip_key)
+            self._zip_manager.retrieve_zip_from_s3(s3_zip_key=s3_zip_key,
                                                    local_series_folder=cd.local_series_folder)
             logger.debug("zip_manager.retrieve_zip_from_s3() returned", uuid=uuid)
             logger.info("series retrieved from S3 into local cache",
                         uuid=uuid,
-                        s3_zip_key=cd.s3_zip_key)
+                        s3_zip_key=s3_zip_key)
         else:
             logger.debug("instance found in local cache",
                          uuid=uuid,

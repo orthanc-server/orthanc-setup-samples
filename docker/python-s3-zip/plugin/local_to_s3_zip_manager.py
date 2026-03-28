@@ -101,11 +101,12 @@ class LocalToS3ZipManager:
     _threads_should_stop: bool
     _zip_compression: int
 
-    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool, uncommitted_series_handler: UncommittedSeriesHandler):
+    def __init__(self, s3_client: S3Client, bucket_name: str, local_storage: LocalStorageInterface, enable_compression: bool, uncommitted_series_handler: UncommittedSeriesHandler, key_prefix: str = ""):
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
         self._uncommitted_series_handler = uncommitted_series_handler
+        self._key_prefix = key_prefix.strip('/')
         if enable_compression:
             self._zip_compression = zipfile.ZIP_DEFLATED
         else:
@@ -118,7 +119,8 @@ class LocalToS3ZipManager:
         compression_name = "ZIP_DEFLATED" if enable_compression else "ZIP_STORED"
         logger.debug("LocalToS3ZipManager initialized",
                      bucket=bucket_name,
-                     compression=compression_name)
+                     compression=compression_name,
+                     key_prefix=self._key_prefix or "<none>")
 
 
     def start(self):
@@ -134,6 +136,8 @@ class LocalToS3ZipManager:
 
 
     def _get_series_s3_key(self, series_id: str) -> str:
+        if self._key_prefix:
+            return f"{self._key_prefix}/{series_id}.zip"
         return f"{series_id}.zip"
 
 
@@ -294,6 +298,21 @@ class LocalToS3ZipManager:
 
             # At this point, the local storage does not need to keep the files stored locally but there is no need to notify it.
             # In the best scenario, the files will still be stored locally at the time we need it.
+
+            # Write a marker file so the LRU eviction guard knows this folder is safe to evict
+            if local_series_folder:
+                marker_path = os.path.join(
+                    self._local_storage.get_folder_path(local_series_folder),
+                    ".s3-uploaded"
+                )
+                try:
+                    with open(marker_path, "w") as f:
+                        f.write(s3_key)
+                    logger.debug("wrote S3 upload marker file",
+                                 series_id=series_id, marker_path=marker_path)
+                except Exception as e:
+                    logger.warning("failed to write S3 upload marker file",
+                                   series_id=series_id, error=str(e))
 
         duration_ms = int((time.monotonic() - t0) * 1000)
 

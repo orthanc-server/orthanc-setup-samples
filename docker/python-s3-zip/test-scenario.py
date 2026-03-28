@@ -89,7 +89,7 @@ def wait_until_zip_found_on_s3(series_id: str):
     found = False
     while not found:
         try:
-            s3_client.head_object(Bucket="zip-bucket", Key=f"{series_id}.zip")
+            s3_client.head_object(Bucket="zip-bucket", Key=f"orthanc-zips/{series_id}.zip")
             return
         except Exception as e:
             pass
@@ -104,7 +104,7 @@ def get_zip_size_on_s3(series_id: str):
                                     endpoint_url="http://localhost:9000",
                                     config=boto3.session.Config(s3={'addressing_style': 'path'}))
 
-    response = s3_client.head_object(Bucket="zip-bucket", Key=f"{series_id}.zip")
+    response = s3_client.head_object(Bucket="zip-bucket", Key=f"orthanc-zips/{series_id}.zip")
     return response['ContentLength']
 
 # --- Test scenario ---

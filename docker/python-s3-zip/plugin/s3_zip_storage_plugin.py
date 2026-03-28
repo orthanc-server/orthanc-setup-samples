@@ -257,7 +257,9 @@ def register_s3_zip_storage_plugin():
         logger.error("failed to access S3 bucket", bucket=bucket_name, error=str(e))
         raise RuntimeError(f"S3Zip: An Error happened while trying to access bucket '{bucket_name}': {e}.")
 
-    test_path = f"_test-access-rights-{uuid_module.uuid4()}"
+    _test_key_prefix = s3_zip_config.get("PrefixKey", "").strip('/')
+    _test_suffix = f"_test-access-rights-{uuid_module.uuid4()}"
+    test_path = f"{_test_key_prefix}/{_test_suffix}" if _test_key_prefix else _test_suffix
 
     try:
         logger.debug("testing WRITE access to S3 bucket", bucket=bucket_name, test_key=test_path)
@@ -308,11 +310,15 @@ def register_s3_zip_storage_plugin():
         max_local_storage_size_mb = 1024
     logger.debug("compression setting resolved", enable_compression=enable_compression)
 
+    key_prefix = s3_zip_config.get("PrefixKey", "").strip('/')
+    logger.debug("key prefix resolved", key_prefix=key_prefix or "<none>")
+
     storage_singleton = S3ZipStorage(temporary_folder_root=s3_temp_folder_root,
                                      temp_folder_max_size_mb=max_local_storage_size_mb,
                                      s3_client=s3_client,
                                      bucket_name=bucket_name,
-                                     enable_compression=enable_compression)
+                                     enable_compression=enable_compression,
+                                     key_prefix=key_prefix)
 
     logger.info("registering storage area callbacks with Orthanc (RegisterStorageArea3)")
     logger.debug("calling orthanc.RegisterStorageArea3()")
@@ -330,12 +336,13 @@ def register_s3_zip_storage_plugin():
                 bucket=bucket_name,
                 region=s3_zip_config.get("Region"),
                 temp_folder=s3_temp_folder_root,
-                compression=enable_compression)
+                compression=enable_compression,
+                key_prefix=key_prefix or "<none>")
 
     # Failsafe: bypass logging framework entirely so this is always visible
     print(f"[s3zip] storage plugin registered | bucket={bucket_name} "
           f"region={s3_zip_config.get('Region')} temp_folder={s3_temp_folder_root} "
-          f"compression={enable_compression}", file=sys.stderr)
+          f"compression={enable_compression} key_prefix={key_prefix or '<none>'}", file=sys.stderr)
 
 def on_new_series(series_id: str):
 
