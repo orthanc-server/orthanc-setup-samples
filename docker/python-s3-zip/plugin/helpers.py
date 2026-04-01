@@ -9,7 +9,9 @@ logger = get_logger(__name__)
 class Helpers:
 
     @classmethod
-    # note: this returns a hash that is not necessarily identical to the Orthanc series_id but that has the same "uniqueness" since it is based on the same inputs
+    # note: this returns a hash that is not necessarily identical to the
+    # Orthanc series_id but that has the same "uniqueness" since it is based
+    # on the same inputs
     def get_series_hash(cls, dicom_instance: orthanc.DicomInstance) -> str:
         tags = json.loads(dicom_instance.GetInstanceSimplifiedJson())
 
@@ -27,5 +29,5 @@ class Helpers:
                      series_hash=series_hash)
 
         return series_hash
-        
+
 

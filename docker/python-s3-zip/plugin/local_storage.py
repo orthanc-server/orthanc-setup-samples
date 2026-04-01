@@ -4,7 +4,7 @@ import threading
 import subprocess
 import queue
 import shutil
-from typing import Tuple, Optional
+from typing import Callable, Tuple, Optional
 from local_storage_interface import LocalStorageInterface
 from collections import deque
 from s3zip_logging import get_logger
@@ -21,11 +21,13 @@ class LocalStorage(LocalStorageInterface):
     _block_size: int
     _lock: threading.RLock
     _folder_stats: queue.PriorityQueue
+    _is_folder_safe_to_evict: Optional[Callable[[str], bool]]
 
     def __init__(self, root: str, max_size_mb: int):
         self._root = root
         self._max_size = max_size_mb * 1024 * 1024
         self._lock = threading.RLock()
+        self._is_folder_safe_to_evict = None
 
         self._update_local_storage_stats()
 
@@ -33,6 +35,15 @@ class LocalStorage(LocalStorageInterface):
                      root=root,
                      max_size_mb=max_size_mb,
                      max_size_bytes=self._max_size)
+
+    def set_eviction_guard(self, is_folder_safe_to_evict: callable):
+        """
+        - Set a callback that determines if a local series folder is safe to evict.
+        - The callback receives the folder name (not the full path) and 
+          must return True if the folder's data has been safely backed up to S3.
+        - If this callback is not set, all folders are considered safe to evict.
+        """
+        self._is_folder_safe_to_evict = is_folder_safe_to_evict
 
     def _update_local_storage_stats(self):
         with self._lock:
@@ -64,13 +75,52 @@ class LocalStorage(LocalStorageInterface):
 
             self._update_local_storage_stats()
 
-            # reclaim space
+            # Reclaim space -- evict oldest folders first, but protect folders
+            # whose data has not yet been safely backed up to S3.
+            # This can be useful if the plugin receives a burst of uploads that
+            # exceed the local storage capacity, but the S3 upload process is
+            # still catching up
+            skipped = []
             while estimated_disk_size > self._available_size and not self._folder_stats.empty():
-                _, path, folder_size = self._folder_stats.get()
+                entry = self._folder_stats.get()
+                _, path, folder_size = entry
+
+                folder_name = os.path.basename(path)
+
+                if self._is_folder_safe_to_evict is not None:
+                    try:
+                        safe = self._is_folder_safe_to_evict(folder_name)
+                    except Exception as e:
+                        logger.warning("eviction guard check failed, skipping folder",
+                                       folder=folder_name, error=str(e))
+                        safe = False
+
+                    if not safe:
+                        logger.info(
+                            "LocalStorage: skipping eviction of folder not yet on S3",
+                            folder=folder_name, folder_size=folder_size)
+                        skipped.append(entry)
+                        continue
 
                 orthanc.LogInfo(f"LocalStorage: reclaiming space by deleting local folder '{path}'")
+
+                # TODO: handle errors here (e.g. if the file gets locked by
+                # another process, or if it is being deleted by someone trying
+                # to help! Unlikely but what can go wrong will go wrong...)
                 shutil.rmtree(path)
                 self._available_size += folder_size
+
+            # put skipped entries back
+            for entry in skipped:
+                self._folder_stats.put(entry)
+
+            if estimated_disk_size > self._available_size:
+                logger.warning(
+                    "LocalStorage: could not free enough space. "
+                    "Some folders are protected because they are not yet on S3.",
+                    needed=estimated_disk_size,
+                    available=self._available_size,
+                    protected_folders=len(skipped))
 
 
     def write_file(self, local_series_folder: str, uuid: str, content: bytes):
@@ -256,6 +306,10 @@ class LocalStorage(LocalStorageInterface):
             raise RuntimeError(f"Unsupported content type: {content_type}")
 
         return os.path.join(self._root, os.path.join(local_series_folder, uuid))
+
+    def get_folder_path(self, local_series_folder: str) -> str:
+        """Returns the full path for a series folder."""
+        return os.path.join(self._root, local_series_folder)
 
     def has_local_file(self, uuid: str, local_series_folder: str, content_type: orthanc.ContentType) -> bool:
         path = self.get_local_path(uuid=uuid,
