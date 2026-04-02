@@ -1,6 +1,6 @@
 FROM orthancteam/orthanc
 
-RUN pip3 install requests
+RUN pip3 install --break-system-packages requests
 
 ENV VERBOSE_STARTUP=true
 ENV VERBOSE_ENABLED=true
