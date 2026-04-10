@@ -1,0 +1,41 @@
+services:
+
+  orthanc:
+    image: orthancteam/orthanc:26.1.0
+    restart: unless-stopped
+    ports: ["8042:8042"]
+    volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
+    environment:
+      VERBOSE_ENABLED: "true"
+      VERBOSE_STARTUP: "true"
+      WSI_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Orthanc Educ",
+          "Education" : {
+            "Enabled" : true,
+            "PublicRoots" : [
+              "http://localhost:8042"
+            ],
+            "Administrators" : {
+              "Authentication" : "Login",
+              "Credentials" : {
+                "admin" : "admin"
+              }
+            },
+            "StandardUsers" : {
+              "Authentication" : "Login",
+              "Credentials" : {
+                "learner" : "learner"
+              }
+            },
+            "WholeSlideImagingDicomizer" : "/usr/local/bin/OrthancWSIDicomizer",
+            "OpenSlideLibrary" : "libopenslide.so.0"
+          },
+          "OrthancExplorer2" : {
+            "IsDefaultOrthancUI": false
+          }
+        }
+
+volumes:
+  orthanc-storage:
