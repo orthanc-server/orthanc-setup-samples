@@ -15,7 +15,7 @@ class Helpers:
     def get_series_hash(cls, dicom_instance: orthanc.DicomInstance) -> str:
         tags = json.loads(dicom_instance.GetInstanceSimplifiedJson())
 
-        patient_id = tags['PatientID']
+        patient_id = tags.get('PatientID') or ""
         study_uid = tags['StudyInstanceUID']
         series_uid = tags['SeriesInstanceUID']
 
