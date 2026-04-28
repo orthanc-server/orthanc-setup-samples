@@ -38,3 +38,12 @@ To start the setup, type: `docker-compose up --build --force-recreate`.
 - if you want to pause/cancel/resume a job, you may call e.g `http://localhost/orthanc/jobs/{id}/pause` directly
 - each time an Orthanc leaves the cluster, its internal status will be marked as `STOPPED` (possibly as `NOT_RESPONDING` then `STOPPED` in case of hard switch-off).  However, right now, the `job-service` will still list the jobs from `STOPPED` Orthanc instances (this can be tuned in the `job-registry.py` file)
 
+# TODO
+
+We currently have 500 errors after the setup restarts when accessing uri like `http://localhost/orthanc/jobs/9a6e87bd-a834-4d41-8678-010d24e641f5` probably because the orthanc IP has changed:
+
+```
+sqlite3.IntegrityError: UNIQUE constraint failed: orthanc_jobs.id
+
+CREATE TABLE IF NOT EXISTS orthanc_jobs(id TEXT PRIMARY KEY, orthanc_ip TEXT, job_status TEXT, orthanc_status TEXT, content TEXT)
+```

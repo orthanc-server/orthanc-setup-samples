@@ -7,7 +7,8 @@
     
     "PostgreSQL": {
         "Password": "pg-password",
-        "Host": "db"
+        "Host": "db",
+        "IndexConnectionsCount": 20
     },
 
     "PythonScript": "/python-plugin.py"

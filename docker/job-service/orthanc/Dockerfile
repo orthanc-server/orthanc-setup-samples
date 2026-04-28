@@ -1,3 +1,3 @@
 FROM orthancteam/orthanc
 
-RUN pip install requests
+RUN pip install --break-system-packages requests
