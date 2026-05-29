@@ -3,15 +3,20 @@ import json
 import zipfile
 import os
 import random
+import sys
 import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from typing import List, Dict, Optional, Tuple
+
 from boto3 import client as S3Client
+
 from local_storage_interface import LocalStorageInterface
 from uncommitted_series_handler import UncommittedSeriesHandler
 from custom_data import CustomData
+
 from s3zip_logging import get_logger
 from concurrent.futures import ThreadPoolExecutor
 
@@ -25,7 +30,13 @@ logger = get_logger(__name__)
 DEFAULT_S3_RETRIEVAL_MAX_ATTEMPTS = 3
 DEFAULT_S3_RETRIEVAL_RETRY_BASE_DELAY_SECONDS = 0.5
 DEFAULT_S3_RETRIEVAL_RETRY_MAX_DELAY_SECONDS = 5.0
-DEFAULT_HOUSEKEEPER_INTERVAL_SECONDS = 60.0
+DEFAULT_HOUSEKEEPER_INTERVAL_SECONDS = 300.0
+DEFAULT_COPY_QUEUE_LEASE_TIMEOUT_SECONDS = 1800
+
+CUSTOM_DATA_CREATION_NUM_THREADS = 12
+
+_COPY_QUEUE_NAME = "series-to-copy"
+_COPY_QUEUE_IDLE_SLEEP_SECONDS = 1
 
 _TRANSIENT_CLIENT_ERROR_CODES = {
     "InternalError",
@@ -169,6 +180,7 @@ class LocalToS3ZipManager:
     _s3_retrieval_max_attempts: int
     _s3_retrieval_retry_base_delay_sec: float
     _s3_retrieval_retry_max_delay_sec: float
+    _copy_queue_lease_timeout_sec: int
 
     def __init__(self,
                  s3_client: S3Client,
@@ -179,7 +191,8 @@ class LocalToS3ZipManager:
                  key_prefix: str = "",
                  s3_retrieval_max_attempts: int = DEFAULT_S3_RETRIEVAL_MAX_ATTEMPTS,
                  s3_retrieval_retry_base_delay_sec: float = DEFAULT_S3_RETRIEVAL_RETRY_BASE_DELAY_SECONDS,
-                 s3_retrieval_retry_max_delay_sec: float = DEFAULT_S3_RETRIEVAL_RETRY_MAX_DELAY_SECONDS):
+                 s3_retrieval_retry_max_delay_sec: float = DEFAULT_S3_RETRIEVAL_RETRY_MAX_DELAY_SECONDS,
+                 copy_queue_lease_timeout_sec: int = DEFAULT_COPY_QUEUE_LEASE_TIMEOUT_SECONDS):
         self._s3_client = s3_client
         self._bucket_name = bucket_name
         self._local_storage = local_storage
@@ -188,6 +201,7 @@ class LocalToS3ZipManager:
         self._s3_retrieval_max_attempts = max(1, int(s3_retrieval_max_attempts))
         self._s3_retrieval_retry_base_delay_sec = max(0.0, float(s3_retrieval_retry_base_delay_sec))
         self._s3_retrieval_retry_max_delay_sec = max(0.0, float(s3_retrieval_retry_max_delay_sec))
+        self._copy_queue_lease_timeout_sec = max(1, int(copy_queue_lease_timeout_sec))
         if enable_compression:
             self._zip_compression = zipfile.ZIP_DEFLATED
         else:
@@ -204,7 +218,8 @@ class LocalToS3ZipManager:
                      key_prefix=self._key_prefix or "<none>",
                      s3_retrieval_max_attempts=self._s3_retrieval_max_attempts,
                      s3_retrieval_retry_base_delay_sec=self._s3_retrieval_retry_base_delay_sec,
-                     s3_retrieval_retry_max_delay_sec=self._s3_retrieval_retry_max_delay_sec)
+                     s3_retrieval_retry_max_delay_sec=self._s3_retrieval_retry_max_delay_sec,
+                     copy_queue_lease_timeout_sec=self._copy_queue_lease_timeout_sec)
 
 
     def start(self):
@@ -224,52 +239,185 @@ class LocalToS3ZipManager:
             return f"{self._key_prefix}/{series_id}.zip"
         return f"{series_id}.zip"
 
+    def _any_attachment_has_local_file(self, attachments_uuids: List[str]) -> bool:
+        """Probe whether at least one attachment has a local file on disk.
+
+        Used by ``copy_series_to_s3``'s fast-path guard to recognise
+        "data wiped, never made it to S3" without diving into the upload
+        loop. Errors per attachment are treated as "not present" so a
+        flaky CustomData lookup cannot accidentally suppress the guard.
+        """
+        for a_uuid in attachments_uuids:
+            try:
+                cd = CustomData.from_orthanc_attachment(attachment_uuid=a_uuid)
+            except Exception:
+                continue
+            if cd is None:
+                continue
+            try:
+                if self._local_storage.has_local_file(
+                    uuid=a_uuid,
+                    local_series_folder=cd.local_series_folder,
+                    content_type=orthanc.ContentType.DICOM,
+                ):
+                    return True
+            except Exception:
+                # Treat probe errors as "not present"; the real upload
+                # attempt below would surface a precise failure mode.
+                continue
+        return False
+
+
+    def _resolve_local_series_folder(self, attachments_uuids: list[str]) -> str | None:
+        """Return the first readable ``local_series_folder`` across attachments.
+
+        All instances of a series share the same folder (see the existing
+        zip-build loop), so the first non-empty value is authoritative.
+        Per-attachment errors are swallowed so a flaky CustomData lookup
+        does not prevent resolution when other attachments still carry it.
+        """
+        for a_uuid in attachments_uuids:
+            try:
+                cd: CustomData | None = CustomData.from_orthanc_attachment(attachment_uuid=a_uuid)
+            except Exception:
+                continue
+            if cd is None:
+                continue
+            if cd.local_series_folder:
+                return cd.local_series_folder
+        return None
+
 
     def schedule_copy_series_to_s3(self, series_id: str):
         logger.debug("enqueuing series for S3 copy", series_id=series_id)
         logger.debug("calling orthanc.EnqueueValue()", series_id=series_id)
-        orthanc.EnqueueValue("series-to-copy", series_id.encode('utf-8'))
+        orthanc.EnqueueValue(_COPY_QUEUE_NAME, series_id.encode('utf-8'))
         logger.debug("orthanc.EnqueueValue() returned", series_id=series_id)
         logger.debug("series enqueued for S3 copy", series_id=series_id)
 
 
     def _copy_thread_worker(self):
-        orthanc.SetCurrentThreadName("S3-COPY-THREAD")
-        logger.info("S3 copy thread started")
+        try:
+            orthanc.SetCurrentThreadName("S3-COPY-THREAD")
+        except BaseException as e:
+            self._log_copy_thread_exception("failed to set S3 copy thread name; continuing", e)
+        try:
+            logger.info("S3 copy thread started",
+                        copy_queue_lease_timeout_sec=self._copy_queue_lease_timeout_sec)
+        except BaseException:
+            pass
 
         while not self._threads_should_stop:
-            logger.debug("calling orthanc.ReserveQueueValue(series-to-copy)")
-            bseries_id, value_id = orthanc.ReserveQueueValue("series-to-copy", orthanc.QueueOrigin.FRONT, 600)
-            logger.debug("orthanc.ReserveQueueValue() returned",
-                         got_item=bseries_id is not None,
-                         value_id=str(value_id) if value_id is not None else "<none>")
-
-            if bseries_id is None:
-                logger.debug("no series in copy queue, sleeping")
-                time.sleep(1)
-            else:
-                series_id = bseries_id.decode('utf-8')
-                logger.debug("dequeued series for S3 copy",
-                             series_id=series_id,
-                             value_id=str(value_id))
-                logger.info("starting copy_series_to_s3", series_id=series_id)
+            try:
+                self._copy_thread_worker_once()
+            except BaseException as e:
+                self._log_copy_thread_exception("unhandled failure in S3 copy thread loop; continuing", e)
                 try:
-                    self.copy_series_to_s3(series_id=series_id)
-                except Exception as e:
-                    logger.warning("failed to copy series to S3, re-enqueuing",
-                                   series_id=series_id,
-                                   error=str(e))
-                    # TODO: identify if this is a "permanent failure".  In this case, no need to repost the message + handle max retries
-                    logger.debug("re-enqueuing failed series via orthanc.EnqueueValue()", series_id=series_id)
-                    orthanc.EnqueueValue("series-to-copy", bseries_id)
-                    logger.debug("orthanc.EnqueueValue() returned after re-enqueue", series_id=series_id)
-
-                logger.debug("calling orthanc.AcknowledgeQueueValue()", series_id=series_id, value_id=str(value_id))
-                orthanc.AcknowledgeQueueValue("series-to-copy", value_id)
-                logger.debug("orthanc.AcknowledgeQueueValue() returned", series_id=series_id)
-                logger.info("copy_series_to_s3 cycle complete", series_id=series_id)
+                    time.sleep(_COPY_QUEUE_IDLE_SLEEP_SECONDS)
+                except BaseException:
+                    pass
 
         logger.info("S3 copy thread exiting")
+
+
+    def _log_copy_thread_exception(self, message: str, exc: BaseException, **kwargs):
+        try:
+            logger.exception(message,
+                             error_type=type(exc).__name__,
+                             error=str(exc),
+                             **kwargs)
+        except BaseException:
+            try:
+                print(f"[s3zip] {message}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            except BaseException:
+                pass
+
+
+    def _copy_thread_worker_once(self):
+        logger.debug("calling orthanc.ReserveQueueValue(series-to-copy)",
+                     lease_timeout_sec=self._copy_queue_lease_timeout_sec)
+        bseries_id, value_id = orthanc.ReserveQueueValue(
+            _COPY_QUEUE_NAME,
+            orthanc.QueueOrigin.FRONT,
+            self._copy_queue_lease_timeout_sec,
+        )
+        logger.debug("orthanc.ReserveQueueValue() returned",
+                     got_item=bseries_id is not None,
+                     value_id=str(value_id) if value_id is not None else "<none>")
+
+        if bseries_id is None:
+            logger.debug("no series in copy queue, sleeping")
+            time.sleep(_COPY_QUEUE_IDLE_SLEEP_SECONDS)
+            return
+
+        if isinstance(bseries_id, str):
+            series_id = bseries_id
+        else:
+            try:
+                series_id = bseries_id.decode('utf-8')
+            except BaseException as e:
+                self._log_copy_thread_exception(
+                    "failed to decode series-to-copy queue value; acknowledging and continuing",
+                    e,
+                    value_id=str(value_id))
+                self._acknowledge_copy_queue_value(value_id=value_id, series_id="<decode failed>")
+                return
+
+        if not series_id:
+            self._log_copy_thread_exception(
+                "empty series id in series-to-copy queue value; acknowledging and continuing",
+                ValueError("empty series id"),
+                value_id=str(value_id))
+            self._acknowledge_copy_queue_value(value_id=value_id, series_id="<decode failed>")
+            return
+
+        logger.debug("dequeued series for S3 copy",
+                     series_id=series_id,
+                     value_id=str(value_id))
+        logger.info("starting copy_series_to_s3", series_id=series_id)
+
+        copy_succeeded = False
+        should_ack = True
+        try:
+            self.copy_series_to_s3(series_id=series_id)
+            copy_succeeded = True
+        except BaseException as e:
+            self._log_copy_thread_exception("failed to copy series to S3, re-enqueuing",
+                                            e,
+                                            series_id=series_id)
+            # TODO: identify if this is a "permanent failure".  In this case, no need to repost the message + handle max retries
+            try:
+                logger.debug("re-enqueuing failed series via orthanc.EnqueueValue()", series_id=series_id)
+                orthanc.EnqueueValue(_COPY_QUEUE_NAME, bseries_id)
+                logger.debug("orthanc.EnqueueValue() returned after re-enqueue", series_id=series_id)
+            except BaseException as requeue_error:
+                should_ack = False
+                self._log_copy_thread_exception(
+                    "failed to re-enqueue failed series; leaving reserved queue value unacknowledged for lease release",
+                    requeue_error,
+                    series_id=series_id,
+                    value_id=str(value_id))
+
+        if should_ack:
+            acknowledged = self._acknowledge_copy_queue_value(value_id=value_id, series_id=series_id)
+            if acknowledged and copy_succeeded:
+                logger.info("copy_series_to_s3 cycle complete", series_id=series_id)
+            elif acknowledged:
+                logger.info("failed copy re-enqueued and original queue value acknowledged", series_id=series_id)
+
+
+    def _acknowledge_copy_queue_value(self, value_id, series_id: str) -> bool:
+        try:
+            logger.debug("calling orthanc.AcknowledgeQueueValue()", series_id=series_id, value_id=str(value_id))
+            orthanc.AcknowledgeQueueValue(_COPY_QUEUE_NAME, value_id)
+            logger.debug("orthanc.AcknowledgeQueueValue() returned", series_id=series_id)
+            return True
+        except BaseException as e:
+            self._log_copy_thread_exception("failed to acknowledge series-to-copy queue value; continuing",
+                                            e,
+                                            series_id=series_id,
+                                            value_id=str(value_id))
+            return False
 
 
     def copy_series_to_s3(self, series_id: str):
@@ -284,6 +432,80 @@ class LocalToS3ZipManager:
         logger.debug("collected instance attachments for series",
                      series_id=series_id,
                      attachment_count=len(attachments_uuids))
+
+        # Dedup early-exit: the same series can be enqueued twice under
+        # heavy ingest -- once by the natural STABLE_SERIES path, once
+        # by the uncommitted-series housekeeper after the 5 min grace
+        # period when the natural copy hasn't drained the queue yet.
+        # The marker is the durable "folder contents match the S3 zip"
+        # invariant (storage_create wipes it on every new instance), so
+        # its presence is sufficient to skip a redundant rebuild + PUT
+        # + per-attachment SetAttachmentCustomData round-trip.
+        #
+        # This check runs BEFORE the fast-path "data lost" guard below.
+        # Otherwise an eviction between the first and second dequeue
+        # (allowed precisely because the marker was written) would
+        # purge the folder, the guard would see no local files, and we
+        # would emit a misleading "data is lost" ERROR for a series
+        # that is in fact safely on S3.
+        if attachments_uuids:
+            cached_folder = self._resolve_local_series_folder(attachments_uuids)
+            if cached_folder:
+                marker_path = os.path.join(
+                    self._local_storage.get_folder_path(cached_folder),
+                    ".s3-uploaded",
+                )
+                with self._local_storage.folder_marker_critical_section(cached_folder):
+                    if os.path.exists(marker_path):
+                        logger.info(
+                            "copy_series_to_s3: .s3-uploaded marker already present; "
+                            "skipping redundant upload (duplicate enqueue)",
+                            series_id=series_id,
+                            local_series_folder=cached_folder,
+                        )
+                        try:
+                            self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+                        except Exception:
+                            logger.exception(
+                                "copy_series_to_s3: failed to clear uncommitted-series KVS entry "
+                                "on duplicate-enqueue skip; housekeeper will retry",
+                                series_id=series_id,
+                            )
+                        return
+
+        # Fast-path guard: if not a single attachment is on local disk,
+        # the data has been wiped without ever reaching S3 (typically
+        # because a pod restart cleared the ephemeral S3Zip volume
+        # before this series was uploaded). Without this guard the
+        # first read_file call would raise FileNotFoundError, the
+        # worker would re-enqueue, and the queue would spin every
+        # copy queue lease for the life of the deployment. Acknowledge
+        # gracefully so the queue makes forward progress.
+        #
+        # The matching housekeeper pass detects this state and emits an
+        # ERROR log of its own; we log here too so a missed copy is
+        # visible even without the housekeeper.
+        #
+        # TODO: when an Orthanc series-level metadata tag exists for
+        # "data lost" (see s3_zip_storage._housekeep_one_uncommitted_series),
+        # set it here. The housekeeper can then enumerate lost series via
+        # a single /tools/find rather than walking logs.
+        if attachments_uuids and not self._any_attachment_has_local_file(attachments_uuids):
+            logger.error(
+                "copy_series_to_s3: no local data left for any attachment; data is lost. "
+                "Acknowledging without re-enqueueing.",
+                series_id=series_id,
+                attachment_count=len(attachments_uuids),
+            )
+            try:
+                self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+            except Exception:
+                logger.exception(
+                    "copy_series_to_s3: failed to clear uncommitted-series KVS entry "
+                    "after abandoning; housekeeper will retry the cleanup",
+                    series_id=series_id,
+                )
+            return
 
         total_uncompressed_bytes = 0
 
@@ -361,7 +583,7 @@ class LocalToS3ZipManager:
                             s3_key=s3_key)
                 t_meta_start = time.monotonic()
 
-                def set_attachment_custom_data(a_uuid: str, idx: int):
+                def set_attachment_custom_data(a_uuid: str, idx: int) -> None:
                     logger.debug("calling orthanc.SetAttachmentCustomData()",
                                  series_id=series_id,
                                  uuid=a_uuid,
@@ -380,10 +602,12 @@ class LocalToS3ZipManager:
                                  uuid=a_uuid,
                                  index=idx)
 
-                with ThreadPoolExecutor(max_workers=12) as executor:
-                    futures = [executor.submit(set_attachment_custom_data, a_uuid, idx)
-                            for idx, a_uuid in enumerate(attachments_uuids)]
-                    
+                with ThreadPoolExecutor(max_workers=CUSTOM_DATA_CREATION_NUM_THREADS) as executor:
+                    futures  = [
+                        executor.submit(set_attachment_custom_data, a_uuid, idx)
+                        for idx, a_uuid in enumerate(attachments_uuids)
+                    ]
+
                     # Wait for all tasks to complete and propagate any exceptions
                     for future in futures:
                         future.result()
@@ -704,6 +928,7 @@ class LocalToS3ZipManager:
 
         file_count = 0
         total_bytes = 0
+        extracted_uuids: set[str] = set()
 
         with tempfile.NamedTemporaryFile(delete=True, suffix=".zip") as tmp_zip:
             logger.debug("downloading zip from S3",
@@ -743,11 +968,62 @@ class LocalToS3ZipManager:
                                                        content=content)
                         file_count += 1
                         total_bytes += len(content)
+                        extracted_uuids.add(file_info.filename)
                         logger.debug("extracted file from zip to local storage",
                                      s3_zip_key=s3_zip_key,
                                      uuid=file_info.filename,
                                      size_bytes=len(content),
                                      index=file_count)
+
+        # Publish the .s3-uploaded marker so the eviction guard and the
+        # local-cache stats both reflect that this folder is recoverable
+        # from S3 at s3_zip_key.
+        #
+        # The retrieve path is the second place (besides the copy thread)
+        # that leaves a folder on disk whose contents fully match the S3 zip;
+        # without this write the folder would be reported as "not yet on S3"
+        # and protected from eviction forever even though the zip is durable.
+        #
+        # Race protection: the per-folder marker critical section serializes
+        # against storage_create's invalidate path. Inside the section we
+        # listdir the folder and only write the marker if its non-marker
+        # contents equal exactly the set of uuids we just extracted.
+        #
+        # So that, if a concurrent storage_create wrote a new instance file
+        # into this folder during retrieval, the extra file is visible and
+        # we skip the marker (the next STABLE_SERIES copy will publish a marker
+        # that reflects the new instance)
+        #
+        # The folder lease held by retrieve_zip_from_s3 keeps eviction out for
+        # the whole window.
+
+        folder_path: str = self._local_storage.get_folder_path(local_series_folder)
+        with self._local_storage.folder_marker_critical_section(local_series_folder):
+            try:
+                on_disk = {
+                    name for name in os.listdir(folder_path)
+                    if name != ".s3-uploaded" and not name.startswith(".s3-uploaded.tmp-")
+                }
+            except FileNotFoundError:
+                on_disk = None
+
+            if on_disk == extracted_uuids:
+                self._write_s3_uploaded_marker(
+                    local_series_folder=local_series_folder,
+                    s3_key=s3_zip_key,
+                    series_id=local_series_folder,
+                )
+            else:
+                # Handle the situation where the series has been modified during retrieval.
+
+                logger.info(
+                    "retrieve: folder contents differ from zip; skipping marker write "
+                    "(a concurrent storage_create likely added an instance during retrieval)",
+                    s3_zip_key=s3_zip_key,
+                    local_series_folder=local_series_folder,
+                    extracted_count=len(extracted_uuids),
+                    on_disk_count=(None if on_disk is None else len(on_disk)),
+                )
 
         duration_ms = int((time.monotonic() - t0) * 1000)
 
