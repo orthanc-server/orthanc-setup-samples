@@ -7,6 +7,7 @@ import uuid as uuid_module
 from typing import Tuple, Optional
 from s3_zip_storage import S3ZipStorage
 from local_to_s3_zip_manager import (
+    DEFAULT_COPY_QUEUE_LEASE_TIMEOUT_SECONDS,
     DEFAULT_S3_RETRIEVAL_MAX_ATTEMPTS,
     DEFAULT_S3_RETRIEVAL_RETRY_BASE_DELAY_SECONDS,
     DEFAULT_S3_RETRIEVAL_RETRY_MAX_DELAY_SECONDS,
@@ -373,13 +374,20 @@ def register_s3_zip_storage_plugin():
             DEFAULT_HOUSEKEEPER_INTERVAL_SECONDS
         )
     )
+    copy_queue_lease_timeout_sec = int(
+        s3_zip_config.get(
+            "CopyQueueLeaseTimeoutSeconds",
+            DEFAULT_COPY_QUEUE_LEASE_TIMEOUT_SECONDS
+        )
+    )
 
 
     logger.debug("compression setting resolved", enable_compression=enable_compression)
     logger.debug("S3 retrieval retry settings resolved",
                  s3_retrieval_max_attempts=s3_retrieval_max_attempts,
                  s3_retrieval_retry_base_delay_sec=s3_retrieval_retry_base_delay_sec,
-                 s3_retrieval_retry_max_delay_sec=s3_retrieval_retry_max_delay_sec)
+                 s3_retrieval_retry_max_delay_sec=s3_retrieval_retry_max_delay_sec,
+                 copy_queue_lease_timeout_sec=copy_queue_lease_timeout_sec)
 
     key_prefix = s3_zip_config.get("PrefixKey", "").strip('/')
     logger.debug("key prefix resolved", key_prefix=key_prefix or "<none>")
@@ -393,6 +401,7 @@ def register_s3_zip_storage_plugin():
                                      s3_retrieval_max_attempts=s3_retrieval_max_attempts,
                                      s3_retrieval_retry_base_delay_sec=s3_retrieval_retry_base_delay_sec,
                                      s3_retrieval_retry_max_delay_sec=s3_retrieval_retry_max_delay_sec,
+                                     copy_queue_lease_timeout_sec=copy_queue_lease_timeout_sec,
                                      housekeeper_interval_sec=housekeeper_interval_sec)
 
     logger.info("registering storage area callbacks with Orthanc (RegisterStorageArea3)")
@@ -417,12 +426,14 @@ def register_s3_zip_storage_plugin():
                 key_prefix=key_prefix or "<none>",
                 s3_retrieval_max_attempts=s3_retrieval_max_attempts,
                 s3_retrieval_retry_base_delay_sec=s3_retrieval_retry_base_delay_sec,
-                s3_retrieval_retry_max_delay_sec=s3_retrieval_retry_max_delay_sec)
+                s3_retrieval_retry_max_delay_sec=s3_retrieval_retry_max_delay_sec,
+                copy_queue_lease_timeout_sec=copy_queue_lease_timeout_sec)
 
     # Failsafe: bypass logging framework entirely so this is always visible
     print(f"[s3zip] storage plugin registered | bucket={bucket_name} "
           f"region={s3_zip_config.get('Region')} temp_folder={s3_temp_folder_root} "
-          f"compression={enable_compression} key_prefix={key_prefix or '<none>'}", file=sys.stderr)
+          f"compression={enable_compression} key_prefix={key_prefix or '<none>'} "
+          f"copy_queue_lease_timeout_sec={copy_queue_lease_timeout_sec}", file=sys.stderr)
 
 def on_new_series(series_id: str):
 

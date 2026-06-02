@@ -1,3 +1,5 @@
+import contextlib
+import json
 import os
 import subprocess
 import sys
@@ -35,14 +37,36 @@ class _DicomInstance:
     pass
 
 
+class _OrthancException(Exception):
+    """Stand-in for orthanc.OrthancException in unit tests."""
+    pass
+
+
+def _unimplemented(*_args, **_kwargs):
+    # Default for any orthanc.* method the test doesn't explicitly stub.
+    # If a code path under test hits one of these, the test should patch
+    # it explicitly rather than silently calling a no-op.
+    raise NotImplementedError("orthanc API not stubbed for this test")
+
+
+# orthanc stub to emulate the various APIs required by the plugin
 orthanc_stub = types.SimpleNamespace(
     ContentType=_ContentType,
     ErrorCode=_ErrorCode,
     CompressionType=_CompressionType,
     DicomInstance=_DicomInstance,
+    OrthancException=_OrthancException,
     LogInfo=lambda message: None,
     SetCurrentThreadName=lambda name: None,
     SetAttachmentCustomData=lambda uuid, custom_data: None,
+    # These are filled in per-test via mock.patch.object as needed.
+    RestApiGet=_unimplemented,
+    RestApiPost=_unimplemented,
+    RestApiDelete=_unimplemented,
+    StoreKeyValue=_unimplemented,
+    DeleteKeyValue=_unimplemented,
+    CreateKeysValuesIterator=_unimplemented,
+    GetAttachmentCustomData=_unimplemented,
 )
 sys.modules.setdefault("orthanc", orthanc_stub)
 sys.modules.setdefault("boto3", types.SimpleNamespace(client=object))
@@ -52,9 +76,11 @@ from custom_data import CustomData
 from local_storage import LocalStorage
 from local_to_s3_zip_manager import LocalToS3ZipManager
 from s3_zip_storage import S3ZipStorage
+from uncommitted_series_handler import UNCOMMITTED_SERIES_KVS
 
 
 def _fake_du_for(root: str, folder_name: str = "series", folder_size: int = 10):
+    """Returns a fake subprocess.run side effect that simulates `du` output for a single folder under `root`."""
     def fake_run(cmd, capture_output, text, check):
         folder = os.path.join(root, folder_name)
         total_size = folder_size if os.path.isdir(folder) else 0
@@ -513,10 +539,17 @@ class S3ZipStorageReadTests(unittest.TestCase):
 
 
 class _RetrievalLocalStorage:
-    def __init__(self):
+    def __init__(self, root=None):
+        self.root = root
         self.lease_depth = 0
         self.max_lease_depth = 0
+        self.marker_cs_depth = 0
+        self.max_marker_cs_depth = 0
         self.writes = []
+        # Optional hook fired right before the marker critical section is
+        # entered, used by tests to simulate a concurrent storage_create
+        # landing a new instance in the folder during retrieval.
+        self.before_marker_cs = None
 
     @contextmanager
     def lease_folder(self, local_series_folder):
@@ -527,10 +560,31 @@ class _RetrievalLocalStorage:
         finally:
             self.lease_depth -= 1
 
+    @contextmanager
+    def folder_marker_critical_section(self, local_series_folder):
+        if self.before_marker_cs is not None:
+            self.before_marker_cs(local_series_folder)
+        self.marker_cs_depth += 1
+        self.max_marker_cs_depth = max(self.max_marker_cs_depth, self.marker_cs_depth)
+        try:
+            yield
+        finally:
+            self.marker_cs_depth -= 1
+
+    def get_folder_path(self, local_series_folder):
+        if self.root is None:
+            raise AssertionError("get_folder_path requires a root tempdir")
+        return os.path.join(self.root, local_series_folder)
+
     def write_file(self, local_series_folder, uuid, content):
         if self.lease_depth <= 0:
             raise AssertionError("write_file called without a folder lease")
         self.writes.append((local_series_folder, uuid, content))
+        if self.root is not None:
+            folder = os.path.join(self.root, local_series_folder)
+            os.makedirs(folder, exist_ok=True)
+            with open(os.path.join(folder, uuid), "wb") as f:
+                f.write(content)
 
     def read_file(self, local_series_folder, uuid):
         raise AssertionError("read_file is not used by retrieval")
@@ -612,35 +666,45 @@ class ZipRetrievalTests(unittest.TestCase):
         self.assertEqual(first._ref_count, 0)
 
     def test_retrieve_zip_from_s3_holds_folder_lease_while_extracting(self):
-        local_storage = _RetrievalLocalStorage()
-        manager = self._new_manager(local_storage)
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _RetrievalLocalStorage(root=root)
+            manager = self._new_manager(local_storage)
 
-        manager.retrieve_zip_from_s3(
-            s3_zip_key="series.zip",
-            local_series_folder="series",
-        )
+            manager.retrieve_zip_from_s3(
+                s3_zip_key="series.zip",
+                local_series_folder="series",
+            )
 
-        self.assertEqual(
-            local_storage.writes,
-            [("series", "a", b"A"), ("series", "b", b"B")],
-        )
-        self.assertGreaterEqual(local_storage.max_lease_depth, 1)
-        self.assertEqual(local_storage.lease_depth, 0)
-        self.assertEqual(manager._s3_zip_retrievals, {})
+            self.assertEqual(
+                local_storage.writes,
+                [("series", "a", b"A"), ("series", "b", b"B")],
+            )
+            self.assertGreaterEqual(local_storage.max_lease_depth, 1)
+            self.assertEqual(local_storage.lease_depth, 0)
+            self.assertEqual(manager._s3_zip_retrievals, {})
+            # Marker is published on a clean retrieve so the folder is
+            # immediately reported as "on S3" and is safe to evict.
+            marker_path = os.path.join(root, "series", ".s3-uploaded")
+            with open(marker_path, "r") as f:
+                self.assertEqual(f.read(), "series.zip")
+            self.assertGreaterEqual(local_storage.max_marker_cs_depth, 1)
 
     def test_retrieve_zip_from_s3_retries_transient_download_failure(self):
-        local_storage = _RetrievalLocalStorage()
-        s3_client = _FlakyZipS3Client(failures_before_success=2)
-        manager = self._new_manager(local_storage, s3_client=s3_client, max_attempts=3)
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _RetrievalLocalStorage(root=root)
+            s3_client = _FlakyZipS3Client(failures_before_success=2)
+            manager = self._new_manager(local_storage, s3_client=s3_client, max_attempts=3)
 
-        manager.retrieve_zip_from_s3(
-            s3_zip_key="series.zip",
-            local_series_folder="series",
-        )
+            manager.retrieve_zip_from_s3(
+                s3_zip_key="series.zip",
+                local_series_folder="series",
+            )
 
-        self.assertEqual(s3_client.download_attempts, 3)
-        self.assertEqual(local_storage.writes, [("series", "a", b"A")])
-        self.assertEqual(manager._s3_zip_retrievals, {})
+            self.assertEqual(s3_client.download_attempts, 3)
+            self.assertEqual(local_storage.writes, [("series", "a", b"A")])
+            self.assertEqual(manager._s3_zip_retrievals, {})
+            marker_path = os.path.join(root, "series", ".s3-uploaded")
+            self.assertTrue(os.path.exists(marker_path))
 
     def test_retrieve_zip_from_s3_does_not_retry_bad_zip(self):
         local_storage = _RetrievalLocalStorage()
@@ -656,6 +720,45 @@ class ZipRetrievalTests(unittest.TestCase):
         self.assertEqual(s3_client.download_attempts, 1)
         self.assertEqual(local_storage.writes, [])
         self.assertEqual(manager._s3_zip_retrievals, {})
+        # Failure path never reaches the marker block -- no get_folder_path
+        # / CS calls are required from the mock when retrieval errors out.
+        self.assertEqual(local_storage.max_marker_cs_depth, 0)
+
+    def test_retrieve_zip_from_s3_writes_marker_only_when_folder_matches_zip(self):
+        # Race protection: if a concurrent storage_create lands a new
+        # instance in the same folder between extraction and the marker
+        # write, the on-disk file set will not match the extracted set and
+        # the marker must be withheld. Without this guard, eviction could
+        # later purge the folder and lose that new instance.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _RetrievalLocalStorage(root=root)
+            manager = self._new_manager(local_storage)
+
+            def simulate_concurrent_storage_create(_folder):
+                # storage_create writes its file BEFORE taking the marker
+                # CS, so the extra file is on disk by the time the
+                # retrieve thread enters the CS.
+                with open(os.path.join(root, "series", "c"), "wb") as f:
+                    f.write(b"new-instance-during-retrieve")
+
+            local_storage.before_marker_cs = simulate_concurrent_storage_create
+
+            manager.retrieve_zip_from_s3(
+                s3_zip_key="series.zip",
+                local_series_folder="series",
+            )
+
+            self.assertFalse(
+                os.path.exists(os.path.join(root, "series", ".s3-uploaded")),
+                "marker must not be written when folder has files outside the zip",
+            )
+            self.assertGreaterEqual(local_storage.max_marker_cs_depth, 1)
+            # The two extracted files and the extra one all remain on disk;
+            # the next STABLE_SERIES copy will pick them up and publish a
+            # marker that reflects the new attachment set.
+            self.assertTrue(os.path.exists(os.path.join(root, "series", "a")))
+            self.assertTrue(os.path.exists(os.path.join(root, "series", "b")))
+            self.assertTrue(os.path.exists(os.path.join(root, "series", "c")))
 
     def test_waiting_retrieval_callers_share_terminal_failure(self):
         local_storage = _RetrievalLocalStorage()
@@ -739,6 +842,12 @@ class _CopyLocalStorage:
 
     def get_folder_path(self, local_series_folder):
         return os.path.join(self.root, local_series_folder)
+
+    def has_local_file(self, uuid, local_series_folder, content_type):
+        # Default: pretend everything is on disk. Individual tests
+        # override via mock.patch.object when they want to exercise the
+        # missing-file fast-path guard.
+        return True
 
 
 class _UploadS3Client:
@@ -842,6 +951,37 @@ class CopySeriesToS3Tests(unittest.TestCase):
             # new instance.
             self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
 
+    def test_copy_series_to_s3_skips_upload_and_acks_when_no_local_files(self):
+        # Fast-path guard for the lost-data case. If not a single
+        # attachment has a local file, the copy must NOT raise (which
+        # would re-enqueue the worker forever); it must acknowledge by
+        # returning cleanly, clear the uncommitted-series KVS bookkeeping,
+        # and log at ERROR severity.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            local_storage.has_local_file = lambda uuid, local_series_folder, content_type: False
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    # The call must return None (graceful ack) -- it must NOT raise.
+                    manager.copy_series_to_s3("orthanc-series")
+
+            # Nothing uploaded, no marker written, no reads attempted.
+            self.assertEqual(s3_client.uploads, [])
+            self.assertEqual(local_storage.reads, [])
+            self.assertFalse(os.path.exists(os.path.join(root, "series", ".s3-uploaded")))
+            # KVS bookkeeping cleared so the housekeeper does not loop on it.
+            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+
     def test_invalidate_s3_uploaded_marker_removes_existing_marker(self):
         with tempfile.TemporaryDirectory() as root:
             local_storage = _CopyLocalStorage(root)
@@ -858,6 +998,490 @@ class CopySeriesToS3Tests(unittest.TestCase):
 
             # Idempotent on missing marker.
             self.assertFalse(manager.invalidate_s3_uploaded_marker("series"))
+
+
+class _FakeKVS:
+    """Minimal in-memory backing for orthanc.{Store,Delete}KeyValue + iterator.
+
+    Test fixtures wire its methods onto ``orthanc_stub`` for the duration
+    of a test via ``mock.patch.object``.
+    """
+
+    def __init__(self):
+        self._stores: dict = {}
+
+    def store(self, name, key, value):
+        self._stores.setdefault(name, {})[key] = value
+
+    def delete(self, name, key):
+        bucket = self._stores.get(name)
+        if bucket is not None:
+            bucket.pop(key, None)
+
+    def iterator(self, name):
+        items = list(self._stores.get(name, {}).items())
+
+        class _Iter:
+            def __init__(self, items):
+                self._items = items
+                self._i = -1
+                self._cur = None
+
+            def Next(self):
+                self._i += 1
+                if self._i >= len(self._items):
+                    return False
+                self._cur = self._items[self._i]
+                return True
+
+            def GetKey(self):
+                return self._cur[0]
+
+            def GetValue(self):
+                return self._cur[1]
+
+        return _Iter(items)
+
+    def all(self, name):
+        return dict(self._stores.get(name, {}))
+
+
+def _make_bare_s3zip_storage(zip_manager=None, uncommitted_handler=None, local_storage=None):
+    """Build a S3ZipStorage skeleton without invoking __init__.
+
+    The full constructor wants a real S3 client, temp folder, etc. The
+    housekeeper tests only exercise the methods that touch the KVS, the
+    zip manager, and (for the rescue probe) the local storage. We attach
+    the minimum needed attributes by hand.
+    """
+    storage = S3ZipStorage.__new__(S3ZipStorage)
+    storage._zip_manager = zip_manager or mock.MagicMock()
+    storage._uncommitted_series_handler = uncommitted_handler or mock.MagicMock()
+    storage._local_storage = local_storage or mock.MagicMock()
+    storage._housekeeper_enabled = True
+    storage._housekeeper_interval_sec = 60.0
+    storage._housekeeper_timer = None
+    return storage
+
+
+class HousekeeperResilienceTests(unittest.TestCase):
+    """Resilience properties of the housekeeper passes.
+
+    Focus: a single bad entry MUST NOT break the rest of the run, and the
+    timer MUST be re-armed on every exit path.
+    """
+
+    def test_perform_housekeeping_reschedules_even_when_pass_raises(self):
+        storage = _make_bare_s3zip_storage()
+        captured_timers = []
+
+        def fake_timer(interval, fn):
+            timer = mock.MagicMock()
+            captured_timers.append((interval, fn, timer))
+            return timer
+
+        with mock.patch.object(storage, "_perform_housekeeping", side_effect=RuntimeError("boom")):
+            with mock.patch("s3_zip_storage.threading.Timer", side_effect=fake_timer):
+                storage.perform_housekeeping()
+
+        # The timer must have been re-armed for the next pass.
+        self.assertEqual(len(captured_timers), 1)
+        self.assertIs(storage._housekeeper_timer, captured_timers[0][2])
+        captured_timers[0][2].start.assert_called_once()
+
+    def test_deleted_series_pass_continues_past_corrupt_kvs_value(self):
+        kvs = _FakeKVS()
+        # Two entries: one corrupt, one valid (its CD points to a series
+        # that is gone, so the housekeeper should delete the S3 zip).
+        kvs.store("series-ids-to-possibly-delete-from-s3", "corrupt", b"\x01\x02not-a-customdata\xff")
+        valid_cd = CustomData(
+            storage=CustomData.Storage.S3_ZIP,
+            local_series_folder="folder-of-gone",
+            s3_zip_key="prefix/gone.zip",
+            series_id="gone",
+            size_in_bytes=0,
+        ).to_binary()
+        kvs.store("series-ids-to-possibly-delete-from-s3", "gone", valid_cd)
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None  # really gone, no re-upload race
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        def fake_rest_api_get(uri):
+            # Both lookups answer "series no longer exists"
+            raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
+            storage._housekeep_deleted_series()
+
+        # The corrupt entry was dropped (so we don't loop on it forever)
+        # and the valid entry was processed (S3 delete called, then KVS
+        # entry dropped). Both entries are gone from the KVS.
+        self.assertEqual(kvs.all("series-ids-to-possibly-delete-from-s3"), {})
+        zip_manager.delete_zip_from_s3.assert_called_once_with(s3_zip_key="prefix/gone.zip")
+
+    def test_deleted_series_pass_isolates_failing_s3_delete(self):
+        kvs = _FakeKVS()
+        for series_id in ("a", "b", "c"):
+            cd = CustomData(
+                storage=CustomData.Storage.S3_ZIP,
+                local_series_folder=f"folder-{series_id}",
+                s3_zip_key=f"prefix/{series_id}.zip",
+                series_id=series_id,
+                size_in_bytes=0,
+            ).to_binary()
+            kvs.store("series-ids-to-possibly-delete-from-s3", series_id, cd)
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None
+
+        deleted_keys = []
+
+        def flaky_delete(s3_zip_key):
+            if s3_zip_key.endswith("/b.zip"):
+                raise ConnectionError("transient S3 hiccup")
+            deleted_keys.append(s3_zip_key)
+
+        zip_manager.delete_zip_from_s3.side_effect = flaky_delete
+
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        def fake_rest_api_get(uri):
+            raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
+            storage._housekeep_deleted_series()
+
+        # 'a' and 'c' were processed; 'b' raised and remains in the KVS
+        # for the next pass to retry.
+        self.assertEqual(set(deleted_keys), {"prefix/a.zip", "prefix/c.zip"})
+        remaining = kvs.all("series-ids-to-possibly-delete-from-s3")
+        self.assertEqual(set(remaining.keys()), {"b"})
+
+    def test_deleted_series_pass_reuploads_when_series_reappears(self):
+        # The narrow race: Orthanc says UNKNOWN_RESOURCE, we delete the S3
+        # zip, but during the delete a new series with the same series_id
+        # got uploaded. Re-query, see the new s3-zip CustomData, and
+        # schedule_copy_series_to_s3 to replace the zip we just clobbered.
+        kvs = _FakeKVS()
+        cd_bytes = CustomData(
+            storage=CustomData.Storage.S3_ZIP,
+            local_series_folder="folder",
+            s3_zip_key="prefix/raced.zip",
+            series_id="raced",
+            size_in_bytes=0,
+        ).to_binary()
+        kvs.store("series-ids-to-possibly-delete-from-s3", "raced", cd_bytes)
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(
+            is_stored_in_s3=True,
+            s3_zip_key="prefix/raced.zip",
+        )
+
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        # /series/<id>/instances says "no" (the housekeeper's check ran
+        # before the new upload completed).
+        def fake_rest_api_get(uri):
+            raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
+            storage._housekeep_deleted_series()
+
+        zip_manager.delete_zip_from_s3.assert_called_once_with(s3_zip_key="prefix/raced.zip")
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="raced")
+
+
+class HousekeeperUncommittedRescueTests(unittest.TestCase):
+    """The 2nd housekeeper pass: rescue or quarantine uncommitted series."""
+
+    def _patch_orthanc(self, kvs, attachments_by_series, attachments_by_instance,
+                       attachment_info_by_pair, custom_data_by_attachment, missing_series=()):
+        """Context-manager soup that wires the orthanc stub for one test."""
+        def fake_rest_api_get(uri):
+            # /series/<id>/instances
+            if uri.startswith("/series/") and uri.endswith("/instances"):
+                series_id = uri[len("/series/"):-len("/instances")]
+                if series_id in missing_series:
+                    raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+                return json.dumps(attachments_by_series.get(series_id, []))
+            # /instances/<id>/attachments?full
+            if uri.startswith("/instances/") and uri.endswith("/attachments?full"):
+                instance_id = uri[len("/instances/"):-len("/attachments?full")]
+                return json.dumps(attachments_by_instance.get(instance_id, {}))
+            # /instances/<id>/attachments/<name>/info
+            if uri.startswith("/instances/") and uri.endswith("/info"):
+                rest = uri[len("/instances/"):-len("/info")]
+                instance_id, _slash, rest = rest.partition("/attachments/")
+                attachment_name = rest
+                info = attachment_info_by_pair.get((instance_id, attachment_name), {})
+                return json.dumps(info)
+            raise AssertionError(f"unexpected RestApiGet uri: {uri}")
+
+        def fake_get_attachment_custom_data(attachment_uuid):
+            cd = custom_data_by_attachment.get(attachment_uuid)
+            if cd is None:
+                return b""
+            return cd.to_binary()
+
+        return [
+            mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator),
+            mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete),
+            mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store),
+            mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get),
+            mock.patch.object(orthanc_stub, "GetAttachmentCustomData", side_effect=fake_get_attachment_custom_data),
+        ]
+
+    def test_young_uncommitted_entry_is_left_alone(self):
+        kvs = _FakeKVS()
+        # Just registered "now": well under the 5-minute grace period.
+        now_ms = int(time.time() * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "fresh-series", str(now_ms))
+
+        zip_manager = mock.MagicMock()
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={"fresh-series": [{"ID": "i1"}]},
+            attachments_by_instance={"i1": {"dicom": 1}},
+            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            custom_data_by_attachment={},  # not consulted -- too young
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        zip_manager.schedule_copy_series_to_s3.assert_not_called()
+        self.assertEqual(set(kvs.all(UNCOMMITTED_SERIES_KVS).keys()), {"fresh-series"})
+
+    def test_old_uncommitted_with_local_file_reschedules_copy(self):
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)  # 10 min ago, well past grace
+        kvs.store(UNCOMMITTED_SERIES_KVS, "stuck-series", str(old_ms))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(is_stored_in_s3=False)
+        local_storage = mock.MagicMock()
+        local_storage.has_local_file.return_value = True
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager, local_storage=local_storage)
+
+        cd = CustomData(
+            storage=CustomData.Storage.LOCAL,
+            local_series_folder="folder-of-stuck",
+            size_in_bytes=0,
+        )
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={"stuck-series": [{"ID": "i1"}]},
+            attachments_by_instance={"i1": {"dicom": 1}},
+            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            custom_data_by_attachment={"att1": cd},
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="stuck-series")
+        # Entry stays in KVS -- on_committed_series clears it once the copy
+        # actually finishes.
+        self.assertEqual(set(kvs.all(UNCOMMITTED_SERIES_KVS).keys()), {"stuck-series"})
+
+    def test_old_uncommitted_without_local_file_still_schedules_copy_with_error(self):
+        # Per the design: housekeeper always triggers the copy. The copy
+        # thread's fast-path guard (tested separately) is what prevents
+        # the queue from spinning when no local data is left. Here we
+        # only verify the housekeeper-side behaviour.
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "lost-series", str(old_ms))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(is_stored_in_s3=False)
+        local_storage = mock.MagicMock()
+        local_storage.has_local_file.return_value = False
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager, local_storage=local_storage)
+
+        cd = CustomData(
+            storage=CustomData.Storage.LOCAL,
+            local_series_folder="folder-of-lost",
+            size_in_bytes=0,
+        )
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={"lost-series": [{"ID": "i1"}]},
+            attachments_by_instance={"i1": {"dicom": 1}},
+            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            custom_data_by_attachment={"att1": cd},
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        # Copy IS scheduled (the copy thread's guard will handle the abandon).
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="lost-series")
+        # The KVS entry stays put -- on_committed_series (called from
+        # the copy thread's guard) is the path that clears it.
+        self.assertEqual(set(kvs.all(UNCOMMITTED_SERIES_KVS).keys()), {"lost-series"})
+
+    def test_old_uncommitted_with_partial_local_files_logs_tainted_and_schedules(self):
+        # 2 of 3 instances have local files. Housekeeper must:
+        #  - log at ERROR severity (tainted), and
+        #  - still call schedule_copy_series_to_s3 so the failure is
+        #    visible in the copy thread.
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "tainted-series", str(old_ms))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(is_stored_in_s3=False)
+
+        cd = CustomData(
+            storage=CustomData.Storage.LOCAL,
+            local_series_folder="folder-of-tainted",
+            size_in_bytes=0,
+        )
+
+        # Only attachments "att1" and "att2" have local files; "att3" does not.
+        present_attachments = {"att1", "att2"}
+        local_storage = mock.MagicMock()
+        local_storage.has_local_file.side_effect = (
+            lambda uuid, local_series_folder, content_type: uuid in present_attachments
+        )
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager, local_storage=local_storage)
+
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={"tainted-series": [{"ID": "i1"}, {"ID": "i2"}, {"ID": "i3"}]},
+            attachments_by_instance={
+                "i1": {"dicom": 1},
+                "i2": {"dicom": 1},
+                "i3": {"dicom": 1},
+            },
+            attachment_info_by_pair={
+                ("i1", "dicom"): {"Uuid": "att1"},
+                ("i2", "dicom"): {"Uuid": "att2"},
+                ("i3", "dicom"): {"Uuid": "att3"},
+            },
+            custom_data_by_attachment={"att1": cd, "att2": cd, "att3": cd},
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="tainted-series")
+
+    def test_old_uncommitted_already_on_s3_clears_stale_entry(self):
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "already-on-s3", str(old_ms))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(
+            is_stored_in_s3=True, s3_zip_key="prefix/already-on-s3.zip",
+        )
+        uncommitted_handler = mock.MagicMock()
+        storage = _make_bare_s3zip_storage(
+            zip_manager=zip_manager,
+            uncommitted_handler=uncommitted_handler,
+        )
+
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={"already-on-s3": [{"ID": "i1"}]},
+            attachments_by_instance={"i1": {"dicom": 1}},
+            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            custom_data_by_attachment={},  # unused -- get_series_info short-circuits
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        uncommitted_handler.on_committed_series.assert_called_once_with(series_id="already-on-s3")
+        zip_manager.schedule_copy_series_to_s3.assert_not_called()
+
+    def test_old_uncommitted_series_gone_from_orthanc_drops_entry(self):
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "deleted-series", str(old_ms))
+
+        storage = _make_bare_s3zip_storage()
+
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={},
+            attachments_by_instance={},
+            attachment_info_by_pair={},
+            custom_data_by_attachment={},
+            missing_series=("deleted-series",),
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        # Entry dropped because the series is gone -- nothing to do.
+        self.assertEqual(kvs.all(UNCOMMITTED_SERIES_KVS), {})
+
+    def test_uncommitted_pass_isolates_failing_entry(self):
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "blow-up", str(old_ms))
+        kvs.store(UNCOMMITTED_SERIES_KVS, "ok-series", str(old_ms))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.side_effect = lambda series_id: (
+            mock.Mock(is_stored_in_s3=False) if series_id == "ok-series" else (_ for _ in ()).throw(RuntimeError("kaboom"))
+        )
+        local_storage = mock.MagicMock()
+        local_storage.has_local_file.return_value = True
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager, local_storage=local_storage)
+
+        cd = CustomData(
+            storage=CustomData.Storage.LOCAL,
+            local_series_folder="folder",
+            size_in_bytes=0,
+        )
+
+        patches = self._patch_orthanc(
+            kvs,
+            attachments_by_series={
+                "blow-up": [{"ID": "i-blow"}],
+                "ok-series": [{"ID": "i-ok"}],
+            },
+            attachments_by_instance={
+                "i-blow": {"dicom": 1},
+                "i-ok": {"dicom": 1},
+            },
+            attachment_info_by_pair={
+                ("i-blow", "dicom"): {"Uuid": "att-blow"},
+                ("i-ok", "dicom"): {"Uuid": "att-ok"},
+            },
+            custom_data_by_attachment={"att-blow": cd, "att-ok": cd},
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series()
+
+        # Despite one entry blowing up in get_series_info, the other was
+        # still rescued.
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="ok-series")
 
 
 if __name__ == "__main__":
