@@ -16,9 +16,9 @@ To start the setup, type: `docker-compose up`
 
 # demo
 
-- first upload a file in Orthanc A through the UI [http://localhost:8042/ui/app/](http://localhost:8042/ui/app/)
+- first upload a file in Orthanc A through the UI [http://localhost:8052/ui/app/](http://localhost:8052/ui/app/)
 - browse to the study and, click "Send to remote modality", select "b"
-- log in the Orthanc B user interface [http://localhost:8043/ui/app/](http://localhost:8043/ui/app/)
+- log in the Orthanc B user interface [http://localhost:8053/ui/app/](http://localhost:8053/ui/app/)
 - check that the study has been received
 - upload a new study in Orthanc B
-- in the Orthanc A UI, you can then browse the remote orthanc B UI to find this study and retrieve it in orthanc A
+- in the Orthanc A UI, you can then browse the remote orthanc B UI to find this study and retrieve it in orthanc A.  You can retrieve it either via C-GET or via C-Move depending of the modality alias you use.
