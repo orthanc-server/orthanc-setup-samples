@@ -209,6 +209,8 @@ class LocalToS3ZipManager:
         self._s3_zip_retrievals = {}
         self._s3_zip_retrievals_lock = threading.Lock()
         self._threads_should_stop = False
+        # series_id -> consecutive copy failures, for retry backoff (copy thread only)
+        self._copy_failure_counts: Dict[str, int] = {}
         self._copy_thread = threading.Thread(target=self._copy_thread_worker)
 
         compression_name = "ZIP_DEFLATED" if enable_compression else "ZIP_STORED"
@@ -381,6 +383,7 @@ class LocalToS3ZipManager:
         try:
             self.copy_series_to_s3(series_id=series_id)
             copy_succeeded = True
+            self._copy_failure_counts.pop(series_id, None)
         except BaseException as e:
             self._log_copy_thread_exception("failed to copy series to S3, re-enqueuing",
                                             e,
@@ -404,6 +407,23 @@ class LocalToS3ZipManager:
                 logger.info("copy_series_to_s3 cycle complete", series_id=series_id)
             elif acknowledged:
                 logger.info("failed copy re-enqueued and original queue value acknowledged", series_id=series_id)
+
+        if not copy_succeeded:
+            # Exponential backoff between retries of a failing copy. Without
+            # it the dequeue/fail/re-enqueue cycle spins every ~20 ms, floods
+            # the log and starves everything else on this thread. The sleep
+            # runs AFTER re-enqueue + ack, so no queue lease is held during
+            # the wait, and it stays interruptible for shutdown.
+            failures = self._copy_failure_counts.get(series_id, 0) + 1
+            self._copy_failure_counts[series_id] = failures
+            backoff_sec = min(2 ** min(failures, 5), 30)
+            logger.info("backing off before next copy attempt",
+                        series_id=series_id,
+                        consecutive_failures=failures,
+                        backoff_sec=backoff_sec)
+            deadline = time.monotonic() + backoff_sec
+            while time.monotonic() < deadline and not self._threads_should_stop:
+                time.sleep(0.5)
 
 
     def _acknowledge_copy_queue_value(self, value_id, series_id: str) -> bool:
@@ -525,8 +545,24 @@ class LocalToS3ZipManager:
                             logger.debug("resolved local_series_folder from first attachment",
                                          series_id=series_id,
                                          local_series_folder=local_series_folder)
-                        content = self._local_storage.read_file(uuid=a_uuid,
-                                                                local_series_folder=local_series_folder)
+                        try:
+                            content = self._local_storage.read_file(uuid=a_uuid,
+                                                                    local_series_folder=local_series_folder)
+                        except FileNotFoundError:
+                            # A series can legally reach this state: it was
+                            # uploaded (folder marked), evicted, then NEW
+                            # instances arrived and recreated the folder with
+                            # only the new files -- the older attachments now
+                            # exist ONLY inside the previous S3 zip. Rebuild
+                            # the folder from that zip once, then retry.
+                            # Retrieval will not republish the marker (folder
+                            # contents != zip contents), so the folder stays
+                            # eviction-protected until this re-upload lands.
+                            content = self._rehydrate_and_reread(
+                                series_id=series_id,
+                                a_uuid=a_uuid,
+                                local_series_folder=local_series_folder,
+                            )
                         attachments_sizes[a_uuid] = len(content)
                         total_uncompressed_bytes += attachments_sizes[a_uuid]
                         logger.debug("adding attachment to zip",
@@ -801,6 +837,46 @@ class LocalToS3ZipManager:
         response =  self._s3_client.get_object(Bucket=self._bucket_name,
                                                Key=s3_zip_key)
         return response['Body']
+
+
+    def _rehydrate_and_reread(self, series_id: str, a_uuid: str, local_series_folder: str) -> bytes:
+        """Restore a locally-missing attachment from the series' previous S3 zip.
+
+        Called by ``copy_series_to_s3`` when an attachment file is absent from
+        the local folder although Orthanc still lists it. That state is legal:
+        the series was uploaded, its folder evicted, then new instances
+        recreated the folder with only the new files. The missing bytes live
+        in the previously-uploaded zip, referenced by the attachment's
+        custom data. Raises FileNotFoundError if the attachment was never
+        uploaded (no ``s3_zip_key``) -- in that case the data is really gone
+        and the caller's failure path must handle it.
+        """
+        cd = CustomData.from_orthanc_attachment(a_uuid)
+        s3_zip_key = cd.s3_zip_key if cd else None
+        if not s3_zip_key:
+            logger.error(
+                "copy_series_to_s3: attachment file missing locally and never uploaded to S3; "
+                "cannot rehydrate",
+                series_id=series_id,
+                uuid=a_uuid,
+                local_series_folder=local_series_folder,
+            )
+            raise FileNotFoundError(
+                f"attachment {a_uuid} of series {series_id} has no local file and no S3 zip"
+            )
+
+        logger.warning(
+            "copy_series_to_s3: attachment file missing locally (folder evicted after a previous "
+            "upload, then recreated by newer instances); rehydrating from the previous S3 zip",
+            series_id=series_id,
+            uuid=a_uuid,
+            s3_zip_key=s3_zip_key,
+            local_series_folder=local_series_folder,
+        )
+        self.retrieve_zip_from_s3(s3_zip_key=s3_zip_key,
+                                  local_series_folder=local_series_folder)
+        return self._local_storage.read_file(uuid=a_uuid,
+                                             local_series_folder=local_series_folder)
 
 
     def retrieve_zip_from_s3(self, s3_zip_key: str, local_series_folder: str):
