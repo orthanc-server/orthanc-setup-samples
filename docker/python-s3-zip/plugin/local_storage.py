@@ -6,6 +6,7 @@ import orthanc
 import sys
 import threading
 import subprocess
+import time
 import queue
 import shutil
 from contextlib import contextmanager
@@ -80,6 +81,15 @@ if _module_level_override:
             f"{_LOCAL_STORAGE_LOG_LEVEL_ENV_VAR}={_module_level_override!r}",
             file=sys.stderr,
         )
+
+
+# du(1) exits non-zero (typically 1) when it cannot stat an entry — e.g. a
+# series folder is evicted/removed by another thread while du is walking the
+# cache. In that case du still prints valid sizes for every surviving entry on
+# stdout, so a partial result is safe to use. A run that produces NO usable
+# output at all is treated as transient and retried with exponential backoff.
+_DU_MAX_ATTEMPTS: int = 3
+_DU_RETRY_BACKOFF_BASE_SEC: float = 0.1
 
 
 class LocalStorage(LocalStorageInterface):
@@ -259,18 +269,71 @@ class LocalStorage(LocalStorageInterface):
             if self._active_writers == 0:
                 self._io_condition.notify_all()
 
+    def _run_du_capture(self, cmd: List[str]) -> str:
+        """Run ``du`` and return its stdout, hardened against the local cache
+        mutating mid-scan.
+
+        ``du`` exits non-zero when it fails to stat an entry — e.g. a series
+        folder is evicted/removed by another thread while ``du`` walks the
+        cache. When that happens ``du`` still prints valid sizes for every
+        surviving entry on stdout, so we accept that partial output instead of
+        letting a ``CalledProcessError`` crash the caller: the missing folders
+        are exactly the ones being removed, so under-counting their bytes is
+        self-correcting and gets picked up on the next scan. A run that yields
+        no usable output at all is treated as transient (e.g. an ``ENOMEM``
+        fork failure under load) and retried with exponential backoff before
+        finally giving up.
+        """
+        last_stderr: str = ""
+        for attempt in range(1, _DU_MAX_ATTEMPTS + 1):
+            result: subprocess.CompletedProcess[str] = subprocess.run(
+                cmd, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return result.stdout
+
+            last_stderr = (result.stderr or "").strip()
+            if result.stdout.strip():
+                logger.warning(
+                    "du exited non-zero but produced usable output; treating it as a partial scan (cache mutated mid-walk)",
+                    returncode=result.returncode,
+                    attempt=attempt,
+                    stderr=last_stderr[:500],
+                )
+                return result.stdout
+
+            logger.warning(
+                "du produced no usable output; will retry with backoff",
+                returncode=result.returncode,
+                attempt=attempt,
+                max_attempts=_DU_MAX_ATTEMPTS,
+                stderr=last_stderr[:500],
+            )
+            if attempt < _DU_MAX_ATTEMPTS:
+                backoff_sec: float = _DU_RETRY_BACKOFF_BASE_SEC * (1 << (attempt - 1))
+                time.sleep(backoff_sec)
+
+        raise RuntimeError(
+            f"du failed to produce usable output after {_DU_MAX_ATTEMPTS} attempts for command {cmd!r}; last stderr: {last_stderr[:500]!r}"
+        )
+
     def _update_local_storage_stats_with_writes_paused(self) -> None:
         block_size: int = os.statvfs(self._root).f_frsize
         folder_stats: queue.PriorityQueue[FolderStatEntry] = queue.PriorityQueue()
 
         cmd: List[str] = ["du", "-b", "--max-depth=1", self._root]
-        result: subprocess.CompletedProcess[str] = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        lines: List[str] = result.stdout.strip().split("\n")
+        du_stdout: str = self._run_du_capture(cmd)
+        lines: List[str] = du_stdout.strip().split("\n")
 
         total_folders: int = 0
         total_apparent_bytes: int = 0
         for line in lines:
-            size_str, path = line.split("\t")
+            if "\t" not in line:
+                # Defensive: du emits complete "<size>\t<path>" lines, but a
+                # mutating-cache scan is exactly when we must not trust that a
+                # blank/partial line never sneaks in.
+                continue
+            size_str, path = line.split("\t", 1)
             folder_size: int = int(size_str)
             if path != self._root:
                 last_modified: float = os.path.getmtime(path)
