@@ -453,6 +453,33 @@ class LocalToS3ZipManager:
                      series_id=series_id,
                      attachment_count=len(attachments_uuids))
 
+        # Nothing to copy. The usual cause is that the series was deleted
+        # between the enqueue and this dequeue, in which case /tools/find
+        # returns no instances at all.
+        #
+        # This needs its own exit because BOTH fast paths below are guarded
+        # by `if attachments_uuids`. Falling through with an empty list
+        # builds an EMPTY zip, PUTs it to S3 under the series' key, and then
+        # fails in _write_s3_uploaded_marker on the still-unset
+        # local_series_folder -- so the series is re-enqueued and the whole
+        # cycle repeats on every copy-queue backoff, forever, writing a junk
+        # S3 object each time.
+        if not attachments_uuids:
+            logger.warning(
+                "copy_series_to_s3: series has no supported attachment; nothing to copy "
+                "(was it deleted after being enqueued?). Acknowledging without re-enqueueing.",
+                series_id=series_id,
+            )
+            try:
+                self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+            except Exception:
+                logger.exception(
+                    "copy_series_to_s3: failed to clear uncommitted-series KVS entry for a series "
+                    "with no attachment; housekeeper will retry the cleanup",
+                    series_id=series_id,
+                )
+            return
+
         # Dedup early-exit: the same series can be enqueued twice under
         # heavy ingest -- once by the natural STABLE_SERIES path, once
         # by the uncommitted-series housekeeper after the 5 min grace

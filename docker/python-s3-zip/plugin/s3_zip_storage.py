@@ -37,6 +37,39 @@ _SUPPORTED_ATTACHMENT_CONTENT_TYPES = {
     3,  # ContentType.DICOM_UNTIL_PIXEL_DATA
 }
 
+DELETED_SERIES_KVS = "series-ids-to-possibly-delete-from-s3"
+
+# --- Housekeeper work budget -------------------------------------------
+#
+# The housekeeper runs on one timer thread inside the Orthanc process and
+# shares its PostgreSQL connections with the C-STORE hot path. Both passes
+# are driven by KVS tables whose size is bounded only by how fast entries
+# can be retired -- and the conditions that stop entries from being retired
+# (S3 unreachable, DeleteObject denied, copy queue backed up, local data
+# wiped by a pod restart) are exactly the conditions under which the KVS is
+# largest. Unbounded, a pass therefore does the MOST work precisely when the
+# server is least able to absorb it, which is a positive feedback loop.
+#
+# So each pass takes a fixed bite: at most _MAX_SERIES_PER_PASS entries and
+# at most _MAX_PASS_DURATION_SEC of wall clock. Whatever is not reached this
+# tick is reached on a later one -- the KVS is durable, so deferring work is
+# always safe. Draining a large backlog is deliberately slow; the point is
+# that the cost of one tick stays flat no matter how big the backlog gets.
+#
+# The two passes get INDEPENDENT budgets on purpose. Sharing one budget
+# would let a burst of deletions (one deleted study is one KVS entry per
+# series) consume it entirely and starve the uncommitted-series pass, which
+# is the one that rescues data that is not yet safe on S3.
+_HOUSEKEEPER_MAX_SERIES_PER_PASS = 20
+_HOUSEKEEPER_MAX_PASS_DURATION_SEC = 30.0
+
+# Upper bound on the instances probed for a single uncommitted series. One
+# 10k-instance series would otherwise be able to blow the pass budget on its
+# own. Probing a subset is enough: the probe only has to decide whether the
+# series still has local data, and the copy thread re-reads the full
+# attachment list anyway.
+_HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES = 500
+
 
 def _parse_uncommitted_entry_age_ms(raw_value, now_epoch_ms: int) -> int:
     """Return how old an uncommitted-series KVS entry is, in milliseconds.
@@ -77,6 +110,10 @@ class S3ZipStorage:
     _housekeeper_enabled: bool = False
     _housekeeper_interval_sec: float
     _housekeeper_timer: threading.Timer | None = None
+    _housekeeper_stopping: bool = False
+    # KVS name -> how many entries the next pass should skip before it starts
+    # working. See _collect_housekeeper_batch.
+    _housekeeper_skip_counts: dict[str, int]
 
     def __init__(self,
                  temporary_folder_root: str,
@@ -127,6 +164,8 @@ class S3ZipStorage:
         self._local_storage.set_eviction_guard(_is_folder_safe_to_evict)
         self._housekeeper_interval_sec = housekeeper_interval_sec
         self._housekeeper_enabled = housekeeper_interval_sec >= 1
+        self._housekeeper_stopping = False
+        self._housekeeper_skip_counts = {}
 
         logger.debug("S3ZipStorage initialized")
 
@@ -155,6 +194,7 @@ class S3ZipStorage:
 
         if self._housekeeper_enabled:
             logger.debug(f"Scheduling housekeeper with an interval of {self._housekeeper_interval_sec} sec")
+            self._housekeeper_stopping = False
             self._schedule_housekeeping()
         else:
             logger.debug(f"NOT starting housekeeper")
@@ -164,6 +204,13 @@ class S3ZipStorage:
         logger.debug("stopping S3ZipStorage manager")
         self._zip_manager.stop()
 
+        # Set the flag BEFORE cancelling. perform_housekeeping() clears
+        # _housekeeper_timer as it starts running, so a stop() that lands
+        # mid-pass has nothing to cancel -- and the pass would then re-arm
+        # the timer in its finally block and keep the housekeeper alive for
+        # the rest of the process' life. The flag is what that finally
+        # block checks.
+        self._housekeeper_stopping = True
         if self._housekeeper_timer:
             logger.debug("stopping housekeeper")
             self._housekeeper_timer.cancel()
@@ -412,7 +459,7 @@ class S3ZipStorage:
 
         if self._housekeeper_enabled and cd.series_id: # this only happens if the series has been uploaded into s3
             try:
-                orthanc.StoreKeyValue("series-ids-to-possibly-delete-from-s3", cd.series_id, custom_data) # cd.s3_zip_key.encode('utf-8') if cd.s3_zip_key else b'')
+                orthanc.StoreKeyValue(DELETED_SERIES_KVS, cd.series_id, custom_data) # cd.s3_zip_key.encode('utf-8') if cd.s3_zip_key else b'')
             except Exception as e:
                 logger.error(
                     "storage_remove could not schedule S3 zip cleanup; returning success so Orthanc can delete "
@@ -484,32 +531,134 @@ class S3ZipStorage:
             # the next run can be diagnosed instead of silently lost.
             logger.exception("Housekeeper: unexpected error during run; rescheduling anyway")
         finally:
-            # reschedule
-            self._schedule_housekeeping()
+            # reschedule -- unless stop() has been called in the meantime
+            if not self._housekeeper_stopping:
+                self._schedule_housekeeping()
 
     def _schedule_housekeeping(self):
         self._housekeeper_timer = threading.Timer(self._housekeeper_interval_sec, self.perform_housekeeping)
+        # A non-daemon timer keeps the interpreter alive until it fires, so a
+        # SIGTERM arriving just after a pass would hold the pod up for a full
+        # housekeeper interval before Python could exit.
+        self._housekeeper_timer.daemon = True
         self._housekeeper_timer.start()
 
     def _perform_housekeeping(self):
         logger.debug("Performing housekeeping")
+        started_at = time.monotonic()
 
         # Each pass is independent: a failure in one must not prevent the
         # others from running. Pass-level guards turn unexpected failures
         # into a logged warning so the timer keeps ticking.
+        #
+        # Each pass also gets its own deadline rather than sharing one for
+        # the whole run, so a slow deleted-series pass cannot eat the time
+        # budget of the uncommitted-series pass.
+        deleted_processed = 0
         try:
-            self._housekeep_deleted_series()
+            deleted_processed = self._housekeep_deleted_series(
+                deadline=time.monotonic() + _HOUSEKEEPER_MAX_PASS_DURATION_SEC)
         except Exception:
             logger.exception("Housekeeper: deleted-series pass failed")
 
+        uncommitted_processed = 0
         try:
-            self._housekeep_uncommitted_series()
+            uncommitted_processed = self._housekeep_uncommitted_series(
+                deadline=time.monotonic() + _HOUSEKEEPER_MAX_PASS_DURATION_SEC)
         except Exception:
             logger.exception("Housekeeper: uncommitted-series pass failed")
 
-        logger.debug("Performed housekeeping")
+        logger.debug("Performed housekeeping",
+                     deleted_series_processed=deleted_processed,
+                     uncommitted_series_processed=uncommitted_processed,
+                     duration_ms=int((time.monotonic() - started_at) * 1000))
 
-    def _housekeep_deleted_series(self):
+    def _collect_housekeeper_batch(self, kvs_name: str) -> list:
+        """Read at most one pass' worth of ``(key, value)`` pairs from a KVS.
+
+        Two properties the passes depend on:
+
+        * **The iterator is drained and dropped before any slow work runs.**
+          Both passes delete from the very KVS they walk and then make S3 /
+          REST calls per entry. Holding Orthanc's iterator (a live
+          PostgreSQL cursor) open across that is both a mutate-while-
+          iterating hazard and a long-lived transaction on the same
+          database the C-STORE path uses.
+
+        * **Successive passes resume where the previous one stopped.** With
+          a fixed budget and no rotation, a backlog whose leading entries
+          can never be retired (S3 DeleteObject denied, say) would consume
+          the whole budget every tick and the rest of the KVS would never be
+          looked at again. The cursor is a POSITION, not a key: entries that
+          were processed successfully are usually gone by the next pass, so
+          "resume after key K" would not survive. Position-based rotation
+          only assumes the enumeration order is roughly stable between
+          passes; if it is not, some entries are merely revisited sooner
+          than others -- and because the counter resets every time a pass
+          reaches the end of the KVS, no entry can be starved indefinitely.
+        """
+        skip = self._housekeeper_skip_counts.get(kvs_name, 0)
+        entries, reached_end = self._read_kvs_page(kvs_name=kvs_name, skip=skip)
+
+        if not entries and skip > 0:
+            # The KVS is now shorter than the resume offset -- the normal
+            # case, since last pass' entries were retired. Rewind and use
+            # this tick rather than waste it.
+            logger.debug("Housekeeper: KVS shorter than the resume offset; restarting from the beginning",
+                         kvs_name=kvs_name,
+                         skip=skip)
+            skip = 0
+            entries, reached_end = self._read_kvs_page(kvs_name=kvs_name, skip=0)
+
+        self._housekeeper_skip_counts[kvs_name] = 0 if reached_end else skip + len(entries)
+        return entries
+
+    def _read_kvs_page(self, kvs_name: str, skip: int) -> Tuple[list, bool]:
+        """Return ``(entries, reached_end)`` for one page of a KVS.
+
+        ``reached_end`` is True when the iterator was exhausted, i.e. the
+        page stopped for lack of entries rather than for lack of budget.
+        """
+        entries: list = []
+        try:
+            iterator = orthanc.CreateKeysValuesIterator(kvs_name)
+        except Exception:
+            logger.exception("Housekeeper: failed to open KVS iterator", kvs_name=kvs_name)
+            return entries, True
+
+        seen = 0
+        while len(entries) < _HOUSEKEEPER_MAX_SERIES_PER_PASS:
+            try:
+                if not iterator.Next():
+                    return entries, True
+            except Exception:
+                logger.exception("Housekeeper: KVS iterator failed; ending this page early",
+                                 kvs_name=kvs_name)
+                return entries, True
+
+            seen += 1
+            if seen <= skip:
+                continue
+
+            try:
+                entries.append((iterator.GetKey(), iterator.GetValue()))
+            except Exception:
+                logger.exception("Housekeeper: failed to read a KVS entry; skipping it",
+                                 kvs_name=kvs_name)
+
+        return entries, False
+
+    def _housekeeper_out_of_time(self, deadline: float, pass_name: str, processed: int) -> bool:
+        if time.monotonic() < deadline:
+            return False
+        logger.warning("Housekeeper: pass stopped early because its time budget is exhausted; "
+                       "the remaining entries will be handled by a later pass",
+                       pass_name=pass_name,
+                       processed=processed,
+                       max_pass_duration_sec=_HOUSEKEEPER_MAX_PASS_DURATION_SEC)
+        return True
+
+    def _housekeep_deleted_series(self, deadline: float) -> int:
         """Pass 1 -- clean up S3 zips for series that have been removed from Orthanc.
 
         Driven by the ``series-ids-to-possibly-delete-from-s3`` KVS, which is
@@ -529,17 +678,23 @@ class S3ZipStorage:
             delete we re-query Orthanc; if the series is back with
             ``CustomData.storage == s3-zip`` pointing at the same key, we
             re-schedule a copy so the new attachment set is re-uploaded.
+          - The pass is bounded in both entries and wall clock, and resumes
+            where the previous one stopped. Entries whose S3 delete keeps
+            failing (revoked credentials, a bucket policy that denies
+            DeleteObject) are retried forever by design, but they can no
+            longer monopolise the housekeeper: see _collect_housekeeper_batch.
+
+        Returns the number of entries actually processed.
         """
-        series_iterator = orthanc.CreateKeysValuesIterator("series-ids-to-possibly-delete-from-s3")
-        while series_iterator.Next():
-            try:
-                series_id = series_iterator.GetKey()
-            except Exception:
-                logger.exception("Housekeeper: failed to read key from KVS iterator; skipping entry")
-                continue
+        processed = 0
+        for series_id, raw_value in self._collect_housekeeper_batch(DELETED_SERIES_KVS):
+            if self._housekeeper_out_of_time(deadline=deadline,
+                                             pass_name="deleted-series",
+                                             processed=processed):
+                break
+            processed += 1
 
             try:
-                raw_value = series_iterator.GetValue()
                 cd = CustomData.from_binary(raw_value)
             except Exception:
                 # A corrupt or unparseable value is not actionable. Drop it
@@ -548,7 +703,7 @@ class S3ZipStorage:
                     "Housekeeper: corrupt KVS value for series; dropping entry",
                     series_id=series_id,
                 )
-                self._safe_delete_kvs_entry("series-ids-to-possibly-delete-from-s3", series_id)
+                self._safe_delete_kvs_entry(DELETED_SERIES_KVS, series_id)
                 continue
 
             try:
@@ -561,6 +716,8 @@ class S3ZipStorage:
                     "Housekeeper: failed to process deleted-series entry; will retry next pass",
                     series_id=series_id,
                 )
+
+        return processed
 
     def _housekeep_one_deleted_series(self, series_id: str, cd: CustomData):
         try:
@@ -585,12 +742,12 @@ class S3ZipStorage:
             # Drop the KVS entry now. If subsequent instances of this series
             # are deleted, storage_remove will push the series back into the
             # KVS for the next pass to revisit.
-            self._safe_delete_kvs_entry("series-ids-to-possibly-delete-from-s3", series_id)
+            self._safe_delete_kvs_entry(DELETED_SERIES_KVS, series_id)
             return
 
         if not cd.s3_zip_key:
             # Nothing to delete on S3 -- drop the KVS entry.
-            self._safe_delete_kvs_entry("series-ids-to-possibly-delete-from-s3", series_id)
+            self._safe_delete_kvs_entry(DELETED_SERIES_KVS, series_id)
             return
 
         logger.info(
@@ -612,7 +769,7 @@ class S3ZipStorage:
                 series_id=series_id,
             )
 
-        self._safe_delete_kvs_entry("series-ids-to-possibly-delete-from-s3", series_id)
+        self._safe_delete_kvs_entry(DELETED_SERIES_KVS, series_id)
 
     def _reupload_if_reappeared_during_delete(self, series_id: str, deleted_s3_key: str) -> None:
         status = self._zip_manager.get_series_info(series_id=series_id)
@@ -627,7 +784,7 @@ class S3ZipStorage:
             )
             self._zip_manager.schedule_copy_series_to_s3(series_id=series_id)
 
-    def _housekeep_uncommitted_series(self):
+    def _housekeep_uncommitted_series(self, deadline: float) -> int:
         """Pass 2 -- rescue or quarantine series whose copy to S3 never completed.
 
         The ``uncommitted-series`` KVS is populated by ``on_new_series`` (each
@@ -649,32 +806,42 @@ class S3ZipStorage:
             overwrites), and its own recheck-then-marker logic handles a
             concurrent stable-series-driven copy gracefully.
           * If no local data is reachable AND the series has no S3 zip
-            either, log a warning at WARNING level and quarantine the
-            series_id in a separate KVS for operator visibility. We do NOT
-            auto-delete -- the index record may be the only evidence the
-            series existed.
+            either, the data is gone (typically: the pod died with the
+            ephemeral local volume before the copy ran). We log at ERROR and
+            still schedule the copy, whose guard acknowledges without
+            re-enqueueing and clears the KVS entry. We do NOT auto-delete --
+            the index record may be the only evidence the series existed.
+            NOTE: the Orthanc records of such a series survive with no data
+            behind them; they cannot be read and cannot be processed. They
+            ARE repairable by re-sending the study, as long as the host
+            Orthanc runs with ``OverwriteInstances: true`` -- but nothing
+            outside this pod is ever told which studies to re-send. See the
+            README for the proposed reporting hook.
 
         Resilience: each per-series action is wrapped in its own try/except;
-        the iterator itself is also guarded. The KVS entry is left in place
-        when we trigger a copy -- ``on_committed_series`` is the only path
-        that removes it. For lost series, the entry is moved into the
-        quarantine KVS so the next pass does not keep retrying.
+        reading the KVS is guarded too. The KVS entry is left in place when
+        we trigger a copy -- ``on_committed_series`` is the only path that
+        removes it, and the copy thread calls it even when it gives up on a
+        series whose local data is gone, so a lost series costs one probe and
+        then disappears from this pass for good.
+
+        Like the deleted-series pass, this one is bounded in entries and wall
+        clock and resumes where the previous one stopped, so a backlog of
+        stuck series (S3 down, copy queue not draining) cannot turn every
+        tick into an ever-growing amount of work. See
+        _collect_housekeeper_batch.
+
+        Returns the number of entries actually processed.
         """
-        try:
-            series_iterator = orthanc.CreateKeysValuesIterator(UNCOMMITTED_SERIES_KVS)
-        except Exception:
-            logger.exception("Housekeeper: failed to open uncommitted-series KVS iterator")
-            return
-
         now_epoch_ms = int(time.time() * 1000)
+        processed = 0
 
-        while series_iterator.Next():
-            try:
-                series_id = series_iterator.GetKey()
-                raw_value = series_iterator.GetValue()
-            except Exception:
-                logger.exception("Housekeeper: failed to read uncommitted-series KVS entry; skipping")
-                continue
+        for series_id, raw_value in self._collect_housekeeper_batch(UNCOMMITTED_SERIES_KVS):
+            if self._housekeeper_out_of_time(deadline=deadline,
+                                             pass_name="uncommitted-series",
+                                             processed=processed):
+                break
+            processed += 1
 
             try:
                 self._housekeep_one_uncommitted_series(
@@ -687,6 +854,8 @@ class S3ZipStorage:
                     "Housekeeper: failed to process uncommitted-series entry; will retry next pass",
                     series_id=series_id,
                 )
+
+        return processed
 
     def _housekeep_one_uncommitted_series(self, series_id: str, raw_value, now_epoch_ms: int) -> None:
         age_ms = _parse_uncommitted_entry_age_ms(raw_value=raw_value, now_epoch_ms=now_epoch_ms)
@@ -937,11 +1106,27 @@ class S3ZipStorage:
             "Query": {},
             "ResponseContent": ["Attachments"],
             "ParentSeries": series_id,
+            # Bound the probe. One instance costs a GetAttachmentCustomData
+            # (a PostgreSQL round trip) plus a stat(), so an unbounded series
+            # is an unbounded pass. See
+            # _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES.
+            "Limit": _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES,
         }
         raw = orthanc.RestApiPost("/tools/find", json.dumps(payload).encode("utf-8"))
         instances_info = json.loads(raw) if raw else []
         if not isinstance(instances_info, list):
             raise ValueError("/tools/find did not return a list")
+        if len(instances_info) >= _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES:
+            # Not an error: the all/partial/none decision below is made on
+            # the sample, and the copy thread re-reads the full attachment
+            # list anyway. Logged so a "partial local data" verdict on a huge
+            # series can be read correctly.
+            logger.warning(
+                "Housekeeper: instance probe capped for a large series; the local-data verdict "
+                "is based on a sample",
+                series_id=series_id,
+                max_instances_probed=_HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES,
+            )
         return instances_info
 
     def _safe_delete_kvs_entry(self, kvs_name: str, key: str) -> None:

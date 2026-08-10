@@ -75,13 +75,22 @@ sys.modules.setdefault("boto3", types.SimpleNamespace(client=object))
 from custom_data import CustomData
 from local_storage import LocalStorage
 from local_to_s3_zip_manager import LocalToS3ZipManager
-from s3_zip_storage import S3ZipStorage
+from s3_zip_storage import (
+    DELETED_SERIES_KVS,
+    _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES,
+    _HOUSEKEEPER_MAX_SERIES_PER_PASS,
+    S3ZipStorage,
+)
 from uncommitted_series_handler import UNCOMMITTED_SERIES_KVS
 
 
 def _fake_du_for(root: str, folder_name: str = "series", folder_size: int = 10):
     """Returns a fake subprocess.run side effect that simulates `du` output for a single folder under `root`."""
-    def fake_run(cmd, capture_output, text, check):
+    # NOTE: **kwargs, not a fixed signature. LocalStorage._run_du_capture has
+    # already changed the keywords it passes once (it dropped check=True when
+    # it started tolerating a non-zero exit with usable output), which silently
+    # broke every test in this file that builds a LocalStorage.
+    def fake_run(cmd, capture_output=True, text=True, **_kwargs):
         folder = os.path.join(root, folder_name)
         total_size = folder_size if os.path.isdir(folder) else 0
         lines = []
@@ -95,7 +104,7 @@ def _fake_du_for(root: str, folder_name: str = "series", folder_size: int = 10):
 
 def _fake_du_walk(root: str):
     """Generic du substitute: walks ``root`` and sums real file sizes per child."""
-    def fake_run(cmd, capture_output, text, check):
+    def fake_run(cmd, capture_output=True, text=True, **_kwargs):
         lines = []
         total = 0
         if os.path.isdir(root):
@@ -521,6 +530,11 @@ class S3ZipStorageReadTests(unittest.TestCase):
             storage=CustomData.Storage.S3_ZIP,
             local_series_folder="series",
             s3_zip_key="series.zip",
+            # Required since CustomData.from_json started rejecting S3_ZIP
+            # payloads without one; without it this whole test was silently
+            # exercising the "broken custom data" branch instead of the
+            # local-hit path it is named after.
+            series_id="series-of-instance",
             size_in_bytes=0
         ).to_binary()
 
@@ -915,6 +929,26 @@ class CopySeriesToS3Tests(unittest.TestCase):
             with open(marker_path, "r") as f:
                 self.assertEqual(f.read(), "orthanc-series.zip")
 
+    def test_copy_series_with_no_attachment_acknowledges_without_uploading(self):
+        # A series deleted between the enqueue and the dequeue comes back
+        # from /tools/find with no instances at all. Both fast-path guards
+        # below are conditioned on a non-empty attachment list, so without a
+        # dedicated exit this used to build an EMPTY zip, PUT it to S3 under
+        # the series' key, then fail on the unset local_series_folder --
+        # re-enqueueing forever and writing a junk object every cycle.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=[]):
+                manager.copy_series_to_s3("vanished-series")
+
+            self.assertEqual(s3_client.uploads, [])
+            # The KVS entry is cleared, so the housekeeper stops re-scheduling it.
+            self.assertEqual(uncommitted_handler.committed, ["vanished-series"])
+
     def test_copy_skips_marker_when_new_instance_arrives_during_copy(self):
         # Recheck-before-marker: if a new attachment appears between the
         # initial snapshot and the marker write, the uploaded zip is already
@@ -1061,7 +1095,14 @@ def _make_bare_s3zip_storage(zip_manager=None, uncommitted_handler=None, local_s
     storage._housekeeper_enabled = True
     storage._housekeeper_interval_sec = 60.0
     storage._housekeeper_timer = None
+    storage._housekeeper_stopping = False
+    storage._housekeeper_skip_counts = {}
     return storage
+
+
+def _far_deadline() -> float:
+    """A pass deadline that will never be hit during a unit test."""
+    return time.monotonic() + 3600.0
 
 
 class HousekeeperResilienceTests(unittest.TestCase):
@@ -1093,7 +1134,7 @@ class HousekeeperResilienceTests(unittest.TestCase):
         kvs = _FakeKVS()
         # Two entries: one corrupt, one valid (its CD points to a series
         # that is gone, so the housekeeper should delete the S3 zip).
-        kvs.store("series-ids-to-possibly-delete-from-s3", "corrupt", b"\x01\x02not-a-customdata\xff")
+        kvs.store(DELETED_SERIES_KVS, "corrupt", b"\x01\x02not-a-customdata\xff")
         valid_cd = CustomData(
             storage=CustomData.Storage.S3_ZIP,
             local_series_folder="folder-of-gone",
@@ -1101,7 +1142,7 @@ class HousekeeperResilienceTests(unittest.TestCase):
             series_id="gone",
             size_in_bytes=0,
         ).to_binary()
-        kvs.store("series-ids-to-possibly-delete-from-s3", "gone", valid_cd)
+        kvs.store(DELETED_SERIES_KVS, "gone", valid_cd)
 
         zip_manager = mock.MagicMock()
         zip_manager.get_series_info.return_value = None  # really gone, no re-upload race
@@ -1115,12 +1156,12 @@ class HousekeeperResilienceTests(unittest.TestCase):
              mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
              mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
              mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
-            storage._housekeep_deleted_series()
+            storage._housekeep_deleted_series(deadline=_far_deadline())
 
         # The corrupt entry was dropped (so we don't loop on it forever)
         # and the valid entry was processed (S3 delete called, then KVS
         # entry dropped). Both entries are gone from the KVS.
-        self.assertEqual(kvs.all("series-ids-to-possibly-delete-from-s3"), {})
+        self.assertEqual(kvs.all(DELETED_SERIES_KVS), {})
         zip_manager.delete_zip_from_s3.assert_called_once_with(s3_zip_key="prefix/gone.zip")
 
     def test_deleted_series_pass_isolates_failing_s3_delete(self):
@@ -1133,7 +1174,7 @@ class HousekeeperResilienceTests(unittest.TestCase):
                 series_id=series_id,
                 size_in_bytes=0,
             ).to_binary()
-            kvs.store("series-ids-to-possibly-delete-from-s3", series_id, cd)
+            kvs.store(DELETED_SERIES_KVS, series_id, cd)
 
         zip_manager = mock.MagicMock()
         zip_manager.get_series_info.return_value = None
@@ -1156,12 +1197,12 @@ class HousekeeperResilienceTests(unittest.TestCase):
              mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
              mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
              mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
-            storage._housekeep_deleted_series()
+            storage._housekeep_deleted_series(deadline=_far_deadline())
 
         # 'a' and 'c' were processed; 'b' raised and remains in the KVS
         # for the next pass to retry.
         self.assertEqual(set(deleted_keys), {"prefix/a.zip", "prefix/c.zip"})
-        remaining = kvs.all("series-ids-to-possibly-delete-from-s3")
+        remaining = kvs.all(DELETED_SERIES_KVS)
         self.assertEqual(set(remaining.keys()), {"b"})
 
     def test_deleted_series_pass_reuploads_when_series_reappears(self):
@@ -1177,7 +1218,7 @@ class HousekeeperResilienceTests(unittest.TestCase):
             series_id="raced",
             size_in_bytes=0,
         ).to_binary()
-        kvs.store("series-ids-to-possibly-delete-from-s3", "raced", cd_bytes)
+        kvs.store(DELETED_SERIES_KVS, "raced", cd_bytes)
 
         zip_manager = mock.MagicMock()
         zip_manager.get_series_info.return_value = mock.Mock(
@@ -1196,7 +1237,7 @@ class HousekeeperResilienceTests(unittest.TestCase):
              mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
              mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
              mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get):
-            storage._housekeep_deleted_series()
+            storage._housekeep_deleted_series(deadline=_far_deadline())
 
         zip_manager.delete_zip_from_s3.assert_called_once_with(s3_zip_key="prefix/raced.zip")
         zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="raced")
@@ -1205,28 +1246,43 @@ class HousekeeperResilienceTests(unittest.TestCase):
 class HousekeeperUncommittedRescueTests(unittest.TestCase):
     """The 2nd housekeeper pass: rescue or quarantine uncommitted series."""
 
-    def _patch_orthanc(self, kvs, attachments_by_series, attachments_by_instance,
-                       attachment_info_by_pair, custom_data_by_attachment, missing_series=()):
-        """Context-manager soup that wires the orthanc stub for one test."""
+    def _patch_orthanc(self, kvs, instances_by_series, custom_data_by_attachment,
+                       missing_series=(), find_calls=None):
+        """Context-manager soup that wires the orthanc stub for one test.
+
+        ``instances_by_series`` maps a series id to the list of instances the
+        probe should see, in the shape ``/tools/find`` returns them::
+
+            {"stuck": [{"ID": "i1", "Attachments": [
+                {"ContentType": 1, "Uuid": "att1"}]}]}
+
+        The probe is a single bulk ``RestApiPost("/tools/find")`` with
+        ``ParentSeries``; ``/series/<id>/instances`` is still used to decide
+        whether the series exists at all.
+        """
         def fake_rest_api_get(uri):
-            # /series/<id>/instances
+            # /series/<id>/instances -- existence + emptiness check
             if uri.startswith("/series/") and uri.endswith("/instances"):
                 series_id = uri[len("/series/"):-len("/instances")]
                 if series_id in missing_series:
                     raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
-                return json.dumps(attachments_by_series.get(series_id, []))
-            # /instances/<id>/attachments?full
-            if uri.startswith("/instances/") and uri.endswith("/attachments?full"):
-                instance_id = uri[len("/instances/"):-len("/attachments?full")]
-                return json.dumps(attachments_by_instance.get(instance_id, {}))
-            # /instances/<id>/attachments/<name>/info
-            if uri.startswith("/instances/") and uri.endswith("/info"):
-                rest = uri[len("/instances/"):-len("/info")]
-                instance_id, _slash, rest = rest.partition("/attachments/")
-                attachment_name = rest
-                info = attachment_info_by_pair.get((instance_id, attachment_name), {})
-                return json.dumps(info)
+                return json.dumps(instances_by_series.get(series_id, []))
             raise AssertionError(f"unexpected RestApiGet uri: {uri}")
+
+        def fake_rest_api_post(uri, body):
+            if uri != "/tools/find":
+                raise AssertionError(f"unexpected RestApiPost uri: {uri}")
+            payload = json.loads(body.decode("utf-8") if isinstance(body, (bytes, bytearray)) else body)
+            if find_calls is not None:
+                find_calls.append(payload)
+            series_id = payload.get("ParentSeries")
+            if series_id in missing_series:
+                return json.dumps([])
+            instances = instances_by_series.get(series_id, [])
+            limit = payload.get("Limit")
+            if limit:
+                instances = instances[:limit]
+            return json.dumps(instances)
 
         def fake_get_attachment_custom_data(attachment_uuid):
             cd = custom_data_by_attachment.get(attachment_uuid)
@@ -1239,8 +1295,18 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete),
             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store),
             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get),
+            mock.patch.object(orthanc_stub, "RestApiPost", side_effect=fake_rest_api_post),
             mock.patch.object(orthanc_stub, "GetAttachmentCustomData", side_effect=fake_get_attachment_custom_data),
         ]
+
+    @staticmethod
+    def _instance(instance_id: str, *attachment_uuids: str, content_type: int = 1):
+        return {
+            "ID": instance_id,
+            "Attachments": [
+                {"ContentType": content_type, "Uuid": a_uuid} for a_uuid in attachment_uuids
+            ],
+        }
 
     def test_young_uncommitted_entry_is_left_alone(self):
         kvs = _FakeKVS()
@@ -1253,15 +1319,13 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
 
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={"fresh-series": [{"ID": "i1"}]},
-            attachments_by_instance={"i1": {"dicom": 1}},
-            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            instances_by_series={"fresh-series": [self._instance("i1", "att1")]},
             custom_data_by_attachment={},  # not consulted -- too young
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         zip_manager.schedule_copy_series_to_s3.assert_not_called()
         self.assertEqual(set(kvs.all(UNCOMMITTED_SERIES_KVS).keys()), {"fresh-series"})
@@ -1284,15 +1348,13 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
         )
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={"stuck-series": [{"ID": "i1"}]},
-            attachments_by_instance={"i1": {"dicom": 1}},
-            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            instances_by_series={"stuck-series": [self._instance("i1", "att1")]},
             custom_data_by_attachment={"att1": cd},
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="stuck-series")
         # Entry stays in KVS -- on_committed_series clears it once the copy
@@ -1321,15 +1383,13 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
         )
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={"lost-series": [{"ID": "i1"}]},
-            attachments_by_instance={"i1": {"dicom": 1}},
-            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            instances_by_series={"lost-series": [self._instance("i1", "att1")]},
             custom_data_by_attachment={"att1": cd},
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         # Copy IS scheduled (the copy thread's guard will handle the abandon).
         zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="lost-series")
@@ -1365,23 +1425,17 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
 
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={"tainted-series": [{"ID": "i1"}, {"ID": "i2"}, {"ID": "i3"}]},
-            attachments_by_instance={
-                "i1": {"dicom": 1},
-                "i2": {"dicom": 1},
-                "i3": {"dicom": 1},
-            },
-            attachment_info_by_pair={
-                ("i1", "dicom"): {"Uuid": "att1"},
-                ("i2", "dicom"): {"Uuid": "att2"},
-                ("i3", "dicom"): {"Uuid": "att3"},
-            },
+            instances_by_series={"tainted-series": [
+                self._instance("i1", "att1"),
+                self._instance("i2", "att2"),
+                self._instance("i3", "att3"),
+            ]},
             custom_data_by_attachment={"att1": cd, "att2": cd, "att3": cd},
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="tainted-series")
 
@@ -1402,15 +1456,13 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
 
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={"already-on-s3": [{"ID": "i1"}]},
-            attachments_by_instance={"i1": {"dicom": 1}},
-            attachment_info_by_pair={("i1", "dicom"): {"Uuid": "att1"}},
+            instances_by_series={"already-on-s3": [self._instance("i1", "att1")]},
             custom_data_by_attachment={},  # unused -- get_series_info short-circuits
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         uncommitted_handler.on_committed_series.assert_called_once_with(series_id="already-on-s3")
         zip_manager.schedule_copy_series_to_s3.assert_not_called()
@@ -1424,16 +1476,14 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
 
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={},
-            attachments_by_instance={},
-            attachment_info_by_pair={},
+            instances_by_series={},
             custom_data_by_attachment={},
             missing_series=("deleted-series",),
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         # Entry dropped because the series is gone -- nothing to do.
         self.assertEqual(kvs.all(UNCOMMITTED_SERIES_KVS), {})
@@ -1460,28 +1510,280 @@ class HousekeeperUncommittedRescueTests(unittest.TestCase):
 
         patches = self._patch_orthanc(
             kvs,
-            attachments_by_series={
-                "blow-up": [{"ID": "i-blow"}],
-                "ok-series": [{"ID": "i-ok"}],
-            },
-            attachments_by_instance={
-                "i-blow": {"dicom": 1},
-                "i-ok": {"dicom": 1},
-            },
-            attachment_info_by_pair={
-                ("i-blow", "dicom"): {"Uuid": "att-blow"},
-                ("i-ok", "dicom"): {"Uuid": "att-ok"},
+            instances_by_series={
+                "blow-up": [self._instance("i-blow", "att-blow")],
+                "ok-series": [self._instance("i-ok", "att-ok")],
             },
             custom_data_by_attachment={"att-blow": cd, "att-ok": cd},
         )
         with contextlib.ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            storage._housekeep_uncommitted_series()
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
 
         # Despite one entry blowing up in get_series_info, the other was
         # still rescued.
         zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="ok-series")
+
+
+def _deleted_series_entry(series_id: str) -> bytes:
+    return CustomData(
+        storage=CustomData.Storage.S3_ZIP,
+        local_series_folder=f"folder-{series_id}",
+        s3_zip_key=f"prefix/{series_id}.zip",
+        series_id=series_id,
+        size_in_bytes=0,
+    ).to_binary()
+
+
+class HousekeeperWorkBudgetTests(unittest.TestCase):
+    """The housekeeper must cost the same per tick no matter how big the backlog is.
+
+    The situations that stop KVS entries from being retired (S3 unreachable,
+    DeleteObject denied, copy queue backed up) are the same situations that
+    make the KVS big -- so an unbounded pass does the most work exactly when
+    the Gap Server can least afford it.
+    """
+
+    @staticmethod
+    def _gone_from_orthanc(uri):
+        raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+
+    def _run_deleted_pass(self, kvs, storage):
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=self._gone_from_orthanc):
+            return storage._housekeep_deleted_series(deadline=_far_deadline())
+
+    def test_deleted_pass_processes_at_most_one_budget_per_run(self):
+        kvs = _FakeKVS()
+        total = _HOUSEKEEPER_MAX_SERIES_PER_PASS * 3
+        for i in range(total):
+            kvs.store(DELETED_SERIES_KVS, f"s{i:04d}", _deleted_series_entry(f"s{i:04d}"))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        processed = self._run_deleted_pass(kvs, storage)
+
+        self.assertEqual(processed, _HOUSEKEEPER_MAX_SERIES_PER_PASS)
+        self.assertEqual(zip_manager.delete_zip_from_s3.call_count,
+                         _HOUSEKEEPER_MAX_SERIES_PER_PASS)
+        self.assertEqual(len(kvs.all(DELETED_SERIES_KVS)),
+                         total - _HOUSEKEEPER_MAX_SERIES_PER_PASS)
+
+    def test_permanently_failing_entries_cannot_monopolise_successive_passes(self):
+        # The scenario that motivated the budget: the leading entries can
+        # never be retired (revoked DeleteObject permission, say). Without
+        # rotation, every pass would spend its whole budget on the same
+        # doomed entries and the rest of the KVS would never be looked at.
+        budget = _HOUSEKEEPER_MAX_SERIES_PER_PASS
+        kvs = _FakeKVS()
+        for i in range(budget * 2):
+            kvs.store(DELETED_SERIES_KVS, f"s{i:04d}", _deleted_series_entry(f"s{i:04d}"))
+
+        doomed = {f"prefix/s{i:04d}.zip" for i in range(budget)}
+        succeeded = []
+
+        def flaky_delete(s3_zip_key):
+            if s3_zip_key in doomed:
+                raise PermissionError("AccessDenied: s3:DeleteObject")
+            succeeded.append(s3_zip_key)
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None
+        zip_manager.delete_zip_from_s3.side_effect = flaky_delete
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        # Pass 1 burns its whole budget on the doomed head; nothing retires.
+        self._run_deleted_pass(kvs, storage)
+        self.assertEqual(succeeded, [])
+        self.assertEqual(len(kvs.all(DELETED_SERIES_KVS)), budget * 2)
+
+        # Pass 2 resumes past them and drains the healthy tail instead.
+        self._run_deleted_pass(kvs, storage)
+        self.assertEqual(len(succeeded), budget)
+        self.assertEqual(set(kvs.all(DELETED_SERIES_KVS).keys()), {f"s{i:04d}" for i in range(budget)})
+
+        # Pass 3: the resume offset is now past the end of a KVS that only
+        # holds the doomed entries. The pass must rewind rather than idle,
+        # so the doomed entries do get retried -- forever, but at a flat
+        # cost per tick.
+        zip_manager.delete_zip_from_s3.reset_mock()
+        self._run_deleted_pass(kvs, storage)
+        self.assertEqual(zip_manager.delete_zip_from_s3.call_count, budget)
+
+    def test_pass_stops_when_its_time_budget_is_exhausted(self):
+        kvs = _FakeKVS()
+        for i in range(_HOUSEKEEPER_MAX_SERIES_PER_PASS):
+            kvs.store(DELETED_SERIES_KVS, f"s{i:04d}", _deleted_series_entry(f"s{i:04d}"))
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=self._gone_from_orthanc):
+            processed = storage._housekeep_deleted_series(deadline=time.monotonic() - 1.0)
+
+        self.assertEqual(processed, 0)
+        zip_manager.delete_zip_from_s3.assert_not_called()
+        # Nothing was retired, so nothing is lost: a later pass picks them up.
+        self.assertEqual(len(kvs.all(DELETED_SERIES_KVS)), _HOUSEKEEPER_MAX_SERIES_PER_PASS)
+
+    def test_kvs_iterator_is_released_before_any_entry_is_deleted(self):
+        # The pass deletes from the very KVS it walks. Orthanc's iterator is
+        # a live PostgreSQL cursor, so the read must be finished (and the
+        # transaction closed) before the slow, mutating part starts.
+        kvs = _FakeKVS()
+        for i in range(3):
+            kvs.store(DELETED_SERIES_KVS, f"s{i:04d}", _deleted_series_entry(f"s{i:04d}"))
+
+        call_log = []
+
+        def logging_iterator(name):
+            inner = kvs.iterator(name)
+
+            class _Logged:
+                def Next(self):
+                    call_log.append("next")
+                    return inner.Next()
+
+                def GetKey(self):
+                    return inner.GetKey()
+
+                def GetValue(self):
+                    return inner.GetValue()
+
+            return _Logged()
+
+        def logging_delete(name, key):
+            call_log.append("delete")
+            return kvs.delete(name, key)
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = None
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager)
+
+        with mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=logging_iterator), \
+             mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=logging_delete), \
+             mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store), \
+             mock.patch.object(orthanc_stub, "RestApiGet", side_effect=self._gone_from_orthanc):
+            storage._housekeep_deleted_series(deadline=_far_deadline())
+
+        self.assertIn("delete", call_log)
+        last_read = len(call_log) - 1 - call_log[::-1].index("next")
+        first_delete = call_log.index("delete")
+        self.assertLess(last_read, first_delete,
+                        "the KVS iterator was still being read while entries were deleted")
+
+    def test_probe_bounds_the_instances_it_inspects(self):
+        # One huge series must not be able to blow the whole pass: the probe
+        # asks Orthanc for a bounded page and decides on that sample.
+        kvs = _FakeKVS()
+        old_ms = int(time.time() * 1000) - (10 * 60 * 1000)
+        kvs.store(UNCOMMITTED_SERIES_KVS, "huge-series", str(old_ms))
+
+        oversize = _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES + 250
+        instances = [
+            HousekeeperUncommittedRescueTests._instance(f"i{i}", f"att{i}")
+            for i in range(oversize)
+        ]
+        cd = CustomData(
+            storage=CustomData.Storage.LOCAL,
+            local_series_folder="folder-of-huge",
+            size_in_bytes=0,
+        )
+
+        zip_manager = mock.MagicMock()
+        zip_manager.get_series_info.return_value = mock.Mock(is_stored_in_s3=False)
+        local_storage = mock.MagicMock()
+        local_storage.has_local_file.return_value = True
+        storage = _make_bare_s3zip_storage(zip_manager=zip_manager, local_storage=local_storage)
+
+        find_calls = []
+        patches = HousekeeperUncommittedRescueTests._patch_orthanc(
+            HousekeeperUncommittedRescueTests,
+            kvs,
+            instances_by_series={"huge-series": instances},
+            custom_data_by_attachment={f"att{i}": cd for i in range(oversize)},
+            find_calls=find_calls,
+        )
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            storage._housekeep_uncommitted_series(deadline=_far_deadline())
+
+        self.assertEqual([c.get("Limit") for c in find_calls],
+                         [_HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES])
+        # The verdict is made on the capped sample, not on all 750 instances.
+        self.assertEqual(local_storage.has_local_file.call_count,
+                         _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES)
+        zip_manager.schedule_copy_series_to_s3.assert_called_once_with(series_id="huge-series")
+
+
+class HousekeeperShutdownTests(unittest.TestCase):
+    """stop() must actually stop the housekeeper, and not hold up the pod."""
+
+    def _capture_timers(self):
+        captured = []
+
+        def fake_timer(interval, fn):
+            timer = mock.MagicMock()
+            timer.daemon = False
+            captured.append(timer)
+            return timer
+
+        return captured, fake_timer
+
+    def test_stop_during_a_pass_is_not_undone_by_the_reschedule(self):
+        # perform_housekeeping() clears _housekeeper_timer as it starts, so a
+        # stop() landing mid-pass has nothing to cancel. If the finally block
+        # re-armed unconditionally the housekeeper would survive stop() for
+        # the life of the process.
+        storage = _make_bare_s3zip_storage()
+        captured, fake_timer = self._capture_timers()
+
+        def stop_midway():
+            storage._housekeeper_stopping = True
+
+        with mock.patch.object(storage, "_perform_housekeeping", side_effect=stop_midway):
+            with mock.patch("s3_zip_storage.threading.Timer", side_effect=fake_timer):
+                storage.perform_housekeeping()
+
+        self.assertEqual(captured, [])
+
+    def test_stop_during_a_failing_pass_is_also_honoured(self):
+        storage = _make_bare_s3zip_storage()
+        captured, fake_timer = self._capture_timers()
+
+        def blow_up_after_stop():
+            storage._housekeeper_stopping = True
+            raise RuntimeError("boom")
+
+        with mock.patch.object(storage, "_perform_housekeeping", side_effect=blow_up_after_stop):
+            with mock.patch("s3_zip_storage.threading.Timer", side_effect=fake_timer):
+                storage.perform_housekeeping()
+
+        self.assertEqual(captured, [])
+
+    def test_rescheduled_timer_is_a_daemon_so_sigterm_is_not_delayed(self):
+        # A non-daemon Timer keeps the interpreter alive until it fires, so a
+        # SIGTERM just after a pass would hold the pod for a full interval.
+        storage = _make_bare_s3zip_storage()
+        captured, fake_timer = self._capture_timers()
+
+        with mock.patch.object(storage, "_perform_housekeeping"):
+            with mock.patch("s3_zip_storage.threading.Timer", side_effect=fake_timer):
+                storage.perform_housekeeping()
+
+        self.assertEqual(len(captured), 1)
+        self.assertTrue(captured[0].daemon)
+        captured[0].start.assert_called_once()
 
 
 if __name__ == "__main__":

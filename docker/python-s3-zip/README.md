@@ -136,3 +136,62 @@ The combination of `storage_create` and the all-series sweep dominates
 `/changes` on every dimension that matters here, so `/changes` is not
 proposed.
 
+## Reporting and cleaning up series whose data was lost
+
+### Problem
+
+When a pod dies, its local storage dies with it. A series that had been
+fully written locally but not yet copied to S3 comes back after the restart
+as Orthanc index records with **no bytes behind them**.
+
+The housekeeper detects this (branch 3 of the rescue tree) and schedules a
+copy; the copy thread's guard logs an ERROR, acknowledges without
+re-enqueueing, and clears the `uncommitted-series` KVS entry. So the
+*bookkeeping* terminates correctly — a lost series costs one probe and then
+never comes back. No KVS grows, and the housekeeper does not accumulate work.
+
+What does accumulate is the **broken Orthanc records**. They:
+
+- can never be read (every `storage_read_range` fails),
+- can never be processed (processing waits for the study to be safe on S3),
+- count against patient/study limits (e.g. `MaximumPatientCount`) and PG
+  index size.
+
+They are, however, **repairable**: re-sending the study fixes it, provided the
+host Orthanc runs with `"OverwriteInstances": true` (the Gap Server does, in
+every deployment; note that Orthanc's own default is `false`, in which case the
+re-sent instance would be discarded as `AlreadyStored` and the broken record
+would be unrecoverable until deleted). With overwriting enabled, the incoming
+file replaces the stored one, `storage_create` writes fresh bytes, and the
+series goes through the normal copy-to-S3 path again. `storage_remove` on the
+vanished local file is caught and still returns SUCCESS, so it does not block
+the overwrite.
+
+So the remedy is simple. What is missing is that **nobody is ever told**: the
+only trace of a data loss is a single ERROR line in the pod's log. Whoever
+could re-send the study has no way to learn that they should.
+
+### Proposed solution
+
+Two pieces, in order:
+
+**1. Report it.** This is the whole fix: re-sending the study repairs it, so
+telling someone *which* studies to re-send closes the loop. The plugin should
+not decide what a lost series *means* — it has no idea who is meant to hear
+about it. When registering the plugin, give it an optional "data loss" 
+callback, invoked from the copy thread's abandon guard with a structured
+payload (series id, parent study id, instance count, timestamp, reason). The
+host application registers it and routes it wherever it needs to go.
+
+**2. Optionally, and later, clean up.** Deleting a lost series/study is *not*
+a recovery mechanism — re-upload already is one. It only stops unrepaired
+records from accumulating in the index. That is a much weaker justification
+for destroying patient records on the strength of a heuristic, so if it is
+done at all it must be config-gated and default off, must run only after the
+report has been delivered, and must be conservative about false positives —
+above all it must never fire for a series that is merely *evicted* (data safe
+on S3, local copy reclaimed), which is a normal steady state.
+
+Doing (2) without (1) would delete the only evidence that anything went
+wrong, and destroy a study that could have been recovered by re-sending it.
+
