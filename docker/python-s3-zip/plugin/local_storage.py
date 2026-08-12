@@ -12,7 +12,11 @@ import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Tuple
-from local_storage_interface import LocalStorageInterface
+from local_storage_interface import (
+    LocalStorageInterface,
+    S3_UPLOADED_MARKER_NAME,
+    S3_UPLOADED_MARKER_TMP_PREFIX,
+)
 from collections import deque
 from s3zip_logging import get_logger
 
@@ -92,6 +96,30 @@ _DU_MAX_ATTEMPTS: int = 3
 _DU_RETRY_BACKOFF_BASE_SEC: float = 0.1
 
 
+# How long to stop re-running the scan+evict slow path after a pass that could
+# not free a single byte.
+#
+# Running out of room is a designed-for state: every folder still waiting for
+# its S3 upload is protected, so a cache under pressure legitimately has
+# nothing to evict. What must not happen is what the code did before: once
+# `_available_size` goes negative, EVERY subsequent instance write takes the
+# slow path -- pause all writers, fork a `du -b` over the whole cache, walk the
+# LRU queue, free nothing -- and then writes anyway. The cost of ingesting an
+# instance becomes proportional to the size of the cache, precisely when the
+# server is least able to afford it, and the copy thread that would actually
+# release space is competing with that storm for the same I/O.
+#
+# So after a futile pass we admit writes without rescanning for a short while.
+# Nothing is lost by waiting: the pass is a no-op until the copy thread
+# publishes a marker, and the next scan recomputes the true occupancy from
+# disk, so the accounting self-corrects.
+_FUTILE_EVICTION_COOLDOWN_SEC: float = 5.0
+
+# Cap on how many folder names the cache summary lists. The summary is a
+# diagnostic payload served over REST, not a directory listing.
+_CACHE_SUMMARY_MAX_NAMED_FOLDERS: int = 20
+
+
 class LocalStorage(LocalStorageInterface):
 
 
@@ -108,6 +136,7 @@ class LocalStorage(LocalStorageInterface):
     _folder_marker_cs_locks: dict[str, tuple[threading.Lock, int]]
     _folder_stats: queue.PriorityQueue[FolderStatEntry]
     _is_folder_safe_to_evict: Callable[[str], bool] | None
+    _futile_eviction_until: float
 
     def __init__(self, root: str, max_size_mb: int) -> None:
         self._root = root
@@ -120,6 +149,7 @@ class LocalStorage(LocalStorageInterface):
         self._folder_lease_counts = {}
         self._folder_marker_cs_locks = {}
         self._is_folder_safe_to_evict = None
+        self._futile_eviction_until = 0.0
 
         self._update_local_storage_stats()
 
@@ -400,7 +430,15 @@ class LocalStorage(LocalStorageInterface):
             folder_name: str = os.path.basename(path)
             lease_count = self._get_folder_lease_count(folder_name)
             if lease_count > 0:
-                logger.info(
+                # DEBUG, not INFO: skipping is the no-op outcome, and it is by
+                # far the most common one -- a pass over a cache of protected
+                # folders emits one line per folder per pass. In the CI run
+                # that motivated this, "skipping eviction" accounted for 8700
+                # lines and nearly half the container's log budget, which
+                # clipped the log before the end of the test. The pass summary
+                # (evict_all_safe / _make_room) already reports how many
+                # folders were skipped.
+                logger.debug(
                     "LocalStorage: skipping eviction of leased folder",
                     folder=folder_name,
                     folder_size=folder_size,
@@ -417,14 +455,20 @@ class LocalStorage(LocalStorageInterface):
                     safe = False
 
                 if not safe:
-                    logger.info(
+                    logger.debug(
                         "LocalStorage: skipping eviction of folder not yet on S3",
                         folder=folder_name, folder_size=folder_size)
                     skipped.append(entry)
                     continue
 
+            # INFO, unlike the skips above: this is the destructive branch and
+            # the only record that a given series left the local cache. It used
+            # to be the other way round -- skips at INFO, the actual delete at
+            # DEBUG plus an orthanc.LogInfo that Orthanc's default verbosity
+            # drops -- so a post-mortem could see every folder that survived
+            # and not one that was deleted.
             orthanc.LogInfo(f"LocalStorage: reclaiming space by deleting local folder '{path}'")
-            logger.debug(
+            logger.info(
                 "LocalStorage: evicting folder",
                 folder=folder_name,
                 folder_size=folder_size,
@@ -495,6 +539,19 @@ class LocalStorage(LocalStorageInterface):
                 )
                 return reservation_size
 
+            if time.monotonic() < self._futile_eviction_until:
+                # A recent pass already established that nothing here is
+                # evictable. Admit the write without re-scanning; see
+                # _FUTILE_EVICTION_COOLDOWN_SEC.
+                logger.debug(
+                    "LocalStorage: over budget but a recent eviction pass freed nothing; "
+                    "admitting the write without re-scanning",
+                    reservation_bytes=reservation_size,
+                    available_bytes=self._available_size,
+                    cooldown_remaining_sec=round(self._futile_eviction_until - time.monotonic(), 2),
+                )
+                return reservation_size
+
             logger.debug(
                 "LocalStorage: slow path - available space insufficient, refreshing disk stats",
                 reservation_bytes=reservation_size,
@@ -541,6 +598,17 @@ class LocalStorage(LocalStorageInterface):
                 )
 
                 if self._available_size < 0:
+                    # Expected under sustained ingest: everything still on its
+                    # way to S3 is protected. The write proceeds anyway -- the
+                    # budget is a target, not a hard wall, and failing the
+                    # C-STORE would push the problem onto the modality for
+                    # what is usually a transient backlog. The real filesystem
+                    # remains the hard limit, and a write that hits ENOSPC
+                    # does fail the C-STORE.
+                    if result.freed_bytes == 0:
+                        self._futile_eviction_until = (
+                            time.monotonic() + _FUTILE_EVICTION_COOLDOWN_SEC
+                        )
                     logger.warning(
                         "LocalStorage: could not free enough space. "
                         "Some folders are protected because they are not yet on S3.",
@@ -549,8 +617,14 @@ class LocalStorage(LocalStorageInterface):
                         available_mb=round(self._available_size / (1024 * 1024), 2),
                         reserved_bytes=self._reserved_bytes,
                         protected_folders=result.skipped_folders,
+                        freed_bytes=result.freed_bytes,
+                        rescan_paused_for_sec=(
+                            _FUTILE_EVICTION_COOLDOWN_SEC if result.freed_bytes == 0 else 0
+                        ),
                         max_size_mb=self._max_size // (1024 * 1024),
                     )
+                else:
+                    self._futile_eviction_until = 0.0
         except Exception:
             self._rollback_write_reservation(reservation_size)
             raise
@@ -580,6 +654,22 @@ class LocalStorage(LocalStorageInterface):
         with self._lock:
             self._reserved_bytes = max(0, self._reserved_bytes - reserved_bytes)
             self._available_size += reserved_bytes
+
+    def _release_deleted_file_bytes(self, file_size: int) -> None:
+        """Give a deleted file's bytes back to the budget.
+
+        Deliberately NOT _rollback_write_reservation: that one also decrements
+        ``_reserved_bytes``, which belongs to writes that are still in flight.
+        Cancelling part of another thread's reservation makes the cache look
+        emptier than it is until the next scan, which is the wrong direction
+        to be wrong in when the point of the budget is to keep the disk from
+        filling.
+        """
+        if file_size <= 0:
+            return
+
+        with self._lock:
+            self._available_size += file_size
 
     def _touch_lru_reference(self, folder_path: str) -> None:
         try:
@@ -612,6 +702,12 @@ class LocalStorage(LocalStorageInterface):
             with self._lock:
                 result = self._evict_until(target_available_bytes=None)
 
+                if result.freed_bytes > 0:
+                    # Something became evictable, so the "nothing to free"
+                    # conclusion that paused the make-room rescans no longer
+                    # holds.
+                    self._futile_eviction_until = 0.0
+
                 logger.info(
                     "LocalStorage: evict_all_safe complete",
                     freed_folders=result.freed_folders,
@@ -625,7 +721,7 @@ class LocalStorage(LocalStorageInterface):
         finally:
             self._resume_writes_after_scan()
 
-    def get_cache_summary(self, marker_filename: str = ".s3-uploaded") -> Dict[str, int]:
+    def get_cache_summary(self, marker_filename: str = S3_UPLOADED_MARKER_NAME) -> Dict[str, int]:
         """Return a snapshot of local-cache occupancy.
 
         Refreshes the disk stats (does NOT evict) and walks the temp folder
@@ -639,6 +735,10 @@ class LocalStorage(LocalStorageInterface):
             self._update_local_storage_stats_with_writes_paused()
             uploaded: int = 0
             pending: int = 0
+            # Which series are holding the cache open, not just how many.
+            # "1 folder not on S3" sends you to the logs; the folder's name
+            # sends you to the series.
+            pending_names: List[str] = []
             try:
                 for name in os.listdir(self._root):
                     folder: str = os.path.join(self._root, name)
@@ -648,6 +748,8 @@ class LocalStorage(LocalStorageInterface):
                         uploaded += 1
                     else:
                         pending += 1
+                        if len(pending_names) < _CACHE_SUMMARY_MAX_NAMED_FOLDERS:
+                            pending_names.append(name)
             except FileNotFoundError:
                 pass
             with self._lock:
@@ -661,6 +763,7 @@ class LocalStorage(LocalStorageInterface):
                     "total_folders": total_folders,
                     "folders_on_s3": uploaded,
                     "folders_not_on_s3": pending,
+                    "folders_not_on_s3_names": pending_names,
                 }
         finally:
             self._resume_writes_after_scan()
@@ -710,8 +813,38 @@ class LocalStorage(LocalStorageInterface):
 
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        with open(path, "wb") as f:
-            f.write(content)
+        try:
+            try:
+                with open(path, "wb") as f:
+                    f.write(content)
+            except FileNotFoundError:
+                # The parent folder disappeared between the makedirs and the
+                # open: eviction, or the empty-folder cleanup in remove(), got
+                # in between. Re-create it and try once more rather than
+                # failing a C-STORE over a lost race.
+                logger.debug("series folder vanished between makedirs and open; retrying once",
+                             uuid=uuid,
+                             path=path)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(content)
+        except BaseException:
+            # A write that fails part-way -- ENOSPC is the case that matters,
+            # and running out of space is a designed-for condition, not an
+            # exotic one -- leaves a truncated file behind. Orthanc fails the
+            # C-STORE and never records the attachment, so nothing will ever
+            # read those bytes, but they are far from harmless: they occupy
+            # the cache, and they are a file no future zip can account for,
+            # which would keep this folder permanently ineligible for eviction
+            # (see _files_on_disk_not_in_zip). Remove it.
+            try:
+                os.remove(path)
+            except OSError as cleanup_error:
+                logger.warning("failed to remove a partially-written file after a write error",
+                               uuid=uuid,
+                               path=path,
+                               error=str(cleanup_error))
+            raise
 
         self._touch_lru_reference(os.path.dirname(path))
 
@@ -859,7 +992,7 @@ class LocalStorage(LocalStorageInterface):
             try:
                 os.remove(path)
                 existed: bool = True
-                self._rollback_write_reservation(file_size)
+                self._release_deleted_file_bytes(file_size)
             except FileNotFoundError:
                 existed = False
 
@@ -867,6 +1000,49 @@ class LocalStorage(LocalStorageInterface):
                         uuid=uuid,
                         path=path,
                         existed=existed)
+
+            self._discard_folder_if_empty(local_series_folder)
+
+    def _discard_folder_if_empty(self, local_series_folder: str) -> None:
+        """Drop a series folder once its last instance file is gone.
+
+        Deleting a study leaves the folder behind, and an empty directory is
+        not free: ``du -b`` charges it a block, so the cache never reports
+        zero usage again, and the folder counts as "not yet on S3" forever
+        (it has no marker) in every stats snapshot and eviction pass. One husk
+        per deleted series adds up on a long-lived pod.
+
+        Best effort throughout. ``rmdir`` refuses a non-empty directory, which
+        is exactly the guard we want against removing a folder that has
+        already been repopulated; ``_write_file`` re-creates the folder (and
+        retries once) if a concurrent create loses the race.
+        """
+        folder_path: str = self.get_folder_path(local_series_folder)
+        try:
+            remaining = os.listdir(folder_path)
+        except OSError:
+            return
+
+        # A folder that only holds its own marker is just as much a husk.
+        if any(name != S3_UPLOADED_MARKER_NAME
+               and not name.startswith(S3_UPLOADED_MARKER_TMP_PREFIX)
+               for name in remaining):
+            return
+
+        for name in remaining:
+            try:
+                os.remove(os.path.join(folder_path, name))
+            except OSError:
+                return
+
+        try:
+            os.rmdir(folder_path)
+            logger.debug("LocalStorage: removed empty series folder",
+                         local_series_folder=local_series_folder)
+        except OSError as e:
+            logger.debug("LocalStorage: could not remove empty series folder",
+                         local_series_folder=local_series_folder,
+                         error=str(e))
 
 
     def get_local_path(self, uuid: str, local_series_folder: str, content_type: orthanc.ContentType) -> str:

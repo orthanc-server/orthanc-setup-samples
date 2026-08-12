@@ -13,7 +13,11 @@ from typing import List, Dict, Optional, Tuple
 
 from boto3 import client as S3Client
 
-from local_storage_interface import LocalStorageInterface
+from local_storage_interface import (
+    LocalStorageInterface,
+    S3_UPLOADED_MARKER_NAME,
+    S3_UPLOADED_MARKER_TMP_PREFIX,
+)
 from uncommitted_series_handler import UncommittedSeriesHandler
 from custom_data import CustomData
 
@@ -37,6 +41,13 @@ CUSTOM_DATA_CREATION_NUM_THREADS = 12
 
 _COPY_QUEUE_NAME = "series-to-copy"
 _COPY_QUEUE_IDLE_SLEEP_SECONDS = 1
+
+# How many series in a row may be found still in retry-backoff before the copy
+# thread sleeps for one idle period. Without a bound, a queue holding only
+# backing-off series would be dequeued/re-enqueued in a hot loop; with it, the
+# thread still checks every entry promptly but cannot spin.
+_COPY_QUEUE_MAX_DEFERRALS_BEFORE_IDLE = 5
+
 
 _TRANSIENT_CLIENT_ERROR_CODES = {
     "InternalError",
@@ -80,11 +91,24 @@ else:
     _TRANSIENT_BOTOCORE_EXCEPTIONS = ()
 
 
+# Series that lost at least one attachment: bytes Orthanc still lists but that
+# exist neither on local disk nor in any S3 zip. Written by copy_series_to_s3,
+# read by the per-series status endpoint, dropped by the housekeeper when the
+# series leaves Orthanc.
+#
+# The point is enumerability. Until now the only trace of destroyed data was an
+# ERROR line in a container log -- which in the CI run that motivated this was
+# rotated away before anyone looked. A KVS entry survives, can be listed, and
+# gives the Gap Server a truthful answer to "is this study whole?".
+LOST_DATA_KVS = "s3zip-series-with-lost-data"
+
+
 class SeriesS3Info:
 
     series_id: str
     is_stored_in_s3: bool = False
     s3_zip_key: str = None
+    lost_attachment_count: int = 0
 
     def __init__(self, series_id: str):
         self.series_id = series_id
@@ -211,6 +235,11 @@ class LocalToS3ZipManager:
         self._threads_should_stop = False
         # series_id -> consecutive copy failures, for retry backoff (copy thread only)
         self._copy_failure_counts: Dict[str, int] = {}
+        # series_id -> monotonic deadline before which the next attempt is
+        # pointless. Held per series rather than as a sleep on the worker so
+        # one failing series cannot stall the copies of every other series.
+        self._copy_retry_not_before: Dict[str, float] = {}
+        self._consecutive_deferrals: int = 0
         self._copy_thread = threading.Thread(target=self._copy_thread_worker)
 
         compression_name = "ZIP_DEFLATED" if enable_compression else "ZIP_STORED"
@@ -242,12 +271,18 @@ class LocalToS3ZipManager:
         return f"{series_id}.zip"
 
     def _any_attachment_has_local_file(self, attachments_uuids: List[str]) -> bool:
-        """Probe whether at least one attachment has a local file on disk.
+        """Does this series still have anything on local disk?
 
-        Used by ``copy_series_to_s3``'s fast-path guard to recognise
-        "data wiped, never made it to S3" without diving into the upload
-        loop. Errors per attachment are treated as "not present" so a
-        flaky CustomData lookup cannot accidentally suppress the guard.
+        Deliberately cheap: it stops at the first attachment that has a file,
+        which for a healthy series is the first one it looks at. It runs on
+        every copy, and each attachment costs a CustomData lookup (a database
+        round trip), so walking a 2000-instance series here would be a real
+        tax on the hot path.
+
+        A "no" is not a verdict. It is the normal, healthy end state of a
+        series -- uploaded to S3, marker written, folder evicted -- and it is
+        also what a genuine loss looks like. The caller tells them apart; see
+        _collect_unrecoverable_attachments.
         """
         for a_uuid in attachments_uuids:
             try:
@@ -264,10 +299,171 @@ class LocalToS3ZipManager:
                 ):
                     return True
             except Exception:
-                # Treat probe errors as "not present"; the real upload
-                # attempt below would surface a precise failure mode.
+                # Treat a probe error as "not present": the zip loop below
+                # would surface a precise failure mode anyway.
                 continue
         return False
+
+    def _collect_unrecoverable_attachments(self, attachments_uuids: List[str]) -> List[str]:
+        """Return every attachment whose bytes exist neither locally nor in a zip.
+
+        Only ever called once a series is already known to be damaged, so the
+        per-attachment CustomData round-trip it costs is paid on the failure
+        path, not on every copy. The point is to report "3 instances lost", not
+        "at least one".
+
+        An attachment whose CustomData cannot be read is NOT counted as lost:
+        we cannot prove anything about it, and over-reporting destroyed data is
+        its own kind of harm.
+        """
+        unrecoverable: List[str] = []
+
+        for a_uuid in attachments_uuids:
+            try:
+                cd = CustomData.from_orthanc_attachment(attachment_uuid=a_uuid)
+            except Exception:
+                continue
+            if cd is None or cd.s3_zip_key:
+                continue
+            try:
+                if not self._local_storage.has_local_file(
+                    uuid=a_uuid,
+                    local_series_folder=cd.local_series_folder,
+                    content_type=orthanc.ContentType.DICOM,
+                ):
+                    unrecoverable.append(a_uuid)
+            except Exception:
+                continue
+
+        return unrecoverable
+
+    def _quarantine_damaged_series(self,
+                                   series_id: str,
+                                   attachments_uuids: List[str],
+                                   unrecoverable_uuids: List[str],
+                                   local_series_folder: Optional[str]) -> None:
+        """Stop everything for a series that has lost instances, loudly.
+
+        Deliberately NOT "upload what we can and carry on". This is
+        neurosurgical imaging: a study that is missing an instance must never
+        be quietly completed. A zip that covers 78 of 79 instances is worse
+        than no zip at all, because everything downstream -- the archive
+        endpoint, a later rehydration, an operator eyeballing the bucket --
+        would treat it as the series. Waiting for the study to be re-sent
+        costs minutes; processing incomplete anatomy costs more than that.
+
+        So: no upload, no marker. The folder keeps its remaining instances
+        (they are the only copy left of them) and stays ineligible for
+        eviction, which is the correct trade -- cache space for data.
+
+        The copy-queue entry is acknowledged WITHOUT re-enqueueing. Retrying
+        cannot conjure back bytes that exist nowhere, and a series that
+        re-enters the queue forever starves every other series of the single
+        copy worker. The damage is instead recorded where it can be found:
+
+          * an ERROR log line,
+          * a durable entry in the lost-data KVS, which
+          * the per-series status endpoint reports, which
+          * the Gap Server turns into a hard, non-retriable refusal to process
+            the study.
+
+        Recovery is a re-send: with Orthanc's OverwriteInstances enabled the
+        missing instance is written again, the next stable-series copy finds
+        the series whole, and the damaged flag is cleared.
+        """
+        logger.error(
+            "DATA LOSS: series has instances whose bytes exist NOWHERE -- not on local disk, "
+            "not in any S3 zip. Refusing to upload a partial archive for it, and refusing to "
+            "mark it as stored. This study is INCOMPLETE and must be re-sent from the "
+            "modality/PACS; it will not be processed until it is.",
+            series_id=series_id,
+            local_series_folder=local_series_folder or "<unknown>",
+            lost_attachment_count=len(unrecoverable_uuids),
+            attachment_count=len(attachments_uuids),
+            lost_uuids=unrecoverable_uuids[:20],
+        )
+
+        recorded = self._record_lost_attachments(series_id=series_id,
+                                                 lost_uuids=unrecoverable_uuids)
+
+        if not recorded:
+            # The record is the alarm: without it the status endpoint cannot
+            # report the damage and the Gap Server cannot refuse the study.
+            # Keep the uncommitted-series entry so the housekeeper brings this
+            # series back in a few minutes and the write is retried, rather
+            # than losing the only durable trace of a destroyed instance.
+            logger.error(
+                "the lost-data record could not be written; leaving this series on the "
+                "housekeeper's list so the alarm is raised on a later pass",
+                series_id=series_id,
+            )
+            return
+
+        # Clear the uncommitted-series bookkeeping so the housekeeper stops
+        # rescheduling a copy that can only fail the same way. The lost-data
+        # KVS is the durable record from here on, and a re-send fires
+        # STABLE_SERIES on its own.
+        try:
+            self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+        except Exception:
+            logger.exception(
+                "could not clear the uncommitted-series KVS entry for a damaged series; "
+                "the housekeeper will retry the cleanup",
+                series_id=series_id,
+            )
+
+    def _files_on_disk_not_in_zip(self, local_series_folder: str, zipped_uuids: set) -> List[str]:
+        """Return the folder's files that the zip we just uploaded does NOT contain.
+
+        This is the precondition for publishing the ``.s3-uploaded`` marker,
+        and it is deliberately answered from the DISK rather than from
+        Orthanc's index.
+
+        Orthanc calls the storage area's ``Create`` BEFORE it records the
+        attachment in its database, so a brand-new instance can be sitting in
+        this folder while ``/tools/find`` still reports the previous
+        attachment set. An index-based recheck therefore sees "nothing
+        changed", publishes the marker, and hands eviction permission to
+        delete a file that exists in no zip anywhere. That is a permanent loss
+        of a DICOM instance, and it is exactly what happened in QM-9901's
+        e2e run: the copy at 08:06:27 rechecked 32 == 32 attachments and
+        published the marker while instance 33 was already on disk;
+        the next eviction pass took the folder, and the copy 60s later found
+        an attachment with no local file and no S3 zip.
+
+        The disk is the only party that knows the truth here, and it is
+        race-free in combination with ``storage_create``'s ordering (write the
+        file, THEN invalidate the marker, both under the per-folder marker
+        critical section):
+
+          * the file lands before we listdir -> we see it and withhold the marker;
+          * the file lands after we listdir -> its invalidate is serialised
+            behind our critical section and wipes the marker we just wrote.
+
+        Marker files (and their tmp- partials) are excluded: they are not
+        instance data. A missing folder yields an empty list -- there is
+        nothing on disk that the zip fails to cover.
+        """
+        folder_path = self._local_storage.get_folder_path(local_series_folder)
+        try:
+            names = os.listdir(folder_path)
+        except FileNotFoundError:
+            return []
+        except OSError as e:
+            # Unreadable folder: we cannot prove the zip covers it, so behave
+            # as if it did not. Withholding the marker is always the safe
+            # direction -- it costs cache space, never data.
+            logger.warning("could not list series folder before publishing the S3 marker",
+                           local_series_folder=local_series_folder,
+                           error=str(e))
+            return ["<unreadable-folder>"]
+
+        return sorted(
+            name for name in names
+            if name != S3_UPLOADED_MARKER_NAME
+            and not name.startswith(S3_UPLOADED_MARKER_TMP_PREFIX)
+            and name not in zipped_uuids
+        )
 
 
     def _resolve_local_series_folder(self, attachments_uuids: list[str]) -> str | None:
@@ -376,6 +572,13 @@ class LocalToS3ZipManager:
         logger.debug("dequeued series for S3 copy",
                      series_id=series_id,
                      value_id=str(value_id))
+
+        if self._defer_series_still_in_backoff(series_id=series_id,
+                                               bseries_id=bseries_id,
+                                               value_id=value_id):
+            return
+
+        self._consecutive_deferrals = 0
         logger.info("starting copy_series_to_s3", series_id=series_id)
 
         copy_succeeded = False
@@ -384,6 +587,7 @@ class LocalToS3ZipManager:
             self.copy_series_to_s3(series_id=series_id)
             copy_succeeded = True
             self._copy_failure_counts.pop(series_id, None)
+            self._copy_retry_not_before.pop(series_id, None)
         except BaseException as e:
             self._log_copy_thread_exception("failed to copy series to S3, re-enqueuing",
                                             e,
@@ -411,19 +615,69 @@ class LocalToS3ZipManager:
         if not copy_succeeded:
             # Exponential backoff between retries of a failing copy. Without
             # it the dequeue/fail/re-enqueue cycle spins every ~20 ms, floods
-            # the log and starves everything else on this thread. The sleep
-            # runs AFTER re-enqueue + ack, so no queue lease is held during
-            # the wait, and it stays interruptible for shutdown.
+            # the log and starves everything else on this thread.
+            #
+            # The backoff is recorded PER SERIES and enforced at dequeue time
+            # (see _defer_series_still_in_backoff) rather than slept off here.
+            # Sleeping on this thread would put the whole copy pipeline on
+            # hold for one sick series: with a 30 s cap and a series that
+            # cannot be fixed by retrying, every other series' upload -- and
+            # therefore the local cache's ability to drain at all -- runs at
+            # one copy per 30 s. That is how a single broken series turns
+            # into a server-wide slowdown.
             failures = self._copy_failure_counts.get(series_id, 0) + 1
             self._copy_failure_counts[series_id] = failures
             backoff_sec = min(2 ** min(failures, 5), 30)
+            self._copy_retry_not_before[series_id] = time.monotonic() + backoff_sec
             logger.info("backing off before next copy attempt",
                         series_id=series_id,
                         consecutive_failures=failures,
                         backoff_sec=backoff_sec)
-            deadline = time.monotonic() + backoff_sec
-            while time.monotonic() < deadline and not self._threads_should_stop:
-                time.sleep(0.5)
+
+
+    def _defer_series_still_in_backoff(self, series_id: str, bseries_id, value_id) -> bool:
+        """Put a series that is still in retry-backoff back on the queue.
+
+        Returns True when the caller must stop handling this queue value.
+
+        Re-enqueueing sends the series to the BACK of the queue, so healthy
+        series behind it are served immediately instead of waiting out its
+        backoff. A queue that contains nothing BUT backing-off series would
+        otherwise be a hot dequeue/re-enqueue loop, so after a few deferrals
+        in a row the worker takes one idle sleep.
+        """
+        not_before = self._copy_retry_not_before.get(series_id)
+        if not_before is None:
+            return False
+
+        remaining_sec = not_before - time.monotonic()
+        if remaining_sec <= 0:
+            self._copy_retry_not_before.pop(series_id, None)
+            return False
+
+        logger.debug("series still in copy backoff; re-queuing it behind the others",
+                     series_id=series_id,
+                     remaining_sec=round(remaining_sec, 1))
+        try:
+            orthanc.EnqueueValue(_COPY_QUEUE_NAME, bseries_id)
+        except BaseException as e:
+            # Leave the value reserved: its lease expires and Orthanc hands
+            # it back. Do NOT acknowledge -- that would drop the series.
+            self._log_copy_thread_exception(
+                "failed to re-enqueue a backing-off series; leaving the queue value "
+                "unacknowledged for lease release",
+                e,
+                series_id=series_id,
+                value_id=str(value_id))
+            return True
+
+        self._acknowledge_copy_queue_value(value_id=value_id, series_id=series_id)
+
+        self._consecutive_deferrals += 1
+        if self._consecutive_deferrals >= _COPY_QUEUE_MAX_DEFERRALS_BEFORE_IDLE:
+            self._consecutive_deferrals = 0
+            time.sleep(_COPY_QUEUE_IDLE_SLEEP_SECONDS)
+        return True
 
 
     def _acknowledge_copy_queue_value(self, value_id, series_id: str) -> bool:
@@ -500,7 +754,7 @@ class LocalToS3ZipManager:
             if cached_folder:
                 marker_path = os.path.join(
                     self._local_storage.get_folder_path(cached_folder),
-                    ".s3-uploaded",
+                    S3_UPLOADED_MARKER_NAME,
                 )
                 with self._local_storage.folder_marker_critical_section(cached_folder):
                     if os.path.exists(marker_path):
@@ -520,27 +774,55 @@ class LocalToS3ZipManager:
                             )
                         return
 
-        # Fast-path guard: if not a single attachment is on local disk,
-        # the data has been wiped without ever reaching S3 (typically
-        # because a pod restart cleared the ephemeral S3Zip volume
-        # before this series was uploaded). Without this guard the
-        # first read_file call would raise FileNotFoundError, the
-        # worker would re-enqueue, and the queue would spin every
-        # copy queue lease for the life of the deployment. Acknowledge
-        # gracefully so the queue makes forward progress.
+        # Fast-path guard: nothing of this series is on local disk.
         #
-        # The matching housekeeper pass detects this state and emits an
-        # ERROR log of its own; we log here too so a missed copy is
-        # visible even without the housekeeper.
+        # That on its own is NOT a problem -- it is the healthy end state of
+        # every series (uploaded, marker written, folder evicted). What
+        # decides between "fine" and "lost" is whether EVERY attachment carries
+        # an S3 zip key:
+        #
+        #   * all of them do -> the bytes are durable in S3. Rebuilding the zip
+        #                       would download the whole series back into the
+        #                       cache we just evicted, to re-upload
+        #                       byte-identical content. Skip, quietly.
+        #   * any of them do not -> those bytes are on no disk and in no zip.
+        #                       Quarantine the series: recorded, reported, and
+        #                       refused downstream. Without this exit the first
+        #                       read_file would raise FileNotFoundError and the
+        #                       worker would re-enqueue the same doomed series
+        #                       for the life of the pod.
+        #
+        # The matching housekeeper pass detects the lost state and emits an
+        # ERROR of its own; we log here too so a missed copy is visible even
+        # without the housekeeper.
         #
         # TODO: when an Orthanc series-level metadata tag exists for
         # "data lost" (see s3_zip_storage._housekeep_one_uncommitted_series),
         # set it here. The housekeeper can then enumerate lost series via
         # a single /tools/find rather than walking logs.
-        if attachments_uuids and not self._any_attachment_has_local_file(attachments_uuids):
-            logger.error(
-                "copy_series_to_s3: no local data left for any attachment; data is lost. "
-                "Acknowledging without re-enqueueing.",
+        if not self._any_attachment_has_local_file(attachments_uuids):
+            # Nothing on disk. That is either the healthiest state there is or
+            # the worst one, and the difference is per attachment: an
+            # attachment is recoverable if it carries an S3 zip key, and gone
+            # if it does not. Asking "does ANY of them have a key?" is not the
+            # same question -- a series where 78 attachments were uploaded and
+            # the 79th never was would answer yes and be waved through as
+            # "already on S3", which is precisely how a mutilated series would
+            # slip past unnoticed. Only "are they ALL covered?" is safe, so we
+            # pay for the full walk here, on the cold path.
+            unrecoverable = self._collect_unrecoverable_attachments(attachments_uuids)
+            if unrecoverable:
+                self._quarantine_damaged_series(
+                    series_id=series_id,
+                    attachments_uuids=attachments_uuids,
+                    unrecoverable_uuids=unrecoverable,
+                    local_series_folder=self._resolve_local_series_folder(attachments_uuids),
+                )
+                return
+
+            logger.info(
+                "copy_series_to_s3: no local data left, but every attachment is backed by an "
+                "S3 zip (folder evicted after a successful upload); nothing to copy",
                 series_id=series_id,
                 attachment_count=len(attachments_uuids),
             )
@@ -555,6 +837,10 @@ class LocalToS3ZipManager:
             return
 
         total_uncompressed_bytes = 0
+        zipped_uuids: List[str] = []
+        # True only once the marker is published, i.e. once the folder is
+        # provably covered by the zip we uploaded.
+        series_fully_on_s3 = False
 
         # let's zip them in a temp file and upload it to S3.
         with tempfile.NamedTemporaryFile(delete=True, suffix=".zip") as tmp_zip:
@@ -585,11 +871,33 @@ class LocalToS3ZipManager:
                             # Retrieval will not republish the marker (folder
                             # contents != zip contents), so the folder stays
                             # eviction-protected until this re-upload lands.
-                            content = self._rehydrate_and_reread(
-                                series_id=series_id,
-                                a_uuid=a_uuid,
-                                local_series_folder=local_series_folder,
-                            )
+                            try:
+                                content = self._rehydrate_and_reread(
+                                    series_id=series_id,
+                                    a_uuid=a_uuid,
+                                    local_series_folder=local_series_folder,
+                                )
+                            except FileNotFoundError:
+                                # No local file and no zip that holds it: these
+                                # bytes exist nowhere.
+                                #
+                                # Abandon the WHOLE series. Not "skip this
+                                # attachment and upload the rest": an archive
+                                # that silently omits an instance is the most
+                                # dangerous artefact this plugin can produce,
+                                # because every consumer downstream would treat
+                                # it as the series. See _quarantine_damaged_series.
+                                lost_uuids = self._collect_unrecoverable_attachments(
+                                    attachments_uuids
+                                ) or [a_uuid]
+                                self._quarantine_damaged_series(
+                                    series_id=series_id,
+                                    attachments_uuids=attachments_uuids,
+                                    unrecoverable_uuids=lost_uuids,
+                                    local_series_folder=local_series_folder,
+                                )
+                                return
+                        zipped_uuids.append(a_uuid)
                         attachments_sizes[a_uuid] = len(content)
                         total_uncompressed_bytes += attachments_sizes[a_uuid]
                         logger.debug("adding attachment to zip",
@@ -606,9 +914,23 @@ class LocalToS3ZipManager:
                 t_zip_done = time.monotonic()
                 zip_size_bytes = os.path.getsize(tmp_zip.name)
 
+                if not zipped_uuids:
+                    # Defensive: the read loop quarantines the series the moment
+                    # an attachment turns out to be unrecoverable, so an empty
+                    # zip should be unreachable. If it ever is reached, uploading
+                    # would PUT an empty archive over this series' key and
+                    # destroy a good one.
+                    self._quarantine_damaged_series(
+                        series_id=series_id,
+                        attachments_uuids=attachments_uuids,
+                        unrecoverable_uuids=self._collect_unrecoverable_attachments(attachments_uuids),
+                        local_series_folder=local_series_folder,
+                    )
+                    return
+
                 logger.info("zip archive built",
                             series_id=series_id,
-                            attachment_count=len(attachments_uuids),
+                            attachment_count=len(zipped_uuids),
                             zip_size_bytes=zip_size_bytes,
                             uncompressed_bytes=total_uncompressed_bytes,
                             zip_build_ms=int((t_zip_done - t0) * 1000))
@@ -639,10 +961,13 @@ class LocalToS3ZipManager:
                             zip_size_bytes=zip_size_bytes,
                             upload_ms=int((t_upload_done - t_zip_done) * 1000))
 
-                # Update the custom data to notify that the file is now stored in a zip in S3
+                # Update the custom data to notify that the file is now stored in a zip in S3.
+                # Only for the attachments that ARE in the zip: an attachment we
+                # could not read is not in there, and must keep its LOCAL custom
+                # data so nothing downstream believes it is recoverable from S3.
                 logger.info("starting SetAttachmentCustomData loop",
                             series_id=series_id,
-                            attachment_count=len(attachments_uuids),
+                            attachment_count=len(zipped_uuids),
                             s3_key=s3_key)
                 t_meta_start = time.monotonic()
 
@@ -651,7 +976,7 @@ class LocalToS3ZipManager:
                                  series_id=series_id,
                                  uuid=a_uuid,
                                  index=idx,
-                                 total=len(attachments_uuids))
+                                 total=len(zipped_uuids))
 
                     s3_custom_data = CustomData(storage=CustomData.Storage.S3_ZIP,
                                                 local_series_folder=local_series_folder,
@@ -668,7 +993,7 @@ class LocalToS3ZipManager:
                 with ThreadPoolExecutor(max_workers=CUSTOM_DATA_CREATION_NUM_THREADS) as executor:
                     futures  = [
                         executor.submit(set_attachment_custom_data, a_uuid, idx)
-                        for idx, a_uuid in enumerate(attachments_uuids)
+                        for idx, a_uuid in enumerate(zipped_uuids)
                     ]
 
                     # Wait for all tasks to complete and propagate any exceptions
@@ -678,37 +1003,52 @@ class LocalToS3ZipManager:
                 t_meta_done = time.monotonic()
                 logger.info("SetAttachmentCustomData loop complete",
                             series_id=series_id,
-                            attachment_count=len(attachments_uuids),
+                            attachment_count=len(zipped_uuids),
                             s3_key=s3_key,
                             metadata_update_ms=int((t_meta_done - t_meta_start) * 1000))
 
-                # Re-check the attachment set under the per-folder marker
-                # critical section: if a new instance landed for this series
-                # after the initial snapshot, the uploaded zip is already
-                # incomplete. Skip the marker so eviction cannot purge the
-                # folder. The critical section serializes against
-                # storage_create's marker invalidation, so a concurrent new
-                # write cannot interleave between our recheck and our marker
-                # write and leave a stale marker behind. The next
-                # stable-series event will trigger another copy that includes
-                # the new instance(s) and publishes a fresh marker.
+                # Decide whether the folder may now be declared "recoverable
+                # from S3", under the per-folder marker critical section.
+                #
+                # TWO independent conditions, because they catch different
+                # things and only one of them is race-free on its own:
+                #
+                #   1. The DISK must hold nothing the zip does not have. This
+                #      is the authoritative check. Orthanc records an
+                #      attachment in its index only AFTER the storage area's
+                #      Create returns, so a brand-new instance is on disk
+                #      before /tools/find will admit it exists -- see
+                #      _files_on_disk_not_in_zip for the full argument and for
+                #      the CI failure that proved it.
+                #
+                #   2. Orthanc's attachment set must still match the snapshot
+                #      we uploaded. Redundant with (1) for new instances, but
+                #      it also catches an instance DELETED mid-copy, and it
+                #      gives a much more readable log line.
+                #
+                # The critical section serializes against storage_create's
+                # marker invalidation, so a write that lands after our listdir
+                # is guaranteed to wipe the marker we just published rather
+                # than interleave with it. The folder lease is still held here,
+                # so eviction cannot remove the folder between the tmp-file
+                # open in _write_s3_uploaded_marker step 1 and the atomic
+                # os.replace to .s3-uploaded in step 2.
                 if local_series_folder:
                     with self._local_storage.folder_marker_critical_section(local_series_folder):
                         current_attachments: list[str] = self._get_instances_attachments(series_id=series_id)
                         attachments_changed: bool = set(current_attachments) != set(attachments_uuids)
+                        unzipped_files_on_disk: List[str] = self._files_on_disk_not_in_zip(
+                            local_series_folder=local_series_folder,
+                            zipped_uuids=set(zipped_uuids),
+                        )
 
-                        # The marker is the eviction guard's durable signal
-                        # that the folder contents are recoverable from S3. It
-                        # is written while the folder lease is active so
-                        # eviction cannot remove the folder between the
-                        # tmp-file open in _write_s3_uploaded_marker step 1 and
-                        # the atomic os.replace to .s3-uploaded in step 2.
-                        if not attachments_changed:
+                        if not attachments_changed and not unzipped_files_on_disk:
                             self._write_s3_uploaded_marker(
                                 local_series_folder=local_series_folder,
                                 s3_key=s3_key,
                                 series_id=series_id,
                             )
+                            series_fully_on_s3 = True
                         else:
                             new_uuids = sorted(
                                 set(current_attachments) - set(attachments_uuids)
@@ -717,24 +1057,43 @@ class LocalToS3ZipManager:
                                 set(attachments_uuids) - set(current_attachments)
                             )
                             logger.warning(
-                                msg="attachment set changed during S3 copy; skipping marker write (next stable-series event will trigger a fresh copy)",
+                                msg="series folder holds data the uploaded zip does not cover; skipping marker write (next stable-series event will trigger a fresh copy)",
                                 series_id=series_id,
                                 s3_key=s3_key,
                                 snapshot_count=len(attachments_uuids),
                                 current_count=len(current_attachments),
+                                zipped_count=len(zipped_uuids),
                                 new_uuids=new_uuids,
                                 dropped_uuids=dropped_uuids,
+                                unzipped_files_on_disk=unzipped_files_on_disk[:20],
                             )
 
         duration_ms = int((time.monotonic() - t0) * 1000)
 
-        self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+        # Clear the uncommitted-series bookkeeping only for a series that is
+        # now fully on S3. When the marker was withheld, part of this series
+        # is still local-only: a STABLE_SERIES event is expected to trigger
+        # another copy, but that is an event we do not control, and dropping
+        # the KVS entry here would also drop the housekeeper's safety net for
+        # exactly the series that still needs it.
+        if series_fully_on_s3:
+            self._uncommitted_series_handler.on_committed_series(series_id=series_id)
+            # Every attachment Orthanc lists was read and uploaded, so whatever
+            # this series lost before has been made good -- typically by the
+            # operator re-sending the study, which overwrites the empty records
+            # (Orthanc runs with OverwriteInstances). Retract the alarm, or it
+            # would keep the study blocked forever.
+            self._clear_lost_attachments(series_id=series_id)
+        else:
+            logger.info("keeping the uncommitted-series entry: this copy did not cover the "
+                        "whole folder, so the housekeeper stays responsible for it",
+                        series_id=series_id)
 
         logger.info("series stored to S3",
                     series_id=series_id,
                     s3_key=s3_key,
                     bucket=self._bucket_name,
-                    attachment_count=len(attachments_uuids),
+                    attachment_count=len(zipped_uuids),
                     zip_size_bytes=zip_size_bytes,
                     uncompressed_bytes=total_uncompressed_bytes,
                     zip_build_ms=int((t_zip_done - t0) * 1000),
@@ -744,10 +1103,10 @@ class LocalToS3ZipManager:
 
     def _write_s3_uploaded_marker(self, local_series_folder: str, s3_key: str, series_id: str):
         folder_path = self._local_storage.get_folder_path(local_series_folder)
-        marker_path = os.path.join(folder_path, ".s3-uploaded")
+        marker_path = os.path.join(folder_path, S3_UPLOADED_MARKER_NAME)
         tmp_marker_path = os.path.join(
             folder_path,
-            f".s3-uploaded.tmp-{os.getpid()}-{threading.get_ident()}"
+            f"{S3_UPLOADED_MARKER_TMP_PREFIX}{os.getpid()}-{threading.get_ident()}"
         )
 
         try:
@@ -785,7 +1144,7 @@ class LocalToS3ZipManager:
         expected steady state.
         """
         folder_path = self._local_storage.get_folder_path(local_series_folder)
-        marker_path = os.path.join(folder_path, ".s3-uploaded")
+        marker_path = os.path.join(folder_path, S3_UPLOADED_MARKER_NAME)
         try:
             os.remove(marker_path)
             logger.debug("invalidated S3 upload marker",
@@ -1105,7 +1464,8 @@ class LocalToS3ZipManager:
             try:
                 on_disk = {
                     name for name in os.listdir(folder_path)
-                    if name != ".s3-uploaded" and not name.startswith(".s3-uploaded.tmp-")
+                    if name != S3_UPLOADED_MARKER_NAME
+                    and not name.startswith(S3_UPLOADED_MARKER_TMP_PREFIX)
                 }
             except FileNotFoundError:
                 on_disk = None
@@ -1212,6 +1572,77 @@ class LocalToS3ZipManager:
 
         return attachments_uuids
 
+    def _record_lost_attachments(self, series_id: str, lost_uuids: List[str]) -> bool:
+        """Record destroyed attachments in a durable, listable place.
+
+        Returns whether the record was written. The caller cares: this entry is
+        what the per-series status endpoint reads, and therefore what makes the
+        Gap Server refuse to process the study. A loss that is only in a log
+        line is a loss nobody acts on, so a failed write must not be shrugged
+        off -- see _quarantine_damaged_series.
+        """
+        try:
+            payload = json.dumps({
+                "series_id": series_id,
+                "lost_attachment_count": len(lost_uuids),
+                # Capped: the point is to identify the series, not to mirror a
+                # 10k-instance attachment list into the KVS.
+                "lost_uuids": lost_uuids[:100],
+                "detected_at_epoch_ms": int(time.time() * 1000),
+            }).encode("utf-8")
+            orthanc.StoreKeyValue(LOST_DATA_KVS, series_id, payload)
+            return True
+        except Exception:
+            logger.exception(
+                "could not record the lost-data marker for this series; the loss is only in "
+                "the log until this succeeds",
+                series_id=series_id,
+            )
+            return False
+
+    def _clear_lost_attachments(self, series_id: str) -> None:
+        """Retract the lost-data record for a series that is now complete on S3.
+
+        Best effort in the other direction: a stale entry keeps the Gap Server
+        refusing a study that has since been repaired, so it is worth clearing,
+        but failing to clear it cannot make anything unsafe.
+        """
+        try:
+            if not orthanc.GetKeyValue(LOST_DATA_KVS, series_id):
+                return
+        except Exception:
+            return
+
+        try:
+            orthanc.DeleteKeyValue(LOST_DATA_KVS, series_id)
+            logger.warning(
+                "series previously reported as having lost instances is now fully uploaded to "
+                "S3; clearing its lost-data record (it was presumably re-sent)",
+                series_id=series_id,
+            )
+        except Exception:
+            logger.exception(
+                "could not clear the lost-data record of a repaired series; the study stays "
+                "blocked until it is removed",
+                series_id=series_id,
+            )
+
+    def get_lost_attachment_count(self, series_id: str) -> int:
+        """How many of this series' attachments are known to be destroyed."""
+        try:
+            raw = orthanc.GetKeyValue(LOST_DATA_KVS, series_id)
+        except Exception:
+            return 0
+        if not raw:
+            return 0
+        try:
+            if isinstance(raw, (bytes, bytearray)):
+                raw = raw.decode("utf-8")
+            return int(json.loads(raw).get("lost_attachment_count", 0))
+        except Exception:
+            # An entry we cannot parse still means "this series lost data".
+            return 1
+
     def get_series_info(self, series_id: str) -> Optional[SeriesS3Info]:
         attachments_uuids = self._get_instances_attachments(series_id=series_id)
 
@@ -1226,5 +1657,12 @@ class LocalToS3ZipManager:
             status.is_stored_in_s3 = cd.storage == CustomData.Storage.S3_ZIP
             if status.is_stored_in_s3:
                 status.s3_zip_key = cd.s3_zip_key
+
+        # One attachment's custom data cannot speak for the series: an
+        # attachment whose bytes were destroyed keeps LOCAL custom data while
+        # every other attachment moves to S3_ZIP, so sampling attachments[0]
+        # reports a mutilated series as fully stored. The lost-data KVS is the
+        # O(1) answer to the part sampling cannot see.
+        status.lost_attachment_count = self.get_lost_attachment_count(series_id=series_id)
 
         return status

@@ -140,13 +140,19 @@ def on_rest_api_series_s3_status(output, uri, **request):  # GET -> returns a st
         series_id = request['groups'][0]
         series_status = storage_singleton.get_series_status(series_id=series_id)
         if not series_status:
-            logger.error("Failed to retrieve series status", series_id)
+            logger.error("Failed to retrieve series status", series_id=series_id)
             output.SendHttpStatusCode(400)
             return
 
         status = {
             'is-stored-in-s3': series_status.is_stored_in_s3,
-            's3-zip-key': series_status.s3_zip_key
+            's3-zip-key': series_status.s3_zip_key,
+            # Attachments Orthanc still lists whose bytes exist nowhere. A
+            # series can be "stored in S3" and still be incomplete, so a
+            # caller that only reads is-stored-in-s3 will call a mutilated
+            # series whole.
+            'lost-attachment-count': series_status.lost_attachment_count,
+            'has-lost-data': series_status.lost_attachment_count > 0,
         }
         output.AnswerBuffer(json.dumps(status), 'application/json')
     else:
@@ -159,6 +165,14 @@ def on_rest_api_series_s3_archive(output, uri, **request): # GET -> streams a zi
         series_id = request['groups'][0]
 
         series_status = storage_singleton.get_series_status(series_id=series_id)
+        if not series_status:
+            # No attachment to serve. Answering before StartStreamAnswer is the
+            # only chance to send a status code -- once the stream is open the
+            # client gets a 200 followed by a traceback's worth of nothing.
+            logger.error("cannot stream the archive of a series with no attachment",
+                         series_id=series_id)
+            output.SendHttpStatusCode(404)
+            return
 
         output.SetHttpHeader('Content-Disposition', f'filename={series_id}.zip')
         output.StartStreamAnswer('application/zip')

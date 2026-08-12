@@ -26,6 +26,39 @@ The test scenario:
 - restarts the system to clear the storage caches
 - download the studies again
 
+## The `.s3-uploaded` marker
+
+The local folder of a series is deleted by the eviction pass only if it holds
+an `.s3-uploaded` marker. That marker is a single, load-bearing claim:
+
+> every instance file in this folder can be read back from the S3 zip named
+> inside it.
+
+Two rules keep the claim true, and both exist because breaking either one
+destroys DICOM data:
+
+1. **The marker is published against the DISK, never against Orthanc's
+   index.** Orthanc calls the storage area's `Create` *before* it commits the
+   attachment row, so a brand-new instance is on disk while `/tools/find`
+   still reports the previous attachment set. A copy that asks the index
+   "anything new?" gets told "no" and publishes a marker that covers a file
+   the zip does not contain — the next eviction then deletes the only copy of
+   that instance. `copy_series_to_s3` therefore lists the folder and withholds
+   the marker if it holds anything the uploaded zip does not.
+
+2. **`storage_create` holds the folder lease across both the write and the
+   marker invalidation.** A folder that is already on S3 carries a marker; the
+   instance being added is not in that zip. Between the file landing and the
+   marker being wiped, the folder is a legal eviction target holding data that
+   exists nowhere else. The lease makes the eviction pass skip it for the
+   duration.
+
+Running out of local space is a designed-for state, not an edge case: folders
+awaiting their upload are protected, so a cache under pressure legitimately
+has nothing to evict. The budget is a target rather than a wall — writes are
+admitted past it, and the filesystem is the hard limit (an `ENOSPC` write
+fails the C-STORE, which is what makes the modality retry).
+
 # TODO
 
 ## Making sure all series are uploaded to S3
@@ -168,14 +201,58 @@ vanished local file is caught and still returns SUCCESS, so it does not block
 the overwrite.
 
 So the remedy is simple. What is missing is that **nobody is ever told**: the
-only trace of a data loss is a single ERROR line in the pod's log. Whoever
-could re-send the study has no way to learn that they should.
+only trace of a data loss used to be a single ERROR line in the pod's log —
+and in the CI run that motivated this section, that log had rotated before
+anyone read it. Whoever could re-send the study has no way to learn that they
+should.
+
+### What exists today
+
+A first, passive step is in place: a series that loses an attachment is
+recorded in the `s3zip-series-with-lost-data` key-value store (series id,
+count, the uuids, a timestamp), and the per-series status endpoint reports it:
+
+```
+GET /series/<id>/s3-zip/status
+{ "is-stored-in-s3": true, "s3-zip-key": "...",
+  "has-lost-data": true, "lost-attachment-count": 1 }
+```
+
+This matters because `is-stored-in-s3` alone cannot answer it: that flag is
+read from **one** attachment's custom data, and the attachment whose bytes were
+destroyed is exactly the one that keeps its `local` custom data while all its
+siblings move to `s3-zip`. A mutilated series therefore reports itself as
+stored. The KVS is the O(1) answer to the part sampling cannot see, and it
+makes losses enumerable instead of grep-able.
+
+A series that has lost an instance is **quarantined, not patched up**. One
+unrecoverable attachment abandons the whole copy: nothing is uploaded, no
+marker is published, and no attachment is told it lives in S3. This is
+deliberate and it is a clinical judgement rather than a technical one — an
+archive that silently omits an instance is worse than no archive at all,
+because every consumer downstream would treat it as the series. The surviving
+instances stay on local disk (they are the only copy left of themselves) and
+the folder stays ineligible for eviction; cache space is the cheaper thing to
+lose.
+
+What the quarantine *does* fix is the collateral damage. The failing copy used
+to be re-enqueued forever, and its retry backoff — up to 30 s — was slept on
+the single shared copy worker, so one sick series held up every other series'
+upload. In the run that motivated this, one destroyed instance kept 46
+perfectly good ones out of S3 and pinned 15 MB of cache no eviction pass could
+reclaim. The damage is now recorded once, the queue entry is released so the
+worker moves on, and the backoff is per series and enforced at dequeue.
+
+Recovery is a re-send: with `OverwriteInstances` enabled the missing instance
+is written again, the next stable-series copy finds the series whole, uploads
+it, and clears the lost-data record automatically.
 
 ### Proposed solution
 
-Two pieces, in order:
+The reporting is still passive — something has to go and look. Two pieces, in
+order:
 
-**1. Report it.** This is the whole fix: re-sending the study repairs it, so
+**1. Push it.** This is the whole fix: re-sending the study repairs it, so
 telling someone *which* studies to re-send closes the loop. The plugin should
 not decide what a lost series *means* — it has no idea who is meant to hear
 about it. When registering the plugin, give it an optional "data loss" 

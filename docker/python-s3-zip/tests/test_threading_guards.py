@@ -1,6 +1,7 @@
 import contextlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,11 @@ class _DicomInstance:
     pass
 
 
+class _QueueOrigin:
+    FRONT = "front"
+    BACK = "back"
+
+
 class _OrthancException(Exception):
     """Stand-in for orthanc.OrthancException in unit tests."""
     pass
@@ -56,10 +62,14 @@ orthanc_stub = types.SimpleNamespace(
     CompressionType=_CompressionType,
     DicomInstance=_DicomInstance,
     OrthancException=_OrthancException,
+    QueueOrigin=_QueueOrigin,
     LogInfo=lambda message: None,
     SetCurrentThreadName=lambda name: None,
     SetAttachmentCustomData=lambda uuid, custom_data: None,
     # These are filled in per-test via mock.patch.object as needed.
+    ReserveQueueValue=_unimplemented,
+    EnqueueValue=_unimplemented,
+    AcknowledgeQueueValue=_unimplemented,
     RestApiGet=_unimplemented,
     RestApiPost=_unimplemented,
     RestApiDelete=_unimplemented,
@@ -67,14 +77,21 @@ orthanc_stub = types.SimpleNamespace(
     DeleteKeyValue=_unimplemented,
     CreateKeysValuesIterator=_unimplemented,
     GetAttachmentCustomData=_unimplemented,
+    GetKeyValue=_unimplemented,
 )
 sys.modules.setdefault("orthanc", orthanc_stub)
 sys.modules.setdefault("boto3", types.SimpleNamespace(client=object))
 
 
 from custom_data import CustomData
-from local_storage import LocalStorage
-from local_to_s3_zip_manager import LocalToS3ZipManager
+from helpers import Helpers
+from local_storage import _FUTILE_EVICTION_COOLDOWN_SEC, LocalStorage
+from local_to_s3_zip_manager import (
+    _COPY_QUEUE_IDLE_SLEEP_SECONDS,
+    _COPY_QUEUE_MAX_DEFERRALS_BEFORE_IDLE,
+    LOST_DATA_KVS,
+    LocalToS3ZipManager,
+)
 from s3_zip_storage import (
     DELETED_SERIES_KVS,
     _HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES,
@@ -348,6 +365,208 @@ class FolderLeaseTests(unittest.TestCase):
                 )
 
 
+class SpacePressureTests(unittest.TestCase):
+    """Behaviour when the cache is full -- a designed-for state, not an edge case.
+
+    The local cache is deliberately allowed to exceed its configured ceiling:
+    every folder still waiting for its S3 upload is protected from eviction,
+    so a burst of ingest legitimately has nothing to free. What must not
+    happen is the server making that situation worse.
+    """
+
+    def _storage(self, root, max_size_mb=1):
+        with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+            return LocalStorage(root=root, max_size_mb=max_size_mb)
+
+    def test_partially_written_file_is_removed_when_the_write_fails(self):
+        # ENOSPC mid-write leaves a truncated file. Orthanc fails the C-STORE
+        # and never references it, but the bytes stay: they occupy the cache
+        # and, since no zip can ever account for them, they would keep the
+        # folder ineligible for eviction for the life of the pod.
+        with tempfile.TemporaryDirectory() as root:
+            storage = self._storage(root)
+
+            real_open = open
+
+            def failing_open(path, *args, **kwargs):
+                handle = real_open(path, *args, **kwargs)
+                if os.path.basename(path) == "instance":
+                    handle.close()
+                    raise OSError(28, "No space left on device")
+                return handle
+
+            # The du mock stays on: write_file refreshes the stats after a
+            # failed write, and `du -b` is GNU-only (it does not exist on the
+            # macOS where developers run this suite).
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                with mock.patch("builtins.open", side_effect=failing_open):
+                    with self.assertRaises(OSError):
+                        storage.write_file(local_series_folder="series",
+                                           uuid="instance",
+                                           content=b"payload")
+
+            self.assertFalse(
+                os.path.exists(os.path.join(root, "series", "instance")),
+                "a truncated file must not survive the write that failed",
+            )
+
+    def test_failed_write_is_reported_to_orthanc_rather_than_silently_swallowed(self):
+        # The C-STORE must fail so the modality retries; returning SUCCESS
+        # would leave Orthanc's index pointing at bytes that do not exist.
+        with tempfile.TemporaryDirectory() as root:
+            storage = self._storage(root)
+
+            with mock.patch.object(storage, "write_file",
+                                   side_effect=OSError(28, "No space left on device")):
+                error_code = storage.create(
+                    uuid="instance",
+                    local_series_folder="series",
+                    content_type=orthanc_stub.ContentType.DICOM,
+                    compression_type=orthanc_stub.CompressionType.NONE,
+                    content=b"payload",
+                )
+
+            self.assertEqual(error_code, orthanc_stub.ErrorCode.PLUGIN)
+
+    def test_a_futile_eviction_pass_stops_the_rescan_storm(self):
+        # Once over budget with everything protected, every single instance
+        # write used to pause all writers, fork a du over the whole cache and
+        # walk the LRU queue -- to free nothing, then write anyway. The cost
+        # of ingesting one instance became proportional to the size of the
+        # cache, exactly when the server could least afford it.
+        with tempfile.TemporaryDirectory() as root:
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            with open(os.path.join(folder, "instance"), "wb") as f:
+                _ = f.write(b"x" * 4096)
+
+            storage = self._storage(root, max_size_mb=0)
+            # Nothing here is on S3, so nothing is evictable.
+            storage.set_eviction_guard(lambda folder_name: False)
+
+            scans = []
+            real_scan = storage._update_local_storage_stats_with_writes_paused
+
+            def counting_scan():
+                scans.append(1)
+                return real_scan()
+
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                with mock.patch.object(storage, "_update_local_storage_stats_with_writes_paused",
+                                       side_effect=counting_scan):
+                    for _ in range(10):
+                        storage._commit_write_reservation(storage._make_room(1000))
+
+            self.assertEqual(len(scans), 1,
+                             "a futile eviction pass must not be repeated on every write")
+
+            # ... and the pause is time-bounded, not permanent: once it
+            # expires the next write scans again and the accounting
+            # self-corrects.
+            storage._futile_eviction_until = time.monotonic() - 0.01
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                with mock.patch.object(storage, "_update_local_storage_stats_with_writes_paused",
+                                       side_effect=counting_scan):
+                    storage._commit_write_reservation(storage._make_room(1000))
+            self.assertEqual(len(scans), 2)
+            self.assertGreater(_FUTILE_EVICTION_COOLDOWN_SEC, 0)
+
+    def test_freeing_space_re_enables_the_rescan(self):
+        # The cooldown is about "nothing to free", so anything that frees
+        # something must cancel it immediately rather than let writes coast on
+        # stale accounting.
+        with tempfile.TemporaryDirectory() as root:
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            with open(os.path.join(folder, "instance"), "wb") as f:
+                _ = f.write(b"x" * 4096)
+            with open(os.path.join(folder, ".s3-uploaded"), "w") as f:
+                _ = f.write("series.zip")
+
+            storage = self._storage(root)
+            storage.set_eviction_guard(lambda folder_name: True)
+            storage._futile_eviction_until = time.monotonic() + 3600
+
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                result = storage.evict_all_safe()
+
+            self.assertEqual(result.freed_folders, 1)
+            self.assertEqual(storage._futile_eviction_until, 0.0)
+
+    def test_removing_the_last_instance_drops_the_empty_folder(self):
+        # An empty folder is not free: du charges it a block, so the cache
+        # never reports zero usage again, and with no marker it counts as
+        # "not yet on S3" in every stats snapshot and eviction pass.
+        with tempfile.TemporaryDirectory() as root:
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            for name in ("instance-1", "instance-2"):
+                with open(os.path.join(folder, name), "wb") as f:
+                    _ = f.write(b"x")
+            with open(os.path.join(folder, ".s3-uploaded"), "w") as f:
+                _ = f.write("series.zip")
+
+            storage = self._storage(root)
+
+            storage.remove(uuid="instance-1",
+                           local_series_folder="series",
+                           content_type=orthanc_stub.ContentType.DICOM,
+                           file_size=1)
+            self.assertTrue(os.path.isdir(folder), "the folder still holds an instance")
+
+            storage.remove(uuid="instance-2",
+                           local_series_folder="series",
+                           content_type=orthanc_stub.ContentType.DICOM,
+                           file_size=1)
+            self.assertFalse(os.path.exists(folder),
+                             "the last instance's removal must take the husk with it")
+
+    def test_write_recreates_a_folder_that_vanished_under_it(self):
+        # The empty-folder cleanup and eviction both race storage_create. A
+        # folder disappearing between makedirs and open must cost one retry,
+        # not a failed C-STORE.
+        with tempfile.TemporaryDirectory() as root:
+            storage = self._storage(root)
+
+            folder = os.path.join(root, "series")
+            real_open = open
+            opens = []
+
+            def racing_open(path, *args, **kwargs):
+                if os.path.basename(path) == "instance" and not opens:
+                    opens.append(path)
+                    shutil.rmtree(folder, ignore_errors=True)
+                    raise FileNotFoundError(path)
+                return real_open(path, *args, **kwargs)
+
+            with mock.patch("builtins.open", side_effect=racing_open):
+                storage.write_file(local_series_folder="series",
+                                   uuid="instance",
+                                   content=b"payload")
+
+            with open(os.path.join(folder, "instance"), "rb") as f:
+                self.assertEqual(f.read(), b"payload")
+
+    def test_deleting_a_file_does_not_cancel_another_writer_s_reservation(self):
+        # Reserved bytes belong to writes that are still in flight. Crediting
+        # a deletion against them makes the cache look emptier than it is,
+        # which is the wrong direction to be wrong in.
+        with tempfile.TemporaryDirectory() as root:
+            storage = self._storage(root)
+
+            storage._reserved_bytes = 5000
+            available_before = storage._available_size
+
+            with mock.patch("local_storage.os.remove"):
+                storage.remove(uuid="instance",
+                               local_series_folder="series",
+                               content_type=orthanc_stub.ContentType.DICOM,
+                               file_size=1000)
+
+            self.assertEqual(storage._reserved_bytes, 5000)
+            self.assertEqual(storage._available_size, available_before + 1000)
+
+
 class ConcurrentStressTests(unittest.TestCase):
     """Best-effort multi-thread stress.
 
@@ -550,6 +769,186 @@ class S3ZipStorageReadTests(unittest.TestCase):
         self.assertEqual(data, b"dicom")
         self.assertTrue(local_storage.read_saw_lease)
         self.assertEqual(local_storage.lease_depth, 0)
+
+
+class _CreatePathLocalStorage:
+    """Records what was leased while storage_create did its work."""
+
+    def __init__(self):
+        self.lease_depth = 0
+        self.leased_folders = []
+        self.create_saw_lease = None
+        self.marker_cs_saw_lease = None
+
+    @contextmanager
+    def lease_folder(self, local_series_folder):
+        self.lease_depth += 1
+        self.leased_folders.append(local_series_folder)
+        try:
+            yield
+        finally:
+            self.lease_depth -= 1
+
+    @contextmanager
+    def folder_marker_critical_section(self, local_series_folder):
+        self.marker_cs_saw_lease = self.lease_depth > 0
+        yield
+
+    def create(self, uuid, local_series_folder, content_type, compression_type, content):
+        self.create_saw_lease = self.lease_depth > 0
+        return orthanc_stub.ErrorCode.SUCCESS
+
+
+class _InvalidatingZipManager:
+    def __init__(self, local_storage):
+        self._local_storage = local_storage
+        self.invalidate_saw_lease = None
+
+    def invalidate_s3_uploaded_marker(self, local_series_folder):
+        self.invalidate_saw_lease = self._local_storage.lease_depth > 0
+        return True
+
+
+class _FakeDicomInstance:
+    def GetInstanceSimplifiedJson(self):
+        return json.dumps({
+            "PatientID": "PAT",
+            "StudyInstanceUID": "1.2.3",
+            "SeriesInstanceUID": "1.2.3.4",
+        })
+
+
+class S3ZipStorageCreateTests(unittest.TestCase):
+    def test_create_and_marker_invalidation_run_under_one_folder_lease(self):
+        # A folder already on S3 carries a marker, and that marker is
+        # eviction's permission to delete it. The instance being written is
+        # NOT in that S3 zip, so between "file written" and "marker removed"
+        # the folder is a legal eviction target holding data that exists
+        # nowhere else. The window is small; an eviction pass running every
+        # couple of seconds against a busy ingest finds it. The lease is what
+        # makes eviction skip the folder for the whole window.
+        local_storage = _CreatePathLocalStorage()
+        zip_manager = _InvalidatingZipManager(local_storage)
+
+        storage = S3ZipStorage.__new__(S3ZipStorage)
+        storage._local_storage = local_storage
+        storage._zip_manager = zip_manager
+
+        error_code, custom_data = storage.storage_create(
+            uuid="instance",
+            content_type=orthanc_stub.ContentType.DICOM,
+            compression_type=orthanc_stub.CompressionType.NONE,
+            content=b"payload",
+            dicom_instance=_FakeDicomInstance(),
+        )
+
+        self.assertEqual(error_code, orthanc_stub.ErrorCode.SUCCESS)
+        self.assertTrue(local_storage.create_saw_lease, "the write must hold the folder lease")
+        self.assertTrue(local_storage.marker_cs_saw_lease)
+        self.assertTrue(zip_manager.invalidate_saw_lease,
+                        "the marker invalidation must still hold the lease taken for the write")
+        self.assertEqual(local_storage.lease_depth, 0, "the lease must be released")
+
+        cd = CustomData.from_binary(custom_data)
+        self.assertEqual(cd.storage, CustomData.Storage.LOCAL)
+        self.assertEqual(local_storage.leased_folders, [cd.local_series_folder])
+
+
+class _BlockingInvalidateZipManager:
+    """Holds storage_create inside the marker-invalidation step on demand."""
+
+    def __init__(self, root, folder_name, entered, may_proceed):
+        self.marker_path = os.path.join(root, folder_name, ".s3-uploaded")
+        self.entered = entered
+        self.may_proceed = may_proceed
+
+    def invalidate_s3_uploaded_marker(self, local_series_folder):
+        self.entered.set()
+        self.may_proceed.wait(timeout=5)
+        try:
+            os.remove(self.marker_path)
+            return True
+        except FileNotFoundError:
+            return False
+
+
+class StorageCreateVersusEvictionTests(unittest.TestCase):
+    """The exact interleaving that destroyed a DICOM instance in CI.
+
+    Real LocalStorage, real eviction, real marker file. A folder that is
+    already on S3 receives a new instance; the eviction pass fires in the
+    window between the file landing on disk and the marker being invalidated.
+    """
+
+    def test_eviction_skips_a_folder_that_is_taking_a_new_instance(self):
+        with tempfile.TemporaryDirectory() as root:
+            dicom_instance = _FakeDicomInstance()
+            folder_name = Helpers.get_series_hash(dicom_instance)
+            folder = os.path.join(root, folder_name)
+            os.makedirs(folder)
+
+            # The state that makes this dangerous: everything currently in the
+            # folder is in the S3 zip, so the marker says "safe to evict".
+            with open(os.path.join(folder, "already-uploaded"), "wb") as f:
+                _ = f.write(b"old")
+            with open(os.path.join(folder, ".s3-uploaded"), "w") as f:
+                _ = f.write("series.zip")
+
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                local_storage = LocalStorage(root=root, max_size_mb=1)
+            local_storage.set_eviction_guard(
+                lambda name: os.path.exists(os.path.join(root, name, ".s3-uploaded"))
+            )
+
+            entered_invalidate = threading.Event()
+            may_finish_invalidate = threading.Event()
+
+            storage = S3ZipStorage.__new__(S3ZipStorage)
+            storage._local_storage = local_storage
+            storage._zip_manager = _BlockingInvalidateZipManager(
+                root, folder_name, entered_invalidate, may_finish_invalidate
+            )
+
+            eviction_result = {}
+
+            def create_side():
+                storage.storage_create(
+                    uuid="brand-new-instance",
+                    content_type=orthanc_stub.ContentType.DICOM,
+                    compression_type=orthanc_stub.CompressionType.NONE,
+                    content=b"the bytes that used to get deleted",
+                    dicom_instance=dicom_instance,
+                )
+
+            def evict_side():
+                self.assertTrue(entered_invalidate.wait(timeout=5))
+                with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                    eviction_result["result"] = local_storage.evict_all_safe()
+                may_finish_invalidate.set()
+
+            t_create = threading.Thread(target=create_side)
+            t_evict = threading.Thread(target=evict_side)
+            t_create.start(); t_evict.start()
+            t_create.join(timeout=10); t_evict.join(timeout=10)
+
+            self.assertFalse(t_create.is_alive())
+            self.assertFalse(t_evict.is_alive())
+
+            # The marker was still on disk when eviction ran, so the guard
+            # said "safe". Only the folder lease taken by storage_create keeps
+            # the pass off it.
+            self.assertEqual(eviction_result["result"].freed_folders, 0)
+            self.assertEqual(eviction_result["result"].skipped_folders, 1)
+            with open(os.path.join(folder, "brand-new-instance"), "rb") as f:
+                self.assertEqual(f.read(), b"the bytes that used to get deleted")
+
+            # And once the invalidation completes, the folder is correctly
+            # protected by the absence of the marker instead.
+            self.assertFalse(os.path.exists(os.path.join(folder, ".s3-uploaded")))
+            with mock.patch("local_storage.subprocess.run", side_effect=_fake_du_walk(root)):
+                after = local_storage.evict_all_safe()
+            self.assertEqual(after.freed_folders, 0)
+            self.assertTrue(os.path.exists(os.path.join(folder, "brand-new-instance")))
 
 
 class _RetrievalLocalStorage:
@@ -980,17 +1379,22 @@ class CopySeriesToS3Tests(unittest.TestCase):
                 os.path.exists(os.path.join(root, "series", ".s3-uploaded")),
                 "marker must not be written when attachment set changed during copy",
             )
-            # We still commit -- the data we did upload is on S3 and the next
-            # stable-series event will re-fire copy_series_to_s3 to cover the
-            # new instance.
-            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+            # And the uncommitted-series entry STAYS. Instance "c" is still
+            # local-only, so this series is exactly the kind the housekeeper
+            # exists to rescue; clearing the entry here would retire that
+            # safety net and leave the series' completion resting entirely on
+            # a STABLE_SERIES event that may never come (a pod restart between
+            # this copy and the stability timer is enough).
+            self.assertEqual(uncommitted_handler.committed, [])
 
-    def test_copy_series_to_s3_skips_upload_and_acks_when_no_local_files(self):
-        # Fast-path guard for the lost-data case. If not a single
-        # attachment has a local file, the copy must NOT raise (which
-        # would re-enqueue the worker forever); it must acknowledge by
-        # returning cleanly, clear the uncommitted-series KVS bookkeeping,
-        # and log at ERROR severity.
+    def test_whole_series_gone_is_recorded_as_lost_and_acknowledged(self):
+        # Fast-path guard: not one attachment has a local file and none was
+        # ever uploaded -- the whole series is gone (a pod restart on an
+        # ephemeral volume is the usual cause). The copy must NOT raise (that
+        # re-enqueues the worker forever), must upload nothing, and must leave
+        # a durable record of the loss: that record is what the status
+        # endpoint reads and therefore what stops the Gap Server processing
+        # the study.
         with tempfile.TemporaryDirectory() as root:
             local_storage = _CopyLocalStorage(root)
             local_storage.has_local_file = lambda uuid, local_series_folder, content_type: False
@@ -1004,17 +1408,475 @@ class CopySeriesToS3Tests(unittest.TestCase):
                 size_in_bytes=0,
             )
 
+            stored_kvs = []
             with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
                 with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
-                    # The call must return None (graceful ack) -- it must NOT raise.
-                    manager.copy_series_to_s3("orthanc-series")
+                    with mock.patch.object(
+                        orthanc_stub, "StoreKeyValue",
+                        side_effect=lambda store, key, value: stored_kvs.append((store, key, value)),
+                    ):
+                        # Must return, not raise.
+                        manager.copy_series_to_s3("orthanc-series")
 
             # Nothing uploaded, no marker written, no reads attempted.
             self.assertEqual(s3_client.uploads, [])
             self.assertEqual(local_storage.reads, [])
             self.assertFalse(os.path.exists(os.path.join(root, "series", ".s3-uploaded")))
+            # The loss is recorded where it can be found and reported.
+            self.assertEqual([store for store, _, _ in stored_kvs], [LOST_DATA_KVS])
+            recorded = json.loads(stored_kvs[0][2].decode("utf-8"))
+            self.assertEqual(sorted(recorded["lost_uuids"]), ["a", "b"])
             # KVS bookkeeping cleared so the housekeeper does not loop on it.
             self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+
+    def test_a_partially_uploaded_series_with_nothing_local_is_not_waved_through(self):
+        # The dangerous middle case, and the reason the guard asks "are they
+        # ALL covered?" rather than "is ANY of them covered?".
+        #
+        # A series was uploaded, then one more instance arrived, then the local
+        # folder went away (a pod restart on an ephemeral volume, say). Now
+        # nothing is on disk, most attachments carry an S3 zip key, and the
+        # late one carries none. "Any of them has a key" reads that as the
+        # ordinary evicted-after-upload state and skips quietly -- so the loss
+        # is never recorded, and a study missing an instance sails through the
+        # storage gate looking exactly like a healthy one.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            local_storage.has_local_file = lambda uuid, local_series_folder, content_type: False
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            on_s3 = CustomData(
+                storage=CustomData.Storage.S3_ZIP,
+                local_series_folder="series",
+                s3_zip_key="orthanc-series.zip",
+                series_id="orthanc-series",
+                size_in_bytes=0,
+            )
+            never_uploaded = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+            custom_data = {"a": on_s3, "b": on_s3, "late": never_uploaded}
+
+            stored_kvs = []
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b", "late"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment",
+                                       side_effect=lambda attachment_uuid: custom_data[attachment_uuid]):
+                    with mock.patch.object(
+                        orthanc_stub, "StoreKeyValue",
+                        side_effect=lambda store, key, value: stored_kvs.append((store, key, value)),
+                    ):
+                        manager.copy_series_to_s3("orthanc-series")
+
+            self.assertEqual(s3_client.uploads, [])
+            self.assertEqual([store for store, _, _ in stored_kvs], [LOST_DATA_KVS],
+                             "the late instance is on no disk and in no zip: that is a loss")
+            recorded = json.loads(stored_kvs[0][2].decode("utf-8"))
+            self.assertEqual(recorded["lost_uuids"], ["late"])
+
+    def test_unrecordable_loss_stays_on_the_housekeeper_list(self):
+        # The lost-data record IS the alarm: the status endpoint reads it, and
+        # that is what makes the Gap Server refuse the study. If the write
+        # fails, the series must stay on the housekeeper's list so a later
+        # pass tries again -- dropping it would leave a destroyed instance
+        # with nothing but a log line behind it.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            local_storage.has_local_file = lambda uuid, local_series_folder, content_type: False
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, uncommitted_handler=uncommitted_handler)
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            def failing_store(store, key, value):
+                raise RuntimeError("postgres is having a moment")
+
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    with mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=failing_store):
+                        manager.copy_series_to_s3("orthanc-series")
+
+            self.assertEqual(uncommitted_handler.committed, [],
+                             "a loss we could not record must not be forgotten")
+
+    def test_copy_withholds_marker_when_disk_holds_a_file_the_zip_does_not(self):
+        # THE regression test for the data loss in QM-9901's e2e run.
+        #
+        # Orthanc calls the storage area's Create BEFORE it commits the
+        # attachment row, so /tools/find can still answer "same 32 attachments
+        # as your snapshot" while instance 33's bytes are already sitting in
+        # the folder. The copy used to trust that answer, publish the marker,
+        # and hand eviction permission to delete a file that exists in no zip
+        # anywhere -- which is precisely what happened at 08:06:27 that day.
+        #
+        # So the marker decision is made against the DISK: an unexplained file
+        # in the folder withholds the marker even when the index says nothing
+        # changed.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, uncommitted_handler=uncommitted_handler)
+
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            for uuid in ("a", "b"):
+                with open(os.path.join(folder, uuid), "wb") as f:
+                    _ = f.write(b"x")
+            # Instance "c": on disk, not yet visible to /tools/find.
+            with open(os.path.join(folder, "c"), "wb") as f:
+                _ = f.write(b"x")
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            # Both the snapshot and the recheck report only a and b.
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    manager.copy_series_to_s3("orthanc-series")
+
+            self.assertFalse(
+                os.path.exists(os.path.join(folder, ".s3-uploaded")),
+                "marker must be withheld while the folder holds a file the zip does not cover",
+            )
+            # ... and the housekeeper keeps this series on its books.
+            self.assertEqual(uncommitted_handler.committed, [])
+
+    def test_copy_publishes_marker_when_the_folder_matches_the_zip(self):
+        # The other half of the disk-based precondition: a folder whose files
+        # are exactly what we uploaded (plus the marker machinery itself) must
+        # still become evictable, or nothing ever drains the cache.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, uncommitted_handler=uncommitted_handler)
+
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            for uuid in ("a", "b"):
+                with open(os.path.join(folder, uuid), "wb") as f:
+                    _ = f.write(b"x")
+            # Leftover marker bookkeeping must not be mistaken for instance data.
+            with open(os.path.join(folder, ".s3-uploaded.tmp-999-999"), "w") as f:
+                _ = f.write("stale")
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    manager.copy_series_to_s3("orthanc-series")
+
+            with open(os.path.join(folder, ".s3-uploaded"), "r") as f:
+                self.assertEqual(f.read(), "orthanc-series.zip")
+            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+
+    def test_a_series_that_lost_an_instance_is_never_partially_uploaded(self):
+        # THE rule for a damaged series, and it is a clinical one rather than a
+        # technical one: this is neurosurgical imaging, so an archive that
+        # silently omits an instance is worse than no archive at all. Everything
+        # downstream -- the archive endpoint, a later rehydration, an operator
+        # looking at the bucket -- would treat that zip as the series.
+        #
+        # So one unrecoverable attachment abandons the WHOLE series: nothing is
+        # uploaded, no marker is published (the surviving instances stay on disk
+        # rather than being made evictable), the loss is recorded durably, and
+        # the copy returns instead of raising -- raising would re-enqueue the
+        # series forever and starve every other series of the single worker.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            for uuid in ("a", "c"):
+                with open(os.path.join(folder, uuid), "wb") as f:
+                    _ = f.write(b"x")
+
+            # "b" is the destroyed one: read_file raises and its custom data
+            # carries no s3_zip_key, so there is nothing to rehydrate from.
+            def read_file(uuid, local_series_folder):
+                if uuid == "b":
+                    raise FileNotFoundError(uuid)
+                return f"content-{uuid}".encode("ascii")
+
+            local_storage.read_file = read_file
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            set_custom_data_calls = []
+            stored_kvs = []
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b", "c"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    with mock.patch.object(
+                        orthanc_stub,
+                        "SetAttachmentCustomData",
+                        side_effect=lambda uuid, data: set_custom_data_calls.append(uuid),
+                    ):
+                        with mock.patch.object(
+                            orthanc_stub,
+                            "StoreKeyValue",
+                            side_effect=lambda store, key, value: stored_kvs.append((store, key, value)),
+                        ):
+                            # Must NOT raise: raising is what spun the queue.
+                            manager.copy_series_to_s3("orthanc-series")
+
+            # NOTHING was uploaded, and no attachment was told it lives in S3.
+            self.assertEqual(s3_client.uploads, [])
+            self.assertEqual(s3_client.uploaded_zip_entries, [])
+            self.assertEqual(set_custom_data_calls, [])
+            # No marker: the folder keeps its surviving instances instead of
+            # becoming evictable. Cache space is the cheaper thing to lose.
+            self.assertFalse(os.path.exists(os.path.join(folder, ".s3-uploaded")))
+            # The loss is recorded where it can be listed and reported, not
+            # only in a log line that rotates away.
+            self.assertEqual(len(stored_kvs), 1)
+            store, key, value = stored_kvs[0]
+            self.assertEqual(store, LOST_DATA_KVS)
+            self.assertEqual(key, "orthanc-series")
+            recorded = json.loads(value.decode("utf-8"))
+            self.assertEqual(recorded["lost_attachment_count"], 1)
+            self.assertEqual(recorded["lost_uuids"], ["b"])
+            # The queue entry is released so the shared copy worker moves on to
+            # other series -- a damaged series must not take the pipeline down
+            # with it.
+            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+
+    def test_copy_refuses_to_overwrite_the_s3_zip_when_nothing_can_be_read(self):
+        # The same rule at its extreme: if every attachment is unreadable, an
+        # upload would PUT an empty archive over the series' key and turn
+        # "some instances are lost" into "the whole series is lost".
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            def read_file(uuid, local_series_folder):
+                raise FileNotFoundError(uuid)
+
+            local_storage.read_file = read_file
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            stored_kvs = []
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    with mock.patch.object(
+                        orthanc_stub, "StoreKeyValue",
+                        side_effect=lambda store, key, value: stored_kvs.append((store, key, value)),
+                    ):
+                        manager.copy_series_to_s3("orthanc-series")
+
+            self.assertEqual(s3_client.uploads, [])
+            self.assertEqual([store for store, _, _ in stored_kvs], [LOST_DATA_KVS])
+            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+
+    def test_a_repaired_series_clears_its_lost_data_record(self):
+        # Recovery path. The operator re-sends the study, Orthanc overwrites the
+        # empty records, and the next copy finds the series whole. The alarm
+        # must be retracted then -- a stale record would keep the Gap Server
+        # refusing a study that is now complete.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            manager = self._make_manager(local_storage)
+
+            folder = os.path.join(root, "series")
+            os.makedirs(folder)
+            for uuid in ("a", "b"):
+                with open(os.path.join(folder, uuid), "wb") as f:
+                    _ = f.write(b"x")
+
+            custom_data = CustomData(
+                storage=CustomData.Storage.LOCAL,
+                local_series_folder="series",
+                size_in_bytes=0,
+            )
+
+            deleted = []
+            with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=custom_data):
+                    with mock.patch.object(orthanc_stub, "GetKeyValue",
+                                           side_effect=lambda store, key: b'{"lost_attachment_count": 1}'):
+                        with mock.patch.object(orthanc_stub, "DeleteKeyValue",
+                                               side_effect=lambda store, key: deleted.append((store, key))):
+                            manager.copy_series_to_s3("orthanc-series")
+
+            # The marker was published (the folder matches the zip) ...
+            self.assertTrue(os.path.exists(os.path.join(folder, ".s3-uploaded")))
+            # ... so the series is whole again and the alarm is retracted.
+            self.assertEqual(deleted, [(LOST_DATA_KVS, "orthanc-series")])
+
+    def test_evicted_after_upload_is_not_reported_as_data_loss(self):
+        # "no local data left" is the NORMAL end state of a series: uploaded,
+        # marked, evicted. Judging loss on local files alone made the copy
+        # thread log "data is lost" at ERROR for 14 healthy series in one CI
+        # run -- an alert that describes a data-loss incident that did not
+        # happen. The s3_zip_key is what separates the two cases.
+        with tempfile.TemporaryDirectory() as root:
+            local_storage = _CopyLocalStorage(root)
+            local_storage.has_local_file = lambda uuid, local_series_folder, content_type: False
+            s3_client = _UploadS3Client()
+            uncommitted_handler = _UncommittedHandler()
+            manager = self._make_manager(local_storage, s3_client, uncommitted_handler)
+
+            on_s3 = CustomData(
+                storage=CustomData.Storage.S3_ZIP,
+                local_series_folder="series",
+                s3_zip_key="orthanc-series.zip",
+                series_id="orthanc-series",
+                size_in_bytes=0,
+            )
+
+            with self.assertLogs("s3zip.local_to_s3_zip_manager") as captured:
+                with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+                    with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=on_s3):
+                        manager.copy_series_to_s3("orthanc-series")
+
+            self.assertEqual(s3_client.uploads, [], "an evicted-but-safe series must not be rebuilt")
+            self.assertEqual(uncommitted_handler.committed, ["orthanc-series"])
+            self.assertFalse(
+                [line for line in captured.output if "ERROR" in line],
+                f"a safely-uploaded series must not log an error: {captured.output}",
+            )
+
+    def test_backing_off_series_does_not_hold_up_the_other_series(self):
+        # The retry backoff used to be a sleep on the single copy worker, so
+        # one sick series throttled EVERY series' upload to one per 30 s --
+        # and with uploads stalled, nothing becomes evictable and the cache
+        # stops draining. The backoff is now per series and enforced at
+        # dequeue time: a series still in backoff goes back to the end of the
+        # queue and the worker moves on.
+        local_storage = _CopyLocalStorage("/nonexistent")
+        manager = self._make_manager(local_storage)
+
+        queue_values = ["sick-series", "healthy-series"]
+        enqueued = []
+        acknowledged = []
+        copied = []
+
+        def reserve(queue_name, origin, lease_timeout):
+            if not queue_values:
+                return None, None
+            value = queue_values.pop(0)
+            return value.encode("utf-8"), f"value-of-{value}"
+
+        # "sick-series" failed a moment ago and is not due for another 30 s.
+        manager._copy_retry_not_before["sick-series"] = time.monotonic() + 30
+
+        with mock.patch.object(orthanc_stub, "ReserveQueueValue", side_effect=reserve):
+            with mock.patch.object(orthanc_stub, "EnqueueValue",
+                                   side_effect=lambda q, v: enqueued.append(v)):
+                with mock.patch.object(orthanc_stub, "AcknowledgeQueueValue",
+                                       side_effect=lambda q, v: acknowledged.append(v)):
+                    with mock.patch.object(manager, "copy_series_to_s3",
+                                           side_effect=lambda series_id: copied.append(series_id)):
+                        started = time.monotonic()
+                        manager._copy_thread_worker_once()   # sick-series: deferred
+                        manager._copy_thread_worker_once()   # healthy-series: copied
+                        elapsed = time.monotonic() - started
+
+        self.assertEqual(copied, ["healthy-series"])
+        self.assertEqual(enqueued, [b"sick-series"], "the deferred series must go back on the queue")
+        self.assertEqual(acknowledged, ["value-of-sick-series", "value-of-healthy-series"])
+        self.assertLess(elapsed, 5, "the healthy series must not wait out the sick one's backoff")
+
+    def test_repeated_deferrals_sleep_instead_of_spinning(self):
+        # A queue holding nothing but backing-off series must not become a hot
+        # dequeue/re-enqueue loop.
+        local_storage = _CopyLocalStorage("/nonexistent")
+        manager = self._make_manager(local_storage)
+        manager._copy_retry_not_before["sick-series"] = time.monotonic() + 30
+        manager._consecutive_deferrals = _COPY_QUEUE_MAX_DEFERRALS_BEFORE_IDLE - 1
+
+        slept = []
+
+        with mock.patch.object(orthanc_stub, "ReserveQueueValue",
+                               side_effect=lambda *a: (b"sick-series", "value-1")):
+            with mock.patch.object(orthanc_stub, "EnqueueValue", side_effect=lambda q, v: None):
+                with mock.patch.object(orthanc_stub, "AcknowledgeQueueValue",
+                                       side_effect=lambda q, v: None):
+                    with mock.patch("local_to_s3_zip_manager.time.sleep", side_effect=slept.append):
+                        manager._copy_thread_worker_once()
+
+        self.assertEqual(slept, [_COPY_QUEUE_IDLE_SLEEP_SECONDS])
+        self.assertEqual(manager._consecutive_deferrals, 0)
+
+    def test_series_status_reports_lost_attachments_that_sampling_cannot_see(self):
+        # is_stored_in_s3 is read from ONE attachment's custom data, and a
+        # destroyed attachment is precisely the one that keeps its LOCAL
+        # custom data while every other attachment moves to S3_ZIP. Sampling
+        # therefore calls a mutilated series whole -- which is what the Gap
+        # Server's "is this study durable yet?" gate ultimately reads.
+        local_storage = _CopyLocalStorage("/nonexistent")
+        manager = self._make_manager(local_storage)
+
+        on_s3 = CustomData(
+            storage=CustomData.Storage.S3_ZIP,
+            local_series_folder="series",
+            s3_zip_key="orthanc-series.zip",
+            series_id="orthanc-series",
+            size_in_bytes=0,
+        )
+
+        record = json.dumps({
+            "series_id": "orthanc-series",
+            "lost_attachment_count": 2,
+            "lost_uuids": ["b", "d"],
+            "detected_at_epoch_ms": 1,
+        }).encode("utf-8")
+
+        with mock.patch.object(manager, "_get_instances_attachments", return_value=["a", "b"]):
+            with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=on_s3):
+                with mock.patch.object(orthanc_stub, "GetKeyValue",
+                                       side_effect=lambda store, key: record):
+                    status = manager.get_series_info("orthanc-series")
+
+        self.assertTrue(status.is_stored_in_s3)
+        self.assertEqual(status.lost_attachment_count, 2)
+
+    def test_series_status_reports_no_loss_for_a_healthy_series(self):
+        local_storage = _CopyLocalStorage("/nonexistent")
+        manager = self._make_manager(local_storage)
+
+        on_s3 = CustomData(
+            storage=CustomData.Storage.S3_ZIP,
+            local_series_folder="series",
+            s3_zip_key="orthanc-series.zip",
+            series_id="orthanc-series",
+            size_in_bytes=0,
+        )
+
+        with mock.patch.object(manager, "_get_instances_attachments", return_value=["a"]):
+            with mock.patch.object(CustomData, "from_orthanc_attachment", return_value=on_s3):
+                with mock.patch.object(orthanc_stub, "GetKeyValue",
+                                       side_effect=lambda store, key: b""):
+                    status = manager.get_series_info("orthanc-series")
+
+        self.assertTrue(status.is_stored_in_s3)
+        self.assertEqual(status.lost_attachment_count, 0)
 
     def test_invalidate_s3_uploaded_marker_removes_existing_marker(self):
         with tempfile.TemporaryDirectory() as root:
@@ -1534,6 +2396,127 @@ def _deleted_series_entry(series_id: str) -> bytes:
         series_id=series_id,
         size_in_bytes=0,
     ).to_binary()
+
+
+class HousekeeperLostDataRecordTests(unittest.TestCase):
+    """The 3rd housekeeper pass: keep the lost-data KVS honest.
+
+    The record is what makes the host application refuse an incomplete study,
+    so it must survive as long as the damaged series does -- and not one pass
+    longer. Two reasons, and the second is the sharp one:
+
+      * a damaged series that is deleted rather than repaired has no other
+        exit, so its record would accumulate forever;
+      * Orthanc series IDs are derived from the DICOM UIDs, so deleting a
+        study and re-sending it later yields the SAME series id. A record left
+        behind by the deleted series would then condemn the fresh one.
+    """
+
+    def _patch_orthanc(self, kvs, existing_series):
+        def fake_rest_api_get(uri):
+            if uri.startswith("/series/") and uri.endswith("/instances"):
+                series_id = uri[len("/series/"):-len("/instances")]
+                if series_id not in existing_series:
+                    raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+                return json.dumps(existing_series[series_id])
+            raise AssertionError(f"unexpected RestApiGet uri: {uri}")
+
+        return [
+            mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator),
+            mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete),
+            mock.patch.object(orthanc_stub, "StoreKeyValue", side_effect=kvs.store),
+            mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get),
+        ]
+
+    def _run(self, kvs, existing_series):
+        storage = _make_bare_s3zip_storage()
+        with contextlib.ExitStack() as stack:
+            for p in self._patch_orthanc(kvs, existing_series):
+                stack.enter_context(p)
+            return storage._housekeep_lost_data_records(deadline=_far_deadline())
+
+    def test_record_of_a_deleted_series_is_dropped(self):
+        kvs = _FakeKVS()
+        kvs.store(LOST_DATA_KVS, "gone-series", b'{"lost_attachment_count": 1}')
+
+        processed = self._run(kvs, existing_series={})
+
+        self.assertEqual(processed, 1)
+        self.assertEqual(kvs.all(LOST_DATA_KVS), {})
+
+    def test_record_of_a_live_series_is_kept(self):
+        # The series is still in Orthanc and still damaged: the record is the
+        # only thing standing between an incomplete study and the workflow.
+        kvs = _FakeKVS()
+        kvs.store(LOST_DATA_KVS, "damaged-series", b'{"lost_attachment_count": 2}')
+
+        processed = self._run(kvs, existing_series={"damaged-series": [{"ID": "i1"}]})
+
+        self.assertEqual(processed, 1)
+        self.assertEqual(list(kvs.all(LOST_DATA_KVS)), ["damaged-series"])
+
+    def test_record_of_an_empty_series_is_dropped(self):
+        # A series with no instances left has nothing to be missing.
+        kvs = _FakeKVS()
+        kvs.store(LOST_DATA_KVS, "emptied-series", b'{"lost_attachment_count": 1}')
+
+        self._run(kvs, existing_series={"emptied-series": []})
+
+        self.assertEqual(kvs.all(LOST_DATA_KVS), {})
+
+    def test_an_unexpected_orthanc_error_keeps_the_record(self):
+        # "I could not ask" is not "the series is gone". Deleting on a
+        # transient failure would throw away the only durable trace of a
+        # destroyed instance.
+        kvs = _FakeKVS()
+        kvs.store(LOST_DATA_KVS, "unknown-state", b'{"lost_attachment_count": 1}')
+
+        storage = _make_bare_s3zip_storage()
+
+        def fake_rest_api_get(uri):
+            raise _OrthancException(_ErrorCode.PLUGIN)
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator))
+            stack.enter_context(mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete))
+            stack.enter_context(mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get))
+            storage._housekeep_lost_data_records(deadline=_far_deadline())
+
+        self.assertEqual(list(kvs.all(LOST_DATA_KVS)), ["unknown-state"])
+
+    def test_pass_is_bounded_like_the_others(self):
+        # No new machinery: the same bounded, resumable batch every other pass
+        # uses, so a long list of damaged series cannot turn one tick into an
+        # unbounded amount of work.
+        kvs = _FakeKVS()
+        for i in range(_HOUSEKEEPER_MAX_SERIES_PER_PASS + 5):
+            kvs.store(LOST_DATA_KVS, f"series-{i}", b'{"lost_attachment_count": 1}')
+
+        processed = self._run(kvs, existing_series={})
+
+        self.assertEqual(processed, _HOUSEKEEPER_MAX_SERIES_PER_PASS)
+        self.assertEqual(len(kvs.all(LOST_DATA_KVS)), 5)
+
+    def test_a_failing_entry_does_not_stop_the_pass(self):
+        kvs = _FakeKVS()
+        kvs.store(LOST_DATA_KVS, "blow-up", b'{"lost_attachment_count": 1}')
+        kvs.store(LOST_DATA_KVS, "gone-series", b'{"lost_attachment_count": 1}')
+
+        storage = _make_bare_s3zip_storage()
+
+        def fake_rest_api_get(uri):
+            if "blow-up" in uri:
+                raise RuntimeError("kaboom")
+            raise _OrthancException(_ErrorCode.UNKNOWN_RESOURCE)
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(orthanc_stub, "CreateKeysValuesIterator", side_effect=kvs.iterator))
+            stack.enter_context(mock.patch.object(orthanc_stub, "DeleteKeyValue", side_effect=kvs.delete))
+            stack.enter_context(mock.patch.object(orthanc_stub, "RestApiGet", side_effect=fake_rest_api_get))
+            processed = storage._housekeep_lost_data_records(deadline=_far_deadline())
+
+        self.assertEqual(processed, 2)
+        self.assertEqual(list(kvs.all(LOST_DATA_KVS)), ["blow-up"])
 
 
 class HousekeeperWorkBudgetTests(unittest.TestCase):
