@@ -7,7 +7,9 @@ from helpers import Helpers
 from typing import Optional, Tuple
 from boto3 import client as S3Client
 from local_storage import LocalStorage
+from local_storage_interface import S3_UPLOADED_MARKER_NAME
 from local_to_s3_zip_manager import (
+    LOST_DATA_KVS,
     DEFAULT_COPY_QUEUE_LEASE_TIMEOUT_SECONDS,
     DEFAULT_S3_RETRIEVAL_MAX_ATTEMPTS,
     DEFAULT_S3_RETRIEVAL_RETRY_BASE_DELAY_SECONDS,
@@ -42,8 +44,8 @@ DELETED_SERIES_KVS = "series-ids-to-possibly-delete-from-s3"
 # --- Housekeeper work budget -------------------------------------------
 #
 # The housekeeper runs on one timer thread inside the Orthanc process and
-# shares its PostgreSQL connections with the C-STORE hot path. Both passes
-# are driven by KVS tables whose size is bounded only by how fast entries
+# shares its PostgreSQL connections with the C-STORE hot path. Every pass
+# is driven by a KVS table whose size is bounded only by how fast entries
 # can be retired -- and the conditions that stop entries from being retired
 # (S3 unreachable, DeleteObject denied, copy queue backed up, local data
 # wiped by a pod restart) are exactly the conditions under which the KVS is
@@ -56,10 +58,10 @@ DELETED_SERIES_KVS = "series-ids-to-possibly-delete-from-s3"
 # always safe. Draining a large backlog is deliberately slow; the point is
 # that the cost of one tick stays flat no matter how big the backlog gets.
 #
-# The two passes get INDEPENDENT budgets on purpose. Sharing one budget
-# would let a burst of deletions (one deleted study is one KVS entry per
-# series) consume it entirely and starve the uncommitted-series pass, which
-# is the one that rescues data that is not yet safe on S3.
+# The passes get INDEPENDENT budgets on purpose. Sharing one budget would
+# let a burst of deletions (one deleted study is one KVS entry per series)
+# consume it entirely and starve the uncommitted-series pass, which is the
+# one that rescues data that is not yet safe on S3.
 _HOUSEKEEPER_MAX_SERIES_PER_PASS = 20
 _HOUSEKEEPER_MAX_PASS_DURATION_SEC = 30.0
 
@@ -158,7 +160,8 @@ class S3ZipStorage:
         # Set up the eviction guard: a folder is safe to evict only if it has the
         # .s3-uploaded marker file written by the copy thread after a successful S3 upload.
         def _is_folder_safe_to_evict(folder_name: str) -> bool:
-            marker_path = os.path.join(self._local_storage.get_folder_path(folder_name), ".s3-uploaded")
+            marker_path = os.path.join(self._local_storage.get_folder_path(folder_name),
+                                       S3_UPLOADED_MARKER_NAME)
             return os.path.exists(marker_path)
 
         self._local_storage.set_eviction_guard(_is_folder_safe_to_evict)
@@ -248,25 +251,40 @@ class S3ZipStorage:
                      size_bytes=len(content),
                      series_hash=series_hash)
 
-        # we always write only to the local storage
-        logger.debug("calling local_storage.create()", uuid=uuid, series_hash=series_hash)
-        error_code = self._local_storage.create(uuid=uuid,
-                                                local_series_folder=series_hash,
-                                                content_type=content_type,
-                                                compression_type=compression_type,
-                                                content=content)
-        logger.debug("local_storage.create() returned", uuid=uuid, error_code=str(error_code))
+        # The write and the marker invalidation happen under a folder lease.
+        #
+        # A folder that is already on S3 carries a marker, which is eviction's
+        # permission to delete it. The instance we are about to add is NOT in
+        # that S3 zip, so between "file written" and "marker removed" the
+        # folder is a target for eviction while holding data that exists
+        # nowhere else -- an eviction landing in that window destroys a DICOM
+        # instance Orthanc is in the middle of accepting. The window is short,
+        # but eviction runs on every write that needs room and on every admin
+        # evict-all, so under ingest pressure it is hit.
+        #
+        # The lease is refcounted and checked by the eviction loop, so this
+        # simply makes eviction skip this folder for the duration.
+        with self._local_storage.lease_folder(series_hash):
+            # we always write only to the local storage
+            logger.debug("calling local_storage.create()", uuid=uuid, series_hash=series_hash)
+            error_code = self._local_storage.create(uuid=uuid,
+                                                    local_series_folder=series_hash,
+                                                    content_type=content_type,
+                                                    compression_type=compression_type,
+                                                    content=content)
+            logger.debug("local_storage.create() returned", uuid=uuid, error_code=str(error_code))
 
-        # Any new file invalidates "everything in this folder is on S3". Wipe
-        # the marker so eviction cannot purge the folder before the next copy
-        # captures this instance. The per-folder critical section pairs with
-        # the matching one in copy_series_to_s3 around its recheck+marker
-        # write: ordering between the two is now sequential, so a stale
-        # marker cannot be published after this invalidate runs as a no-op.
-        # Idempotent on a missing marker, so safe to call even when create()
-        # failed.
-        with self._local_storage.folder_marker_critical_section(series_hash):
-            _ = self._zip_manager.invalidate_s3_uploaded_marker(local_series_folder=series_hash)
+            # Any new file invalidates "everything in this folder is on S3".
+            # Wipe the marker so eviction cannot purge the folder before the
+            # next copy captures this instance. The per-folder critical
+            # section pairs with the matching one in copy_series_to_s3 around
+            # its recheck+marker write: ordering between the two is
+            # sequential, so a marker published by a copy that could not yet
+            # see this instance is removed here rather than left behind.
+            # Idempotent on a missing marker, so safe to call even when
+            # create() failed.
+            with self._local_storage.folder_marker_critical_section(series_hash):
+                _ = self._zip_manager.invalidate_s3_uploaded_marker(local_series_folder=series_hash)
 
         custom_data = CustomData(CustomData.Storage.LOCAL,
                                  local_series_folder=series_hash,
@@ -332,7 +350,7 @@ class S3ZipStorage:
                     # every instance attachment again.
                     marker_path = os.path.join(
                         self._local_storage.get_folder_path(cd.local_series_folder),
-                        ".s3-uploaded"
+                        S3_UPLOADED_MARKER_NAME
                     )
                     if os.path.exists(marker_path):
                         with open(marker_path, "r") as f:
@@ -568,9 +586,17 @@ class S3ZipStorage:
         except Exception:
             logger.exception("Housekeeper: uncommitted-series pass failed")
 
+        lost_data_processed = 0
+        try:
+            lost_data_processed = self._housekeep_lost_data_records(
+                deadline=time.monotonic() + _HOUSEKEEPER_MAX_PASS_DURATION_SEC)
+        except Exception:
+            logger.exception("Housekeeper: lost-data pass failed")
+
         logger.debug("Performed housekeeping",
                      deleted_series_processed=deleted_processed,
                      uncommitted_series_processed=uncommitted_processed,
+                     lost_data_records_processed=lost_data_processed,
                      duration_ms=int((time.monotonic() - started_at) * 1000))
 
     def _collect_housekeeper_batch(self, kvs_name: str) -> list:
@@ -754,6 +780,13 @@ class S3ZipStorage:
             f"Housekeeper: the series {series_id} is NOT in Orthanc, deleting its zip from S3"
         )
         self._zip_manager.delete_zip_from_s3(s3_zip_key=cd.s3_zip_key)
+
+        # A series that no longer exists cannot be missing anything. Drop its
+        # lost-data record here opportunistically -- this pass already knows
+        # the series is gone. It is not the guarantee: a damaged series that
+        # was never uploaded has no S3 key and therefore never reaches this
+        # branch at all, which is why pass 3 exists.
+        self._safe_delete_kvs_entry(LOST_DATA_KVS, series_id)
 
         # Race protection: if the series has reappeared in Orthanc during
         # our S3 delete and is already marked as ``s3-zip`` pointing at the
@@ -1128,6 +1161,102 @@ class S3ZipStorage:
                 max_instances_probed=_HOUSEKEEPER_MAX_INSTANCES_PROBED_PER_SERIES,
             )
         return instances_info
+
+    def _housekeep_lost_data_records(self, deadline: float) -> int:
+        """Pass 3 -- drop lost-data records whose series no longer exists.
+
+        The ``s3zip-series-with-lost-data`` KVS is written by the copy thread
+        when a series turns out to have instances whose bytes exist nowhere,
+        and it is what the per-series status endpoint reports so that the host
+        application can refuse to process an incomplete study. It is cleared
+        by the copy thread when a series is repaired (re-sent) and uploaded in
+        full.
+
+        Nothing cleared it when a damaged series was simply DELETED from
+        Orthanc. That is not merely an entry that lingers:
+
+        * it accumulates forever, because a damaged series that is deleted
+          rather than repaired has no other exit;
+        * worse, Orthanc series IDs are derived from the DICOM UIDs, so
+          deleting a study and re-sending it later produces the SAME series
+          id. A record left behind by the deleted series would then apply to
+          the fresh one and get a perfectly healthy study refused, until the
+          first successful copy cleared it.
+
+        So each pass asks Orthanc whether the series still exists and drops
+        the record if it does not. One REST call per entry, and the same
+        bounded, resumable batch every other pass uses -- no extra machinery.
+
+        Returns the number of entries actually inspected.
+        """
+        processed = 0
+
+        for series_id, _raw_value in self._collect_housekeeper_batch(LOST_DATA_KVS):
+            if self._housekeeper_out_of_time(deadline=deadline,
+                                             pass_name="lost-data",
+                                             processed=processed):
+                break
+            processed += 1
+
+            try:
+                self._housekeep_one_lost_data_record(series_id=series_id)
+            except Exception:
+                logger.exception(
+                    "Housekeeper: failed to process lost-data record; will retry next pass",
+                    series_id=series_id,
+                )
+
+        return processed
+
+    def _housekeep_one_lost_data_record(self, series_id: str) -> None:
+        try:
+            instances_raw = orthanc.RestApiGet(f"/series/{series_id}/instances")
+        except orthanc.OrthancException as e:
+            if e.args and e.args[0] == orthanc.ErrorCode.UNKNOWN_RESOURCE:
+                logger.info(
+                    "Housekeeper: the series of a lost-data record is no longer in Orthanc; "
+                    "dropping the record",
+                    series_id=series_id,
+                )
+                self._safe_delete_kvs_entry(LOST_DATA_KVS, series_id)
+                return
+            # Anything else is not an answer. Keep the record: it is the only
+            # durable trace that this series lost instances.
+            logger.warning(
+                "Housekeeper: unexpected Orthanc error while checking a lost-data record; "
+                "keeping it and retrying later",
+                series_id=series_id,
+                error=str(e),
+            )
+            return
+
+        try:
+            instances = json.loads(instances_raw)
+        except Exception:
+            logger.exception(
+                "Housekeeper: could not parse /series/<id>/instances for a lost-data record; "
+                "keeping it",
+                series_id=series_id,
+            )
+            return
+
+        if not instances:
+            logger.info(
+                "Housekeeper: the series of a lost-data record has no instances left; "
+                "dropping the record",
+                series_id=series_id,
+            )
+            self._safe_delete_kvs_entry(LOST_DATA_KVS, series_id)
+            return
+
+        # The series is still here and still damaged. The record stays: it is
+        # what keeps the study from being processed. Only a successful, complete
+        # copy retracts it (see LocalToS3ZipManager._clear_lost_attachments).
+        logger.debug(
+            "Housekeeper: lost-data record kept, its series is still in Orthanc",
+            series_id=series_id,
+            instance_count=len(instances),
+        )
 
     def _safe_delete_kvs_entry(self, kvs_name: str, key: str) -> None:
         try:
