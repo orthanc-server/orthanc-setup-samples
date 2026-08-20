@@ -59,6 +59,58 @@ has nothing to evict. The budget is a target rather than a wall — writes are
 admitted past it, and the filesystem is the hard limit (an `ENOSPC` write
 fails the C-STORE, which is what makes the modality retry).
 
+## `GET /series/<id>/archive` is deliberately NOT overridden
+
+The plugin used to override this one route and forward the stored S3 zip to
+the client byte for byte, but the files lacked the `.dcm` extension. We prefer 
+to let the Orthanc core build the archive, by reading every instance and 
+assembling the archive with proper file extensions.
+
+The override is gone. The route falls through to the Orthanc core, which
+builds the archive the same way it builds study- and patient-level archives:
+it reads the **current** attachment list, one instance at a time, through this
+plugin's `storage_read_range`.
+
+Why that is safe against everything eviction, retrieval, ingestion and
+deletion can do concurrently:
+
+* **Each read leases the folder from the existence check through the read**,
+  and retrieval leases it during extraction, so the eviction pass can never
+  delete a folder out from under either. Leases are shared counters, not
+  locks — concurrent readers do not block each other, and the nesting
+  (read → retrieval) is just two increments.
+* **Between two instance reads there is a gap** in which an eviction pass may
+  legitimately take the folder (it carries a marker the moment retrieval
+  proves the folder matches the zip). The next read simply rehydrates again.
+  Under adversarial eviction pressure that costs extra downloads — never
+  correctness. One of the host applications for this plugin complete-e2e test
+  hammers eviction every 2 seconds during processing and downloads correct 
+  archives throughout.
+* **A new instance arriving mid-archive cannot be evicted into oblivion**:
+  `storage_create` writes the file and invalidates the marker under the
+  per-folder critical section, and retrieval republishes the marker only if
+  the folder exactly matches the extracted zip. A folder holding anything not
+  yet in a zip is not evictable, so the core always finds fresh instances on
+  local disk. (Whether a mid-build instance appears in the archive is decided
+  by the core's own snapshot of the instance list, as on any storage backend.)
+* **Concurrent archive requests for the same cold series** trigger one
+  retrieval, not N: retrievals are single-flighted per zip key, and waiters
+  share the outcome, including a terminal failure.
+* **Failures are loud.** If the zip cannot be fetched (S3 down, object
+  deleted by the housekeeper after a study deletion, corrupt download), the
+  read returns an error and the archive request fails — the core never serves
+  a partial zip that looks whole. A series quarantined with lost data fails
+  its archive request the same way, instead of the override's old behaviour
+  of serving the last complete zip as if nothing were missing.
+
+The price, accepted knowingly: a cold-cache series download now costs a
+rehydration (zip download, full extraction into the cache, per-instance
+reads, re-zip) instead of a cache-neutral stream from S3, and it occupies
+cache until eviction reclaims it. Warm-cache downloads get cheaper — they no
+longer touch S3 at all. If bulk cold series export ever becomes a dominant
+workload, resurrect the override *with a re-pack* (rename members to
+`<uuid>.dcm` on the way out) rather than as a verbatim forward.
+
 # TODO
 
 ## Making sure all series are uploaded to S3

@@ -532,10 +532,6 @@ class S3ZipStorage:
         return self._zip_manager.get_series_info(series_id=series_id)
 
 
-    def get_s3_zip_stream(self, series_id: str):  # returns a stream
-        logger.debug("retrieving a series S3 zip stream", series_id=series_id)
-        return self._zip_manager.get_s3_zip_stream(series_id=series_id)
-
     def perform_housekeeping(self):
         self._housekeeper_timer = None
         # The outer try/except guarantees the timer is rescheduled even on

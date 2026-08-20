@@ -159,43 +159,6 @@ def on_rest_api_series_s3_status(output, uri, **request):  # GET -> returns a st
         output.SendMethodNotAllowed('GET')
 
 
-def on_rest_api_series_s3_archive(output, uri, **request): # GET -> streams a zip from s3 through Orthanc (if not in s3, get it from Orthanc core API (without streaming))
-    global storage_singleton
-    if request['method'] == 'GET':
-        series_id = request['groups'][0]
-
-        series_status = storage_singleton.get_series_status(series_id=series_id)
-        if not series_status:
-            # No attachment to serve. Answering before StartStreamAnswer is the
-            # only chance to send a status code -- once the stream is open the
-            # client gets a 200 followed by a traceback's worth of nothing.
-            logger.error("cannot stream the archive of a series with no attachment",
-                         series_id=series_id)
-            output.SendHttpStatusCode(404)
-            return
-
-        output.SetHttpHeader('Content-Disposition', f'filename={series_id}.zip')
-        output.StartStreamAnswer('application/zip')
-
-        if series_status.is_stored_in_s3:
-            logger.info("streaming series archive from s3")
-            zip_stream = storage_singleton.get_s3_zip_stream(series_id=series_id)
-
-            while True:
-                chunk = zip_stream.read(64*1024)
-                if not chunk:
-                    return
-
-                output.SendStreamChunk(chunk)
-        else:
-            logger.info("getting series archive from core")
-            zip = orthanc.RestApiGet(uri)
-            output.SendStreamChunk(zip)
-
-    else:
-        output.SendMethodNotAllowed('GET')
-
-
 def on_rest_api_local_cache_stats(output, uri, **request):
     """GET /s3-zip/local-cache/stats -- returns local-cache occupancy snapshot.
 
@@ -426,7 +389,9 @@ def register_s3_zip_storage_plugin():
     logger.debug("registering new REST Api routes")
     orthanc.RegisterRestCallback('/series/(.*)/s3-zip/status', on_rest_api_series_s3_status)
     orthanc.RegisterRestCallback('/series/(.*)/s3-zip/copy-to-s3', on_rest_api_series_s3_copy_to_s3)
-    orthanc.RegisterRestCallback('/series/(.*)/archive', on_rest_api_series_s3_archive)
+
+    # We let Orthanc deal with all the /archive routes --> no override here
+
     orthanc.RegisterRestCallback('/s3-zip/local-cache/stats', on_rest_api_local_cache_stats)
     orthanc.RegisterRestCallback('/s3-zip/local-cache/evict-all', on_rest_api_local_cache_evict_all)
     logger.debug("registering new REST Api routes - done")
