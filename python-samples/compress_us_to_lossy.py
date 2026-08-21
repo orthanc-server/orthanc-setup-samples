@@ -1,47 +1,106 @@
-import orthanc
 import json
 
-# this script compresses US images to lossy JPEG to reduce their sizes.
-# Prerequisites:
-# - You must have "OverwriteInstances" set to true (or to "Always"/"IfChanged" if you are using Orthanc 1.13.0+)
-# - If you have not configured an "IngestTranscoding", this script will work fine.
-# - If you have configured an "IngestTranscoding", this script will
-#   work only if you have also set "IngestTranscodingOfCompressed" to false to aovid
-#   re-applying IngestTranscoding to the modified instance.
+import orthanc
 
 
-def OnStoredInstance(dicom, instanceId):
-    
-    tags = json.loads(dicom.GetInstanceSimplifiedJson())
+# Requires Orthanc Python plugin 4.0 or newer.
+TARGET_TRANSFER_SYNTAX = '1.2.840.10008.1.2.4.50'
+LOSSY_QUALITY = 70
+LOSSY_TRANSFER_SYNTAXES = {
+    '1.2.840.10008.1.2.4.50',
+    '1.2.840.10008.1.2.4.51',
+    '1.2.840.10008.1.2.4.81',
+}
+IDENTITY_TAGS = (
+    'PatientID',
+    'StudyInstanceUID',
+    'SeriesInstanceUID',
+)
 
-    # only handle the US images
-    if tags.get('Modality') == 'US':
 
-        # optional: only compress the multiframe US images since these are the ones consuming more space
-        if dicom.GetInstanceFramesCount() == '1':
-            return
+def GetTags(dicom):
+    return json.loads(dicom.GetInstanceSimplifiedJson())
 
-        transfer_syntax = dicom.GetInstanceTransferSyntaxUid()
 
-        # don't transcode if it is already in lossy jpeg
-        if transfer_syntax in ['1.2.840.10008.1.2.4.50', '1.2.840.10008.1.2.4.51']:
-            return
+def IsLossy(dicom, tags):
+    return (
+        dicom.GetInstanceTransferSyntaxUid() in LOSSY_TRANSFER_SYNTAXES
+        or tags.get('LossyImageCompression') == '01'
+    )
 
-        # download a transcoded instance and make sur to keep the SOPInstanceUID unchanged
-        transcoded_instance = orthanc.RestApiPost(f'/instances/{instanceId}/modify', json.dumps({
-            "Transcode": "1.2.840.10008.1.2.4.50", 
-            "Replace": {"SOPInstanceUID": tags.get('SOPInstanceUID') }, 
-            "Force": True,
-            "LossyQuality": 70
-        }))
 
-        # re-upload the instance.
-        upload_response = json.loads(orthanc.RestApiPost('/instances', transcoded_instance))
+def ValidateConfiguration():
+    configuration = json.loads(orthanc.GetConfiguration())
+    quality = configuration.get('DicomLossyTranscodingQuality', 90)
+    if quality != LOSSY_QUALITY:
+        raise RuntimeError(
+            f'DicomLossyTranscodingQuality must be {LOSSY_QUALITY}, got {quality}'
+        )
 
-        if upload_response.get('ID') != instanceId:
-            orthanc.LogError(f'The transcoded instance {upload_response.get("ID")} does not have the same ID as the source {instanceId}')
-            return
+    if (
+        configuration.get('IngestTranscoding')
+        and configuration.get('IngestTranscodingOfCompressed', True)
+    ):
+        raise RuntimeError(
+            'IngestTranscodingOfCompressed must be false when '
+            'IngestTranscoding is configured'
+        )
 
-        orthanc.LogInfo(f"Transcoded US image to JPEG Lossy: {instanceId}.  New size = {len(transcoded_instance)} vs {dicom.GetInstanceSize()}")
 
-orthanc.RegisterOnStoredInstanceCallback(OnStoredInstance)
+def ValidateTranscodedDicom(source, sourceTags, transcoded):
+    transcodedTags = GetTags(transcoded)
+
+    for tag in IDENTITY_TAGS:
+        if not sourceTags.get(tag) or transcodedTags.get(tag) != sourceTags.get(tag):
+            raise ValueError(f'{tag} changed during transcoding')
+
+    sourceSopInstanceUid = sourceTags.get('SOPInstanceUID')
+    transcodedSopInstanceUid = transcodedTags.get('SOPInstanceUID')
+    if not sourceSopInstanceUid or not transcodedSopInstanceUid:
+        raise ValueError('SOPInstanceUID is missing')
+    if transcodedSopInstanceUid == sourceSopInstanceUid:
+        raise ValueError('SOPInstanceUID did not change during lossy transcoding')
+
+    if transcoded.GetInstanceTransferSyntaxUid() != TARGET_TRANSFER_SYNTAX:
+        raise ValueError('unexpected transfer syntax after transcoding')
+
+    if transcoded.GetInstanceFramesCount() != source.GetInstanceFramesCount():
+        raise ValueError('frame count changed during transcoding')
+
+    if transcodedTags.get('LossyImageCompression') != '01':
+        raise ValueError('lossy compression metadata is missing')
+
+
+def ReceivedInstanceCallback(receivedDicom, origin):
+    try:
+        source = orthanc.CreateDicomInstance(receivedDicom)
+        sourceTags = GetTags(source)
+
+        if sourceTags.get('Modality') != 'US':
+            return orthanc.ReceivedInstanceAction.KEEP_AS_IS, None
+
+        if source.GetInstanceFramesCount() <= 1 or IsLossy(source, sourceTags):
+            return orthanc.ReceivedInstanceAction.KEEP_AS_IS, None
+
+        transcoded = orthanc.TranscodeDicomInstance(
+            receivedDicom,
+            TARGET_TRANSFER_SYNTAX,
+        )
+        ValidateTranscodedDicom(source, sourceTags, transcoded)
+        transcodedDicom = transcoded.SerializeDicomInstance()
+
+        orthanc.LogInfo(
+            f'Transcoded multiframe US to JPEG Lossy: '
+            f'{len(receivedDicom)} bytes to {len(transcodedDicom)} bytes'
+        )
+        return orthanc.ReceivedInstanceAction.MODIFY, transcodedDicom
+    except Exception as e:
+        orthanc.LogError(f'Keeping original DICOM after US transcoding failed: {e}')
+        return orthanc.ReceivedInstanceAction.KEEP_AS_IS, None
+
+
+try:
+    ValidateConfiguration()
+    orthanc.RegisterReceivedInstanceCallback(ReceivedInstanceCallback)
+except Exception as e:
+    orthanc.LogError(f'US compression plugin disabled: {e}')
