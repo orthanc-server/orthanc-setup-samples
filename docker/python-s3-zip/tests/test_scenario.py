@@ -6,11 +6,13 @@ from orthanc_api_client.helpers import wait_until
 from orthanc_tools import OrthancTestDbPopulator
 import time
 import boto3
+import io
 import sys
 import os
 import threading
 import hashlib
 import pprint
+import zipfile
 from botocore.exceptions import ClientError
 from contextlib import contextmanager
 from python_on_whales import DockerClient
@@ -98,18 +100,6 @@ def wait_until_zip_found_on_s3(series_id: str):
         except Exception as e:
             pass
         time.sleep(1)
-
-
-def get_zip_size_on_s3(series_id: str):
-    boto_session = boto3.Session(region_name="eu-west-1",
-                                 aws_access_key_id="minio",
-                                 aws_secret_access_key="miniopwd")
-    s3_client = boto_session.client('s3',
-                                    endpoint_url="http://localhost:9000",
-                                    config=boto3.session.Config(s3={'addressing_style': 'path'}))
-
-    response = s3_client.head_object(Bucket="zip-bucket", Key=f"orthanc-zips/{series_id}.zip")
-    return response['ContentLength']
 
 
 def is_zip_size_on_s3(series_id: str):
@@ -257,14 +247,35 @@ if not wait_until(lambda: zip_orthanc.get_json(endpoint=f'series/{series_id}/s3-
 series_status = zip_orthanc.get_json(endpoint=f'series/{series_id}/s3-zip/status')
 print(f"s3-zip-key = {series_status.get('s3-zip-key')}")
 
-print("Downloading directly from S3 through the Orthanc REST Api override of /series/.../archive")
-series_zip = zip_orthanc.get_binary(endpoint=f'series/{series_id}/archive')
-zip_size_on_s3 = get_zip_size_on_s3(series_id=series_id)
-if len(series_zip) != zip_size_on_s3:
-    print(f"Retrieved zip does not have the same size as the zip on s3 ({len(series_zip)} vs {zip_size_on_s3} )")
-    exit(-3)
-else:
-    print(f"Retrieved zip from /series/.../archive (size = {len(series_zip)})")
+# /series/<id>/archive is no longer overridden by the plugin: the Orthanc core
+# builds the archive by reading every instance back through the storage plugin
+# (rehydrating the local folder from S3 when it has been evicted), and names
+# every file <hierarchy>/xxx.dcm -- exactly like a study or patient download.
+# The old override forwarded the stored S3 zip verbatim, whose members are
+# named after the attachment uuid with no extension (QM-9928).
+def check_series_archive(context: str) -> None:
+    series_zip = zip_orthanc.get_binary(endpoint=f'series/{series_id}/archive')
+    instance_count = len(zip_orthanc.get_json(endpoint=f'series/{series_id}')['Instances'])
+    with zipfile.ZipFile(io.BytesIO(series_zip)) as downloaded_zip:
+        names = [n for n in downloaded_zip.namelist() if not n.endswith('/')]
+    if len(names) != instance_count:
+        print(f"[{context}] Archive holds {len(names)} file(s) for a series of "
+              f"{instance_count} instance(s)")
+        exit(-3)
+    not_dicom = [name for name in names if not name.lower().endswith('.dcm')]
+    if not_dicom:
+        print(f"[{context}] Archive contains file(s) not named as DICOM files: {not_dicom[:10]}")
+        exit(-3)
+    print(f"[{context}] Retrieved archive from /series/.../archive "
+          f"(size = {len(series_zip)}, files = {len(names)}, all named *.dcm)")
+
+print("Downloading /series/.../archive while the series folder is still in the local cache")
+check_series_archive("warm cache")
+
+print("Evicting the local cache, then downloading /series/.../archive again "
+      "(forces the instance-by-instance rehydration from the S3 zip)")
+zip_orthanc.post(endpoint='s3-zip/local-cache/evict-all', json={})
+check_series_archive("cold cache")
 
 print("---------------- Test new API routes on zip Orthanc - done ----------------")
 

@@ -1214,17 +1214,6 @@ class LocalToS3ZipManager:
                                    s3_zip_key=zip_retrieval.series_id)
 
 
-    def get_s3_zip_stream(self, series_id: str):  # returns a stream
-        logger.info("series zip stream from S3",
-                    series_id=series_id)
-
-        s3_zip_key = self._get_series_s3_key(series_id=series_id)
-
-        response =  self._s3_client.get_object(Bucket=self._bucket_name,
-                                               Key=s3_zip_key)
-        return response['Body']
-
-
     def _rehydrate_and_reread(self, series_id: str, a_uuid: str, local_series_folder: str) -> bytes:
         """Restore a locally-missing attachment from the series' previous S3 zip.
 
