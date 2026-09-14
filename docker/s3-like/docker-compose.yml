@@ -4,12 +4,12 @@ services:
         image: orthancteam/orthanc
         ports: [8042:8042]
         environment:
-            - ORTHANC__NAME=ORTHANC Minio demo
+            - ORTHANC__NAME=ORTHANC S3 like demo
             - ORTHANC__AWS_S3_STORAGE__BUCKET_NAME=my-sample-bucket
             - ORTHANC__AWS_S3_STORAGE__REGION=eu-west-1
-            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=minio
-            - ORTHANC__AWS_S3_STORAGE__SECRET_KEY=miniopwd
-            - ORTHANC__AWS_S3_STORAGE__ENDPOINT=http://minio:9000
+            - ORTHANC__AWS_S3_STORAGE__ACCESS_KEY=s3-like-admin
+            - ORTHANC__AWS_S3_STORAGE__SECRET_KEY=change-me
+            - ORTHANC__AWS_S3_STORAGE__ENDPOINT=http://s3-like:8333
             - ORTHANC__AWS_S3_STORAGE__VIRTUAL_ADDRESSING=false
             # - ORTHANC__AWS_S3_STORAGE__HYBRID_MODE=WriteToObjectStorage
             # - ORTHANC__AWS_S3_STORAGE__HYBRID_MODE=WriteToFileSystem
@@ -20,22 +20,21 @@ services:
         volumes:
             - orthanc-sqlite-storage:/var/lib/orthanc/db
 
-    minio:
-        image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    s3-like:
+        image: chrislusf/seaweedfs
         # don't expose these ports in a real world setup
-        ports: [9000:9000, 9001:9001]
+        ports: [8333:8333, 8888:8888]
         environment:
-            - MINIO_REGION=eu-west-1
-            - MINIO_ROOT_USER=minio
-            - MINIO_ROOT_PASSWORD=miniopwd
+            - AWS_ACCESS_KEY_ID=s3-like-admin
+            - AWS_SECRET_ACCESS_KEY=change-me
+            - S3_BUCKET=my-sample-bucket
         volumes:
-            - minio-storage:/data
-        entrypoint: sh
-        command: -c 'mkdir -p /data/default-bucket && mkdir -p /data/zip-bucket && /usr/bin/docker-entrypoint.sh server /data --console-address ":9001"'
+            - s3-like-storage:/data
+        command: mini -dir=/data
 
 
 volumes:
-    minio-storage:
+    s3-like-storage:
     orthanc-sqlite-storage:
 
 networks:

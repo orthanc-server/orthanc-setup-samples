@@ -9,13 +9,11 @@ This demo contains:
 
 - An Orthanc instance simulating the PACS
 - An Orthanc instance acting as a gateway between the PACS and S3
-- a Minio container simulating the S3 storage
+- a SeaweedFS container simulating the S3 storage
 
 # Starting the setup
 
-To start the setup, type: `docker-compose up --build` then, you first need to connect
-to the [minio UI](http://localhost:9000) (user: `minio`, pwd: `miniopwd`) to create a `test-bucket` bucket.  
-Also make sure to edit the Policy to `Read-Write`.
+To start the setup, type: `docker-compose up --build`.
 
 
 # demo
@@ -24,7 +22,7 @@ Also make sure to edit the Policy to `Read-Write`.
 - Upload a dicom study in the PACS UI
 - Through the UI, `Send` the study to the DICOM destination `gw-to-s3`
 - Wait a few seconds
-- Open the [minio UI](http://localhost:9000) and browse the `test-bucket` to check your
+- Open the [SeaweedFS UI](http://localhost:8888) and browse the `test-bucket` to check your
   study has been exported
 - Check the Orthanc instance acting as a Gateway [http://localhost:8042/ui/app/](http://localhost:8042/ui/app/) (user: `demo`, pwd: `demo`)
   and check that the data has been deleted after being transferred

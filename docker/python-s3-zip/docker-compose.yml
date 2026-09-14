@@ -18,9 +18,9 @@ services:
                     "AwsS3Storage": {
                         "BucketName": "default-bucket",
                         "Region": "eu-west-1",
-                        "AccessKey": "minio",
-                        "SecretKey": "miniopwd",
-                        "Endpoint": "http://toxiproxy-s3:9000",
+                        "AccessKey": "s3-like-admin",
+                        "SecretKey": "change-me",
+                        "Endpoint": "http://toxiproxy-s3:8333",
                         "VirtualAddressing": false
                     },
                     "PostgreSQL" : {
@@ -53,9 +53,9 @@ services:
                         "LocalTemporaryFolder": "/tmp-local-storage",
                         "BucketName": "zip-bucket",
                         "Region": "eu-west-1",
-                        "AccessKey": "minio",
-                        "SecretKey": "miniopwd",
-                        "Endpoint": "http://toxiproxy-s3:9000",
+                        "AccessKey": "s3-like-admin ",
+                        "SecretKey": "change-me",
+                        "Endpoint": "http://toxiproxy-s3:8333",
                         "VirtualAddressing": false,
                         "EnableCompression": false,
                         "LocalStorageMaxSizeMB": 3000,
@@ -78,23 +78,22 @@ services:
             VERBOSE_STARTUP: "true"
             S3ZIP_LOG_LEVEL: "INFO"
 
-    minio:
-        image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    s3-like:
+        image: chrislusf/seaweedfs
         # don't expose these ports in a real world setup
-        ports: [9000:9000, 9001:9001]
+        ports: [8333:8333]
         environment:
-            - MINIO_REGION=eu-west-1
-            - MINIO_ROOT_USER=minio
-            - MINIO_ROOT_PASSWORD=miniopwd
+            - AWS_ACCESS_KEY_ID=s3-like-admin
+            - AWS_SECRET_ACCESS_KEY=change-me
+            - S3_BUCKET=zip-bucket
         volumes:
-            - minio-storage:/data
-        entrypoint: sh
-        command: -c 'mkdir -p /data/default-bucket && mkdir -p /data/zip-bucket && /usr/bin/docker-entrypoint.sh server /data --console-address ":9001"'
+            - s3-like-storage:/data
+        command: mini -dir=/data
 
     toxiproxy-s3:
         depends_on: 
-            - minio
-        ports: ["19000:9000"]
+            - s3-like
+        ports: ["18333:8333"]
         image: ghcr.io/shopify/toxiproxy
 
     toxiproxy-pg-s3:
@@ -118,8 +117,8 @@ services:
         restart: on-failure
         entrypoint: >
             sh -c "sleep 3;
-            curl -sf -X POST http://toxiproxy-s3:8474/proxies -H 'Content-Type: application/json' -d '{\"name\":\"minio\",\"listen\":\"0.0.0.0:9000\",\"upstream\":\"minio:9000\"}';
-            curl -sf -X POST http://toxiproxy-s3:8474/proxies/minio/toxics -H 'Content-Type: application/json' -d '{\"type\":\"latency\",\"attributes\":{\"latency\":50,\"jitter\":0}}';
+            curl -sf -X POST http://toxiproxy-s3:8474/proxies -H 'Content-Type: application/json' -d '{\"name\":\"s3-like\",\"listen\":\"0.0.0.0:8333\",\"upstream\":\"s3-like:8333\"}';
+            curl -sf -X POST http://toxiproxy-s3:8474/proxies/s3-like/toxics -H 'Content-Type: application/json' -d '{\"type\":\"latency\",\"attributes\":{\"latency\":50,\"jitter\":0}}';
             curl -sf -X POST http://toxiproxy-pg-s3:8474/proxies -H 'Content-Type: application/json' -d '{\"name\":\"pg-s3\",\"listen\":\"0.0.0.0:5432\",\"upstream\":\"pg-s3:5432\"}';
             curl -sf -X POST http://toxiproxy-pg-s3:8474/proxies/pg-s3/toxics -H 'Content-Type: application/json' -d '{\"type\":\"latency\",\"attributes\":{\"latency\":10,\"jitter\":0}}';
             curl -sf -X POST http://toxiproxy-pg-default:8474/proxies -H 'Content-Type: application/json' -d '{\"name\":\"pg-default\",\"listen\":\"0.0.0.0:5432\",\"upstream\":\"pg-default:5432\"}';
@@ -143,6 +142,6 @@ services:
             POSTGRES_HOST_AUTH_METHOD: "trust"
 
 volumes:
-    minio-storage:
+    s3-like-storage:
     orthanc-default-db:
     orthanc-s3-db:
