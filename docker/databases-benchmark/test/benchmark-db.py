@@ -9,88 +9,249 @@ import logging
 import csv
 import pandas as pd
 import matplotlib.pyplot as plt
+import subprocess
 
+import pathlib
+here = pathlib.Path(__file__).parent.resolve()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-
+generate_snapshots = False
+use_snapshots = True
+# snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000]
+snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000]
 local_tests = True
+uploader_threads_count = os.environ.get("UPLOADER_THREADS_COUNT", 5)
+instances_queue = queue.Queue(0)
+instances_per_step = int(os.environ.get('INSTANCES_PER_STEP', '1000'))
+studies_per_step = int(os.environ.get('STUDIES_PER_STEP', '20'))
+series_per_studies = int(os.environ.get('SERIES_PER_STUDIES', '5'))
+
+env = os.environ.copy()
+env["DOCKER_HOST"] = "unix:///var/run/docker.sock"
+
 
 if local_tests:
     results_root_path = "../results/"
 
     test_configs = {
-        "local-old": {
-            "orthanc-url": "http://localhost:8048",
-            "results": results_root_path + "local-old.txt"
+        "local-sqlite-ref": {
+            "orthanc-url": "http://localhost:8143",
+            "results": results_root_path + "local-sqlite-ref.txt",
+            "type": "SQLite",
+            "container": "orthanc-sqlite-ref",
+            "db-volume": "orthanc-storage-sqlite-ref"
         },
-        "local-new": {
-            "orthanc-url": "http://localhost:8049",
-            "results": results_root_path + "local-new.txt"
+        "local-sqlite-next": {
+            "orthanc-url": "http://localhost:8144",
+            "results": results_root_path + "local-sqlite-next.txt",
+            "type": "SQLite",
+            "container": "orthanc-sqlite-next",
+            "db-volume": "orthanc-storage-sqlite-next"
+        },
+        "local-pg-ref": {
+            "orthanc-url": "http://localhost:8145",
+            "results": results_root_path + "local-pg-ref.txt",
+            "type": "PG",
+            "container": "orthanc-pg-ref",
+            "db-container": "pg-ref-db"
+        },
+        "local-pg-next": {
+            "orthanc-url": "http://localhost:8146",
+            "results": results_root_path + "local-pg-next.txt",
+            "type": "PG",
+            "container": "orthanc-pg-next",
+            "db-container": "pg-next-db"
         }
     }
 else:
     results_root_path = "/results/"
 
     test_configs = {
-        # "sqlite-with-index-values": {
-        #     "orthanc-url": "http://orthanc-sqlite-with-index-values:8042",
-        #     "results": results_root_path + "sqlite-sqlite-with-index-values.txt"
-        # },
-            "sqlite-1210": {
-                "orthanc-url": "http://orthanc-sqlite-1210:8042",
-                "results": results_root_path + "sqlite-1210.txt"
-            },
-            "sqlite-next": {
-                "orthanc-url": "http://orthanc-sqlite-next:8042",
-                "results": results_root_path + "sqlite-next.txt"
-            },
-
-        # "pg-1.12.4": {
-        #     "orthanc-url": "http://orthanc-pg-old:8042",
-        #     "results": results_root_path + "pg-1.12.4.txt"
-        # },
-            # "pg-1.12.10": {
-            #     "orthanc-url": "http://orthanc-pg-1210:8042",
-            #     "results": results_root_path + "pg-1.12.10.txt"
-            # },
-            # "pg-next": {
-            #     "orthanc-url": "http://orthanc-pg-next:8042",
-            #     "results": results_root_path + "pg-next.txt"
-            # },
-#   "sqlite-1.12.1": {
-#     "orthanc-url": "http://orthanc-sqlite-121:8042",
-#     "results": results_root_path + "sqlite-1.12.1.txt"
-#   },
-#   "sqlite-1.12.9": {
-#     "orthanc-url": "http://orthanc-sqlite-129:8042",
-#     "results": results_root_path + "sqlite-1.12.9.txt"
-#   },
-#   "sqlite-next": {
-#     "orthanc-url": "http://orthanc-sqlite-next:8042",
-#     "results": results_root_path + "sqlite-next.txt"
-#   },
-#   "pg-1.12.9": {
-#     "orthanc-url": "http://orthanc-pg:8042",
-#     "results": results_root_path + "pg-1.12.9.txt"
-#   },
-#   "mysql": {
-#     "orthanc-url": "http://orthanc-mysql:8042",
-#     "results": results_root_path + "mysql.txt"
-#   }
+        "sqlite-ref": {
+            "orthanc-url": "http://orthanc-sqlite-ref:8042",
+            "results": results_root_path + "sqlite-ref.txt",
+            "type": "SQLite",
+            "container": "orthanc-sqlite-ref",
+            "db-volume": "orthanc-storage-sqlite-ref"
+        },
+        "sqlite-next": {
+            "orthanc-url": "http://orthanc-sqlite-next:8042",
+            "results": results_root_path + "sqlite-next.txt",
+            "type": "SQLite",
+            "container": "orthanc-sqlite-next",
+            "db-volume": "orthanc-storage-sqlite-next"
+        },
+        "pg-ref": {
+            "orthanc-url": "http://orthanc-pg-ref:8042",
+            "results": results_root_path + "pg-ref.txt",
+            "type": "PG",
+            "db-container": "pg-ref-db"
+        },
+        "pg-next": {
+            "orthanc-url": "http://orthanc-pg-next:8042",
+            "results": results_root_path + "pg-next.txt",
+            "type": "PG",
+            "db-container": "pg-next-db"
+        },
     }
 
-instances_per_step = int(os.environ.get('INSTANCES_PER_STEP', '5000'))
+def upload_instances_worker(o: OrthancApiClient, thread_id: str):
+    logging.info(f"Starting uploader thread {thread_id}")
+    while True:
+        dicom = instances_queue.get()
+        if dicom is None:  # stop message
+            instances_queue.task_done()
+            break        
+    
+        o.upload(buffer=dicom)
+        instances_queue.task_done()
+
+    logging.info(f"Exiting uploader thread {thread_id}")
+
+def save_db_snapshot(test_config, snapshot_size):
+    if test_config["type"] == "SQLite":
+        result = subprocess.run([
+            "docker", "compose", "down", test_config['container']
+        ], cwd=here / '..')
+
+        result = subprocess.run([
+            "docker", "run", "--rm", 
+            "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
+            "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
+            "alpine",
+            "cp",  "/volume/index", f"/db-snapshots/sqlite-{snapshot_size}",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env)
+
+        print(result.stdout)
+        print(result.stderr)
+
+        result = subprocess.run([
+            "docker", "compose", "up", "-d", test_config['container']
+        ], cwd=here / '..')
+    elif test_config["type"] == "PG":
+        result = subprocess.run([
+            "docker", "compose", "exec", test_config["db-container"],
+            "bash", "-c", f"pg_dump --username=postgres --dbname=postgres --host=localhost --port=5432 -Fc | gzip > /db-snapshots/pg-18-{snapshot_size}.tar.gz"
+        ])
+
+
+def restore_db_snapshot(test_config, snapshot_size):
+    result = subprocess.run([
+        "docker", "compose", "down", test_config['container']
+    ], cwd=here / '..')
+
+    if test_config["type"] == "SQLite":
+
+        result = subprocess.run([
+            "docker", "run", "--rm", 
+            "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
+            "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
+            "alpine",
+            "sh", "-c", f"rm -rf /volume/* && cp /db-snapshots/sqlite-{snapshot_size} /volume/index && chown 999:999 /volume/index && chmod 644 /volume/index && ls -al /volume/"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env)
+
+        print(result.stdout)
+        print(result.stderr)
+
+    elif test_config["type"] == "PG":
+        result = subprocess.run([
+            "docker", "compose", "exec", test_config["db-container"],
+            "bash", "-c", f"dropdb --username=postgres postgres && createdb --username=postgres postgres && gunzip -c /db-snapshots/pg-18-{snapshot_size}.tar.gz | pg_restore --username=postgres --dbname=postgres"
+        ])
+
+    result = subprocess.run([
+        "docker", "compose", "up", "-d", test_config['container']
+    ], cwd=here / '..')
+
+
+
+if generate_snapshots:
+    for test_config_name in test_configs:
+        test_config = test_configs[test_config_name]
+
+        o = OrthancApiClient(test_config["orthanc-url"])
+        o.wait_started()
+
+        stats_before = o.get_statistics()
+        studies_count_before = stats_before.studies_count;
+        patients_count_before = stats_before.patients_count;
+        instances_count_before = stats_before.instances_count;
+
+        i_study = 0
+        populator = OrthancTestDbPopulator(o, 1, random_seed=studies_count_before)
+
+        for snapshot_size in snapshots_sizes:
+            while o.get_statistics().instances_count < snapshot_size:
+
+                upload_instances_count = 0
+                while upload_instances_count < instances_per_step:
+                    logging.info(f"Generating study {i_study}")
+                    study_id = studies_count_before + i_study
+                    tags = populator.generate_patient_tags({})
+                    tags["PatientID"] = str(study_id)
+                    tags = populator.generate_study_tags(tags, study_id)
+                    tags["StudyInstanceUID"] = f"1.{study_id}"
+            
+                    for i_series in range(0, series_per_studies):
+                        tags = populator.generate_series_tags(tags, i_series, study_id)
+                        for i_instance in range(0, int(instances_per_step/int(studies_per_step * series_per_studies))):
+                            tags = populator.generate_instance_tags(tags, i_instance, i_series, study_id)
+                            dicom = helpers.generate_test_dicom_file(width=2, height=2, tags=tags)
+                            instances_queue.put(dicom)
+                            upload_instances_count += 1
+                    i_study += 1
+                
+                logging.info(f"{test_config_name}: Uploading")
+
+                uploader_threads = []
+                for thread_id in range(0, uploader_threads_count):
+                    uploader_threads.append(threading.Thread(
+                                            target=upload_instances_worker,
+                                            name=f"Worker Thread {thread_id}",
+                                            args=(o, thread_id, )
+                                            ))
+
+                for thread_id in range(0, uploader_threads_count):
+                    instances_queue.put(None)  # exit message
+
+                start_upload = time.perf_counter()
+                start_upload_orthanc_time = o.get_binary("/tools/now").decode('utf-8')
+                last_change_id_before_upload = o.get_json("/changes?last")["Last"]
+
+                for ut in uploader_threads:
+                    ut.start()      
+
+                for ut in uploader_threads:
+                    ut.join()      
+
+                    end_upload = time.perf_counter()
+                logging.info(f"{test_config_name}: Uploading - done in {(end_upload - start_upload):.3f} s")
+
+            save_db_snapshot(test_config, snapshot_size)
+
+
 results_headers = ["#instances"]
 results_y_axis_titles = ["NA"]
 
 measure_upload_time = True
 measure_upload_time_with_metadata_caching = False  #note, check the docker-compose file and make sure the "DicomWeb.EnableMetadataCache" is configured with the same value !
-measure_tools_find_at_study_on_study_date = False
-measure_tools_find_at_study_level_on_patient_name_wildcard_case_insensitive = False
-measure_tools_find_at_study_level_on_patient_name_wildcard_case_sensitive = False
-measure_wado_rs_single_frame = False
-measure_list_series_instances = False
+measure_tools_find_at_study_on_study_date = True
+measure_tools_find_at_study_level_on_patient_name_wildcard_case_insensitive = True
+measure_tools_find_at_study_level_on_patient_name_wildcard_case_sensitive = True
+measure_wado_rs_single_frame = True
+measure_list_series_instances = True
+measure_update_attachment_custom_data = True
+measure_attachments_info = True
+measure_instances = True
 
 if measure_upload_time:
     results_headers.append(f"Upload {instances_per_step} instances [s]")
@@ -123,23 +284,18 @@ if measure_list_series_instances:
     results_headers.append("20x /series/../instances?expand=true [ms]")    
     results_y_axis_titles.append("[ms]")
 
+if measure_update_attachment_custom_data:
+    results_headers.append("100x /instances/../update-custom-data [ms]")    
+    results_y_axis_titles.append("[ms]")
 
-uploader_threads_count = os.environ.get("UPLOADER_THREADS_COUNT", 5)
-instances_queue = queue.Queue(0)
+if measure_instances:
+    results_headers.append("1000x /instances/.. [ms]")    
+    results_y_axis_titles.append("[ms]")
 
+if measure_attachments_info:
+    results_headers.append("1000x /instances/../attachments/dicom/info [ms]")    
+    results_y_axis_titles.append("[ms]")
 
-def upload_instances_worker(o: OrthancApiClient, thread_id: str):
-    logging.info(f"Starting uploader thread {thread_id}")
-    while True:
-        dicom = instances_queue.get()
-        if dicom is None:  # stop message
-            instances_queue.task_done()
-            break        
-    
-        o.upload(buffer=dicom)
-        instances_queue.task_done()
-
-    logging.info(f"Exiting uploader thread {thread_id}")
 
 
 # each step generates 5 studies of 2000 instances
@@ -162,7 +318,7 @@ def step(test_config):
     last_series_dicom_id = None
 
     # generate the test images
-    for i_study in range(0, 5):
+    for i_study in range(0, studies_per_step):
         logging.info(f"Generating study {i_study}")
         populator = OrthancTestDbPopulator(o, 1, random_seed=studies_count_before)
         study_id = studies_count_before + i_study
@@ -171,10 +327,10 @@ def step(test_config):
         tags = populator.generate_study_tags(tags, study_id)
         tags["StudyInstanceUID"] = f"1.{study_id}"
         
-        for i_series in range(0, 4):
+        for i_series in range(0, series_per_studies):
             tags = populator.generate_series_tags(tags, i_series, study_id)
             series_dicom_ids.append(tags["SeriesInstanceUID"])
-            for i_instance in range(0, int(instances_per_step/int(4*5))):
+            for i_instance in range(0, int(instances_per_step/int(studies_per_step * series_per_studies))):
                 tags = populator.generate_instance_tags(tags, i_instance, i_series, study_id)
                 dicom = helpers.generate_test_dicom_file(width=2, height=2, tags=tags)
                 instances_queue.put(dicom)
@@ -281,6 +437,66 @@ def step(test_config):
         result_row.append(f"{(end_lookup - start_lookup)*1e3:.3f}")
         result_row.append(f"{(end_list_series_instances - start_list_series_instances)*1e3:.3f}")
 
+    if measure_update_attachment_custom_data:
+        instances_ids = o.post("/tools/find", json={
+            "Level": "Instance",
+            "Expand": False,
+            "Query": {},
+            "OrderBy": [{
+                "Type": "Metadata",
+                "Key": "LastUpdate",
+                "Direction": "DESC"
+            }],
+            "Limit": 100
+        }).json()
+        start_update_cd = time.perf_counter()
+        for instance_id in instances_ids:
+            o.post(f"/instances/{instance_id}/update-custom-data", json={})
+        end_update_cd = time.perf_counter()
+        logging.info(f"{test_config}: 100x /instances/../update-custom-data - done in {(end_update_cd - start_update_cd)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_update_cd - start_update_cd)*1e3:.3f}")
+
+    if measure_instances:
+        instances_ids = o.post("/tools/find", json={
+            "Level": "Instance",
+            "Expand": False,
+            "Query": {},
+            "OrderBy": [{
+                "Type": "Metadata",
+                "Key": "LastUpdate",
+                "Direction": "DESC"
+            }],
+            "Limit": 1000
+        }).json()
+        start_perf = time.perf_counter()
+        for instance_id in instances_ids:
+            o.get(f"/instances/{instance_id}", json={})
+        end_perf = time.perf_counter()
+        logging.info(f"{test_config}: 1000x /instances/.. - done in {(end_perf - start_perf)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_perf - start_perf)*1e3:.3f}")
+
+    if measure_attachments_info:
+        instances_ids = o.post("/tools/find", json={
+            "Level": "Instance",
+            "Expand": False,
+            "Query": {},
+            "OrderBy": [{
+                "Type": "Metadata",
+                "Key": "LastUpdate",
+                "Direction": "DESC"
+            }],
+            "Limit": 1000
+        }).json()
+        start_perf = time.perf_counter()
+        for instance_id in instances_ids:
+            o.get(f"/instances/{instance_id}/attachments/dicom/info", json={})
+        end_perf = time.perf_counter()
+        logging.info(f"{test_config}: 1000x /instances/../attachments/dicom/info - done in {(end_perf - start_perf)*1e3:.3f} ms")
+
+        result_row.append(f"{(end_perf - start_perf)*1e3:.3f}")
+
 
     # write to csv
     results_path = test_configs[test_config]["results"]
@@ -294,19 +510,28 @@ def step(test_config):
 
         writer.writerow(result_row)
 
-steps_count = int(os.environ.get('STEPS_COUNT', '10'))
+if use_snapshots:
+    steps = snapshots_sizes
+else:
+    steps_count = int(os.environ.get('STEPS_COUNT', '100'))
+    steps = [s * instances_per_step for s in range(0, steps_count)]
 
-for s in range(0, steps_count):
-    for test_config in test_configs:
-        step(test_config)
+for step_size in steps:
+    for test_config_name in test_configs:
+        test_config = test_configs[test_config_name]
+        if use_snapshots: # restore the snapshot before running the step
+            restore_db_snapshot(test_config, step_size)
+
+        step(test_config_name)
 
     if bool(os.environ.get('GENERATE_PLOT', 'True')):
 
         dfs = []
         plot_prefix_titles = []
-        for test_config in test_configs:
-            dfs.append(pd.read_csv(test_configs[test_config]['results']))
-            plot_prefix_titles.append(test_config)
+        for test_config_name in test_configs:
+
+            dfs.append(pd.read_csv(test_configs[test_config_name]['results']))
+            plot_prefix_titles.append(test_config_name)
         
         plt.figure(figsize=(12, 4*(len(results_headers)-1)))
 
