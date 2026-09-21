@@ -10,6 +10,8 @@ import csv
 import pandas as pd
 import matplotlib.pyplot as plt
 import subprocess
+import json
+import shutil
 
 import pathlib
 here = pathlib.Path(__file__).parent.resolve()
@@ -18,9 +20,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 generate_snapshots = False
 use_snapshots = True
-# snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000]
-snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000]
-local_tests = True
+local_tests = True  # True: this scripts runs locally, False: this script runs in a Docker container in the docker compose (uncomment it in docker-compose.yml !!)
+
+# snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000, 300000, 400000, 500000, 600000, 800000, 1000000]
+snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 100000, 200000, 500000, 600000, 1000000]
+
 uploader_threads_count = os.environ.get("UPLOADER_THREADS_COUNT", 5)
 instances_queue = queue.Queue(0)
 instances_per_step = int(os.environ.get('INSTANCES_PER_STEP', '1000'))
@@ -35,34 +39,101 @@ if local_tests:
     results_root_path = "../results/"
 
     test_configs = {
-        "local-sqlite-ref": {
-            "orthanc-url": "http://localhost:8143",
-            "results": results_root_path + "local-sqlite-ref.txt",
-            "type": "SQLite",
-            "container": "orthanc-sqlite-ref",
-            "db-volume": "orthanc-storage-sqlite-ref"
-        },
-        "local-sqlite-next": {
-            "orthanc-url": "http://localhost:8144",
-            "results": results_root_path + "local-sqlite-next.txt",
-            "type": "SQLite",
-            "container": "orthanc-sqlite-next",
-            "db-volume": "orthanc-storage-sqlite-next"
-        },
-        "local-pg-ref": {
+        # "docker-sqlite-1.13.0": {
+        #     "orthanc-url": "http://localhost:8143",
+        #     "results": results_root_path + "docker-sqlite-ref.txt",
+        #     "type": "SQLite",
+        #     "container": "orthanc-sqlite-ref",
+        #     "db-volume": "orthanc-storage-sqlite-ref"
+        # },
+        "docker-pg-11.0": {
             "orthanc-url": "http://localhost:8145",
-            "results": results_root_path + "local-pg-ref.txt",
+            "results": results_root_path + "docker-pg-ref.txt",
             "type": "PG",
             "container": "orthanc-pg-ref",
             "db-container": "pg-ref-db"
         },
-        "local-pg-next": {
-            "orthanc-url": "http://localhost:8146",
-            "results": results_root_path + "local-pg-next.txt",
-            "type": "PG",
-            "container": "orthanc-pg-next",
-            "db-container": "pg-next-db"
-        }
+        "docker-sqlite-next": {
+            "orthanc-url": "http://localhost:8144",
+            "results": results_root_path + "docker-sqlite-next.txt",
+            "type": "SQLite",
+            "container": "orthanc-sqlite-next",
+            "db-volume": "orthanc-storage-sqlite-next"
+        },
+        # "local-sqlite-1.13.0-LSB-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-sqlite-1.13.0-LSB-release.txt",
+        #     "type": "SQLite",
+        #     #"exe": "/home/alain/o/build/orthanc-release/Orthanc-with-sqlite-ordering",
+        #     "exe": "/home/alain/Releases/Orthanc-1.13.0",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        # },
+        # "local-sqlite-1.13.0-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-sqlite-mainline-release.txt",
+        #     "type": "SQLite",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-1.13.0",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        # },
+        # "local-sqlite-mainline-with-ordering-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-sqlite-with-release.txt",
+        #     "type": "SQLite",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-build-with-ordering-and-analyze-after-50",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        # },
+        # "local-sqlite-mainline-without-ordering-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-sqlite-without-release.txt",
+        #     "type": "SQLite",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-build-without-ordering-and-analyze-after-50",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        # },
+        # "local-pg-10.3-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-pg-10.3-release.txt",
+        #     "type": "PG",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-build-without-ordering-and-analyze-after-50",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc-pg-release-10.3.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        #     "db-container": "pg-ref-db"
+        # },
+        # "local-pg-mainline-with-ordering-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-pg-with-release.txt",
+        #     "type": "PG",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-build-without-ordering-and-analyze-after-50",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc-pg-release-with.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        #     "db-container": "pg-ref-db"
+        # },
+        # "local-pg-mainline-without-ordering-release": {
+        #     "orthanc-url": "http://localhost:8046",
+        #     "results": results_root_path + "local-pg-without-release.txt",
+        #     "type": "PG",
+        #     "exe": "/home/alain/Releases/Orthanc-local-release-build-without-ordering-and-analyze-after-50",
+        #     "exe-config-file": "/home/alain/o/build/configs/orthanc-pg-release-without.json",
+        #     "exe-storage-folder": "/home/alain/o/build/configs/OrthancStorageRelease",
+        #     "db-container": "pg-ref-db"
+        # },
+        # "local-pg-ref": {
+        #     "orthanc-url": "http://localhost:8145",
+        #     "results": results_root_path + "local-pg-ref.txt",
+        #     "type": "PG",
+        #     "container": "orthanc-pg-ref",
+        #     "db-container": "pg-ref-db"
+        # },
+        # "local-pg-next": {
+        #     "orthanc-url": "http://localhost:8146",
+        #     "results": results_root_path + "local-pg-next.txt",
+        #     "type": "PG",
+        #     "container": "orthanc-pg-next",
+        #     "db-container": "pg-next-db"
+        # }
     }
 else:
     results_root_path = "/results/"
@@ -75,26 +146,36 @@ else:
             "container": "orthanc-sqlite-ref",
             "db-volume": "orthanc-storage-sqlite-ref"
         },
-        "sqlite-next": {
-            "orthanc-url": "http://orthanc-sqlite-next:8042",
-            "results": results_root_path + "sqlite-next.txt",
-            "type": "SQLite",
-            "container": "orthanc-sqlite-next",
-            "db-volume": "orthanc-storage-sqlite-next"
-        },
+        # "sqlite-next": {
+        #     "orthanc-url": "http://orthanc-sqlite-next:8042",
+        #     "results": results_root_path + "sqlite-next.txt",
+        #     "type": "SQLite",
+        #     "container": "orthanc-sqlite-next",
+        #     "db-volume": "orthanc-storage-sqlite-next"
+        # },
         "pg-ref": {
             "orthanc-url": "http://orthanc-pg-ref:8042",
             "results": results_root_path + "pg-ref.txt",
             "type": "PG",
             "db-container": "pg-ref-db"
         },
-        "pg-next": {
-            "orthanc-url": "http://orthanc-pg-next:8042",
-            "results": results_root_path + "pg-next.txt",
-            "type": "PG",
-            "db-container": "pg-next-db"
-        },
+        # "pg-next": {
+        #     "orthanc-url": "http://orthanc-pg-next:8042",
+        #     "results": results_root_path + "pg-next.txt",
+        #     "type": "PG",
+        #     "db-container": "pg-next-db"
+        # },
     }
+
+def is_local_exe(test_config):
+    if "exe" in test_config and "container" in test_config:
+        raise RuntimeError("Can not have 'exe' and 'container' defined in test_config " + json.dumps(test_config))
+
+    if "exe" in test_config and (not "exe-config-file" in test_config or not "exe-storage-folder" in test_config):
+        raise RuntimeError("Invalid 'exe' config in test_config " + json.dumps(test_config))
+
+    return "exe" in test_config
+
 
 def upload_instances_worker(o: OrthancApiClient, thread_id: str):
     logging.info(f"Starting uploader thread {thread_id}")
@@ -141,18 +222,49 @@ def save_db_snapshot(test_config, snapshot_size):
 
 
 def restore_db_snapshot(test_config, snapshot_size):
-    result = subprocess.run([
-        "docker", "compose", "down", test_config['container']
-    ], cwd=here / '..')
+    if not is_local_exe(test_config):
+        result = subprocess.run([
+            "docker", "compose", "down", test_config['container']
+        ], cwd=here / '..')
 
     if test_config["type"] == "SQLite":
 
+        if is_local_exe(test_config):
+            shutil.rmtree(test_config['exe-storage-folder'], ignore_errors=True)
+            os.makedirs(test_config['exe-storage-folder'], exist_ok=True)
+            shutil.copy(f"{here / '../db-snapshots/sqlite-'}{snapshot_size}", os.path.join(test_config['exe-storage-folder'], "index"))
+        else:
+            result = subprocess.run([
+                "docker", "run", "--rm", 
+                "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
+                "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
+                "alpine",
+                "sh", "-c", f"rm -rf /volume/* && cp /db-snapshots/sqlite-{snapshot_size} /volume/index && chown 999:999 /volume/index && chmod 644 /volume/index && ls -al /volume/"
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env)
+
+            print(result.stdout)
+            print(result.stderr)
+
+    elif test_config["type"] == "PG":
+        # restart PG to release all connections
         result = subprocess.run([
-            "docker", "run", "--rm", 
-            "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
-            "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
-            "alpine",
-            "sh", "-c", f"rm -rf /volume/* && cp /db-snapshots/sqlite-{snapshot_size} /volume/index && chown 999:999 /volume/index && chmod 644 /volume/index && ls -al /volume/"
+            "docker", "compose", "restart", test_config['db-container']
+        ], cwd=here / '..')
+
+        # Wait for PostgreSQL to be ready
+        subprocess.run([
+            "docker", "compose", "exec", test_config["db-container"],
+            "bash", "-c",
+            "until pg_isready --username=postgres; do sleep 1; done"
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+
+        result = subprocess.run([
+            "docker", "compose", "exec", test_config["db-container"],
+            "bash", "-c", f"dropdb --username=postgres postgres && createdb --username=postgres postgres && gunzip -c /db-snapshots/pg-18-{snapshot_size}.tar.gz | pg_restore --username=postgres --dbname=postgres"
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -162,15 +274,10 @@ def restore_db_snapshot(test_config, snapshot_size):
         print(result.stdout)
         print(result.stderr)
 
-    elif test_config["type"] == "PG":
+    if not is_local_exe(test_config):
         result = subprocess.run([
-            "docker", "compose", "exec", test_config["db-container"],
-            "bash", "-c", f"dropdb --username=postgres postgres && createdb --username=postgres postgres && gunzip -c /db-snapshots/pg-18-{snapshot_size}.tar.gz | pg_restore --username=postgres --dbname=postgres"
-        ])
-
-    result = subprocess.run([
-        "docker", "compose", "up", "-d", test_config['container']
-    ], cwd=here / '..')
+            "docker", "compose", "up", "-d", test_config['container']
+        ], cwd=here / '..')
 
 
 
@@ -516,13 +623,46 @@ else:
     steps_count = int(os.environ.get('STEPS_COUNT', '100'))
     steps = [s * instances_per_step for s in range(0, steps_count)]
 
+if local_tests:
+    # start the docker-compose (at least for db servers containers ...) and clear the volumes first
+    result = subprocess.run([
+        "docker", "compose", "down", "-v"
+        ], cwd=here / '..')
+
+    result = subprocess.run([
+        "docker", "compose", "up", "-d"
+        ], cwd=here / '..')
+
+
 for step_size in steps:
     for test_config_name in test_configs:
         test_config = test_configs[test_config_name]
         if use_snapshots: # restore the snapshot before running the step
             restore_db_snapshot(test_config, step_size)
 
+        if is_local_exe(test_config):
+            # start the local Orthanc
+            process = subprocess.Popen([test_config['exe'], test_config['exe-config-file']],
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       text=True)
+            concatenated_output = []
+            while True:
+                line = process.stderr.readline()
+                concatenated_output.append(line)
+                if line and "Orthanc has stopped" in line:
+                    for line in concatenated_output:
+                        print("STDERR:", line, end='')
+                    raise RuntimeError("Failed to start Orthanc")
+                elif line and "Orthanc has started" in line:
+                    print("Orthanc has started")
+                    break
+
         step(test_config_name)
+
+        if is_local_exe(test_config):
+            process.terminate()
+            process.wait()
 
     if bool(os.environ.get('GENERATE_PLOT', 'True')):
 

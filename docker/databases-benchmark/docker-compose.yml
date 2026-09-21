@@ -20,7 +20,7 @@ services:
 
   orthanc-sqlite-ref:
     # image: ${ORTHANC_IMAGE}
-    image: orthancteam/orthanc:26.9.0
+    image: orthancteam/orthanc:26.9.1
     restart: unless-stopped
     ports: ["8143:8042"]
     volumes: 
@@ -64,7 +64,7 @@ services:
 
 
   orthanc-pg-ref:
-    image: orthancteam/orthanc:26.9.0
+    image: orthancteam/orthanc:26.9.1
     # image: ${ORTHANC_IMAGE}
     restart: unless-stopped
     ports: ["8145:8042"]
@@ -97,37 +97,37 @@ services:
       POSTGRES_HOST_AUTH_METHOD: "trust"
 
 
-  orthanc-pg-next:
-    image: orthancteam/orthanc-pre-release:pg-next-1099-normal-unstable-before-tests-amd64
-    # image: ${ORTHANC_IMAGE}
-    restart: unless-stopped
-    ports: ["8146:8042"]
-    volumes: 
-      - orthanc-storage-pg-next-files:/var/lib/orthanc/db
-      - ./plugin.py:/scripts/plugin.py
-    environment:
-      DICOM_WEB_PLUGIN_ENABLED: "true"
-      ORTHANC_JSON: |
-        {
-          "Name": "PG next",
-          "AuthenticationEnabled": false,
-          "PythonScript": "/scripts/plugin.py",
-          "StableAge": 1  // To trigger /metadata computation ASAP
+  # orthanc-pg-next:
+  #   image: orthancteam/orthanc-pre-release:pg-next-1099-normal-unstable-before-tests-amd64
+  #   # image: ${ORTHANC_IMAGE}
+  #   restart: unless-stopped
+  #   ports: ["8146:8042"]
+  #   volumes: 
+  #     - orthanc-storage-pg-next-files:/var/lib/orthanc/db
+  #     - ./plugin.py:/scripts/plugin.py
+  #   environment:
+  #     DICOM_WEB_PLUGIN_ENABLED: "true"
+  #     ORTHANC_JSON: |
+  #       {
+  #         "Name": "PG next",
+  #         "AuthenticationEnabled": false,
+  #         "PythonScript": "/scripts/plugin.py",
+  #         "StableAge": 1  // To trigger /metadata computation ASAP
           
-          , "PostgreSQL": {
-            "Host": "pg-next-db"
-          }
-        }
+  #         , "PostgreSQL": {
+  #           "Host": "pg-next-db"
+  #         }
+  #       }
 
-  pg-next-db:
-    image: postgres:18
-    restart: unless-stopped
-    ports: ["7432:5432"]
-    volumes: 
-      - pg-next-db:/var/lib/postgresql/18/docker
-      - ./db-snapshots:/db-snapshots
-    environment:
-      POSTGRES_HOST_AUTH_METHOD: "trust"
+  # pg-next-db:
+  #   image: postgres:18
+  #   restart: unless-stopped
+  #   ports: ["7432:5432"]
+  #   volumes: 
+  #     - pg-next-db:/var/lib/postgresql/18/docker
+  #     - ./db-snapshots:/db-snapshots
+  #   environment:
+  #     POSTGRES_HOST_AUTH_METHOD: "trust"
 
   # orthanc-pg-old:
   #   image: orthancteam/orthanc:24.11.0
@@ -209,10 +209,10 @@ volumes:
   orthanc-storage-sqlite-next:
   # orthanc-storage-pg-old-files:
   orthanc-storage-pg-ref-files:
-  orthanc-storage-pg-next-files:
+  # orthanc-storage-pg-next-files:
   # orthanc-storage-mysql-files:
   # pg-old-db:
   pg-ref-db:
-  pg-next-db:
+  # pg-next-db:
   # mysql-db:
 
