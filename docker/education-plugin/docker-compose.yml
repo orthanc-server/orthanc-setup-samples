@@ -12,11 +12,13 @@ services:
       ORTHANC_JSON: |
         {
           "Name": "Orthanc Educ",
+          "AuthenticationEnabled": false, // because auth is handled by the education plugin
           "Education" : {
             "Enabled" : true,
             "PublicRoots" : [
               "http://localhost:8042"
             ],
+            "AuthenticationHttpHeader" : "Mail",
             "Administrators" : {
               "Authentication" : "Login",
               "Credentials" : {
