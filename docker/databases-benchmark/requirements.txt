@@ -1,0 +1,4 @@
+orthanc-api-client==0.21.0 
+orthanc-tools==0.17.7
+pandas
+matplotlib 

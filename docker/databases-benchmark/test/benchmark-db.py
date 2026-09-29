@@ -12,6 +12,10 @@ import matplotlib.pyplot as plt
 import subprocess
 import json
 import shutil
+import zipfile
+import tempfile
+from urllib.request import urlretrieve
+
 
 import pathlib
 here = pathlib.Path(__file__).parent.resolve()
@@ -22,6 +26,7 @@ generate_snapshots = False
 use_snapshots = True
 local_tests = True  # True: this scripts runs locally, False: this script runs in a Docker container in the docker compose (uncomment it in docker-compose.yml !!)
 
+# snapshots are available for downloads at https://public-files.orthanc.team/databases-benchmark/pg-18-1000000.tar.gz / sqlite-1000000.zip
 # snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 80000, 100000, 200000, 300000, 400000, 500000, 600000, 800000, 1000000]
 snapshots_sizes = [5000, 10000, 20000, 40000, 60000, 100000, 200000, 500000, 600000, 1000000]
 
@@ -39,27 +44,27 @@ if local_tests:
     results_root_path = "../results/"
 
     test_configs = {
-        # "docker-sqlite-1.13.0": {
-        #     "orthanc-url": "http://localhost:8143",
-        #     "results": results_root_path + "docker-sqlite-ref.txt",
-        #     "type": "SQLite",
-        #     "container": "orthanc-sqlite-ref",
-        #     "db-volume": "orthanc-storage-sqlite-ref"
-        # },
-        "docker-pg-11.0": {
-            "orthanc-url": "http://localhost:8145",
-            "results": results_root_path + "docker-pg-ref.txt",
-            "type": "PG",
-            "container": "orthanc-pg-ref",
-            "db-container": "pg-ref-db"
-        },
-        "docker-sqlite-next": {
-            "orthanc-url": "http://localhost:8144",
-            "results": results_root_path + "docker-sqlite-next.txt",
+        "docker-sqlite-1.13.0": {
+            "orthanc-url": "http://localhost:8143",
+            "results": results_root_path + "docker-sqlite-ref.txt",
             "type": "SQLite",
-            "container": "orthanc-sqlite-next",
-            "db-volume": "orthanc-storage-sqlite-next"
+            "container": "orthanc-sqlite-ref",
+            "db-volume": "orthanc-storage-sqlite-ref"
         },
+                # "docker-pg-11.0": {
+                #     "orthanc-url": "http://localhost:8145",
+                #     "results": results_root_path + "docker-pg-ref.txt",
+                #     "type": "PG",
+                #     "container": "orthanc-pg-ref",
+                #     "db-container": "pg-ref-db"
+                # },
+        # "docker-sqlite-next": {
+        #     "orthanc-url": "http://localhost:8144",
+        #     "results": results_root_path + "docker-sqlite-next.txt",
+        #     "type": "SQLite",
+        #     "container": "orthanc-sqlite-next",
+        #     "db-volume": "orthanc-storage-sqlite-next"
+        # },
         # "local-sqlite-1.13.0-LSB-release": {
         #     "orthanc-url": "http://localhost:8046",
         #     "results": results_root_path + "local-sqlite-1.13.0-LSB-release.txt",
@@ -201,6 +206,7 @@ def save_db_snapshot(test_config, snapshot_size):
             "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
             "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
             "alpine",
+            # "zip", "/db-snapshots/sqlite-{snapshot_size}.zip", "/volume/index"
             "cp",  "/volume/index", f"/db-snapshots/sqlite-{snapshot_size}",
             ],
             stdout=subprocess.PIPE,
@@ -210,6 +216,11 @@ def save_db_snapshot(test_config, snapshot_size):
 
         print(result.stdout)
         print(result.stderr)
+
+        with zipfile.ZipFile(here / f"../db-snapshots/sqlite-{snapshot_size}.zip", "w", zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(here / f"../db-snapshots/sqlite-{snapshot_size}", arcname=f"sqlite-{snapshot_size}")
+
+        os.remove(here / f"../db-snapshots/sqlite-{snapshot_size}")
 
         result = subprocess.run([
             "docker", "compose", "up", "-d", test_config['container']
@@ -229,17 +240,34 @@ def restore_db_snapshot(test_config, snapshot_size):
 
     if test_config["type"] == "SQLite":
 
+        snapshot_zip_path=f"{here / '../db-snapshots/sqlite-'}{snapshot_size}.zip"
+        if not os.path.exists(snapshot_zip_path):
+            urlretrieve(f"https://public-files.orthanc.team/databases-benchmark/sqlite-{snapshot_size}.zip", snapshot_zip_path)
+
+        with zipfile.ZipFile(snapshot_zip_path, 'r') as zip_ref:
+            file_name_in_zip = zip_ref.namelist()[0]
+            with tempfile.TemporaryDirectory() as tmp_dir_path:
+                zip_ref.extractall(tmp_dir_path)
+                os.rename(os.path.join(tmp_dir_path, file_name_in_zip), here / f'../db-snapshots/sqlite-{snapshot_size}')
+
         if is_local_exe(test_config):
             shutil.rmtree(test_config['exe-storage-folder'], ignore_errors=True)
             os.makedirs(test_config['exe-storage-folder'], exist_ok=True)
-            shutil.copy(f"{here / '../db-snapshots/sqlite-'}{snapshot_size}", os.path.join(test_config['exe-storage-folder'], "index"))
+            # with zipfile(snapshot_zip_path, 'r') as zip_ref:
+            #     file_name_in_zip = zip_ref.namelist()[0]
+            #     with tempfile.TemporaryDirectory as tmp_dir_path:
+            #         zip_ref.extractall(tmp_dir_path)
+            #         os.rename(os.path.join(tmp_dir_path, file_name_in_zip), os.path.join(test_config['exe-storage-folder'], "index"))
+            # shutil.copy(f"{here / '../db-snapshots/sqlite-'}{snapshot_size}", os.path.join(test_config['exe-storage-folder'], "index"))
+            os.rename(f"{here / '../db-snapshots/sqlite-'}{snapshot_size}", os.path.join(test_config['exe-storage-folder'], "index"))
         else:
+
             result = subprocess.run([
                 "docker", "run", "--rm", 
                 "-v", f"databases-benchmark_{test_config['db-volume']}:/volume",
                 "-v", f"{here / '../db-snapshots/'}:/db-snapshots",
                 "alpine",
-                "sh", "-c", f"rm -rf /volume/* && cp /db-snapshots/sqlite-{snapshot_size} /volume/index && chown 999:999 /volume/index && chmod 644 /volume/index && ls -al /volume/"
+                "sh", "-c", f"rm -rf /volume/* && mv /db-snapshots/sqlite-{snapshot_size} /volume/index && chown 999:999 /volume/index && chmod 644 /volume/index && ls -al /volume/"
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -261,6 +289,10 @@ def restore_db_snapshot(test_config, snapshot_size):
             "bash", "-c",
             "until pg_isready --username=postgres; do sleep 1; done"
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+
+        snapshot_zip_path=f"{here / '../db-snapshots/pg-18-'}{snapshot_size}.tar.gz"
+        if not os.path.exists(snapshot_zip_path):
+            urlretrieve(f"https://public-files.orthanc.team/databases-benchmark/pg-18-{snapshot_size}.tar.gz", snapshot_zip_path)
 
         result = subprocess.run([
             "docker", "compose", "exec", test_config["db-container"],
