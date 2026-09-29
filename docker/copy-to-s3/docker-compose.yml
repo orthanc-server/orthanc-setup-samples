@@ -22,27 +22,28 @@ services:
                     "StableAge": 3
                 }
             # note: in a prod setup, the S3 access_key and secret_key should be passed as secrets
-            AWS_ACCESS_KEY_ID: "minio"
-            AWS_SECRET_ACCESS_KEY: "miniopwd"
+            AWS_ACCESS_KEY_ID: "s3-like-admin"
+            AWS_SECRET_ACCESS_KEY: "change-me"
             S3_BUCKET: "test-bucket"
             # this is not required when using real AWS S3
-            S3_ENDPOINT: "http://minio:9000"
+            S3_ENDPOINT: "http://s3-like:8333"
             
             S3_PATH_TEMPLATE: "{StudyDate}/{PatientID}-{PatientName}.zip" 
             S3_DELETE_AFTER_EXPORT: "true"
 
 
     # this is simulating the S3 buckets
-    minio:
-        command: server /data --console-address ":9001"
-        image: minio/minio:RELEASE.2023-07-11T21-29-34Z
-        ports: [9000:9000, 9001:9001]
-        volumes:
-            - minio-storage:/data
+    s3-like:
+        image: chrislusf/seaweedfs
+        # don't expose these ports in a real world setup
+        ports: [8333:8333, 8888:8888]
         environment:
-            MINIO_REGION: "eu-west-1"
-            MINIO_ROOT_USER: "minio"
-            MINIO_ROOT_PASSWORD: "miniopwd"
+            - AWS_ACCESS_KEY_ID=s3-like-admin
+            - AWS_SECRET_ACCESS_KEY=change-me
+            - S3_BUCKET=test-bucket
+        volumes:
+            - s3-like-storage:/data
+        command: mini -dir=/data
 
 
     # this is an orthanc simulating the PACS or workstation
@@ -66,7 +67,7 @@ services:
 
 
 volumes:
-    minio-storage:
+    s3-like-storage:
     orthanc-storage:
     pacs-storage:
 

@@ -1,4 +1,5 @@
 # sample code, running out of orthanc used to hide part of the image on a US image
+# Note that you can now perform this operation with the PixelsMasker plugin
 
 from pydicom.pixel_data_handlers.util import apply_color_lut
 from pydicom import dcmread, dcmwrite

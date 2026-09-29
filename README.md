@@ -56,7 +56,7 @@ These sample setups require Docker to run.  They have been tested only on Linux 
   server side TLS.
 - [Orthanc on Azure](docker/azure) to demonstrate how to use the Orthanc in an Azure environment (using Azure SQL and Azure Blob Storage)
 - [Orthanc on AWS](docker/aws) to demonstrate how to use the Orthanc in an AWS environment (using RDS and S3)
-- [Orthanc on Minio](docker/minio) to demonstrate how to use the Orthanc with minio storage
+- [Orthanc on S3 like storages](docker/s3-like) to demonstrate how to use the Orthanc with other S3 compatible storages
 - [Object-storage plugins performance tests](docker/performance-tests) to compare performance of VM SSDs vs object-storage plugins
 - [Postgresql version upgrade](docker/postgresql-upgrade) to demontrate how to upgrade from one Postgresql version to another
 - [Run orthanc as non-root user](docker/run-as-user) to demontrate how to run the orthancteam/orthanc image as a non root user

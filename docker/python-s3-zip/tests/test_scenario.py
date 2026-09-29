@@ -86,10 +86,10 @@ def measure_time(msg: str):
 
 def wait_until_zip_found_on_s3(series_id: str):
     boto_session = boto3.Session(region_name="eu-west-1",
-                                 aws_access_key_id="minio",
-                                 aws_secret_access_key="miniopwd")
+                                 aws_access_key_id="s3-like-admin",
+                                 aws_secret_access_key="change-me")
     s3_client = boto_session.client('s3',
-                                    endpoint_url="http://localhost:9000",
+                                    endpoint_url="http://localhost:8333",
                                     config=boto3.session.Config(s3={'addressing_style': 'path'}))
 
     found = False
@@ -104,10 +104,10 @@ def wait_until_zip_found_on_s3(series_id: str):
 
 def is_zip_size_on_s3(series_id: str):
     boto_session = boto3.Session(region_name="eu-west-1",
-                                 aws_access_key_id="minio",
-                                 aws_secret_access_key="miniopwd")
+                                 aws_access_key_id="s3-like-admin",
+                                 aws_secret_access_key="change-me")
     s3_client = boto_session.client('s3',
-                                    endpoint_url="http://localhost:9000",
+                                    endpoint_url="http://localhost:8333",
                                     config=boto3.session.Config(s3={'addressing_style': 'path'}))
 
     try:

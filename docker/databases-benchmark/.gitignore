@@ -1,5 +1,9 @@
 results/*.txt
 results/*.xlsx
 results/*.png
+results/_*
+db-snapshots/sqlite-*
+db-snapshots/pg-*
 .venv/
+.env/
 local-configs/*.json

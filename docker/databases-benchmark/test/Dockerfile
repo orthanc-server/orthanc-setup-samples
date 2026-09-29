@@ -1,8 +1,8 @@
 FROM python:3.12
 ENV PYTHONUNBUFFERED=1
 
-RUN pip install --break-system-packages orthanc-api-client==0.21.0 orthanc-tools==0.17.7
-RUN pip install --break-system-packages pandas matplotlib
+COPY requirements.txt /
+RUN pip install --break-system-packages -r /requirements.txt
 
 COPY benchmark-db.py /
 

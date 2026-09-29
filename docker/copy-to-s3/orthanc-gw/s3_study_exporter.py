@@ -66,32 +66,14 @@ class S3StudyExporter:
 if __name__ == "__main__":
     orthanc_api = OrthancApiClient(orthanc_root_url="http://192.168.0.10:8042")
 
-    s3_config = S3Configuration(aws_access_key_id="minio",
-                                aws_secret_access_key="miniopwd",
+    s3_config = S3Configuration(aws_access_key_id="s3-like-admin",
+                                aws_secret_access_key="change-me",
                                 bucket="test-bucket",
-                                endpoint="http://localhost:9000")
+                                endpoint="http://localhost:8333")
 
     study_exporter = S3StudyExporter(orthanc_api=orthanc_api,
                                      s3_config=s3_config,
                                      path_template="{PatientID}-{PatientName}-{PatientBirthDate}/{StudyDate}-{StudyDescription}.zip")
 
     study_exporter.export(study_id="15784736-a81865de-5c6fb131-4286a992-ec152f3b")
-
-
-
-
-    # s3_region = get_secret("AWS_ACCESS_KEY")
-    # aws_access_key = get_secret("AWS_ACCESS_KEY")
-    # aws_secret_key = get_secret("AWS_SECRET_KEY")
-
-
-
-    #         S3_REGION: "eu-west-1"
-    #         AWS_ACCESS_KEY: "minio"
-    #         AWS_SECRET_KEY: "miniopwd"
-    #         S3_ENDPOINT: "http://minio:9000"
-    #         S3_VIRTUAL_ADDRESSING: "false"
-    #         S3_FILENAME_TEMPLATE: "$StudyDate$/$PatientID$-$PatientName$.zip" 
-    #         S3_ORTHANC_USER: "python-script-user"
-    #         S3_ORTHANC_PWD: "change-me"
 
